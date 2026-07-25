@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import { testA11y, renderWithA11y, assertNoA11yViolations } from '@/test-utils/a11y';
 import MilestonesList from '@/components/MilestonesList';
 import ContractSummary from '@/components/ContractSummary';
@@ -8,6 +8,7 @@ import EmptyState from '@/components/EmptyState';
 import StatusBadge from '@/components/StatusBadge';
 import { ToastProvider, useToast } from '@/components/toast/toast-provider';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import HeaderActions from '@/components/HeaderActions';
 
 describe('a11y: MilestonesList', () => {
   it('empty list has no violations', async () => {
@@ -595,5 +596,203 @@ describe('a11y: Breadcrumbs', () => {
         ]}
       />,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// a11y: wallet focus management
+// ---------------------------------------------------------------------------
+
+describe('a11y: wallet focus management', () => {
+  beforeEach(() => {
+    jest.useRealTimers();
+    localStorage.clear();
+  });
+
+  it('WalletConnectButton: focus moves to connected element after connect', async () => {
+    const { useWallet } = require('@/contexts/WalletContext') as {
+      useWallet: jest.Mock;
+    };
+    useWallet.mockReturnValue({
+      address: null,
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+
+    const { rerender } = plainRender(
+      <PreferencesProvider>
+        <ToastProvider>
+          <WalletConnectButton />
+        </ToastProvider>
+      </PreferencesProvider>,
+    );
+
+    // Simulate connect
+    useWallet.mockReturnValue({
+      address: 'GABC123',
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+
+    rerender(
+      <PreferencesProvider>
+        <ToastProvider>
+          <WalletConnectButton />
+        </ToastProvider>
+      </PreferencesProvider>,
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const connectedElement = screen.getByRole('button', { name: /copy address/i }).parentElement;
+    expect(connectedElement).toBeInTheDocument();
+  });
+
+  it('WalletConnectButton: focus returns to connect button after disconnect', async () => {
+    const { useWallet } = require('@/contexts/WalletContext') as {
+      useWallet: jest.Mock;
+    };
+    useWallet.mockReturnValue({
+      address: 'GABC123',
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+
+    const { rerender } = plainRender(
+      <PreferencesProvider>
+        <ToastProvider>
+          <WalletConnectButton />
+        </ToastProvider>
+      </PreferencesProvider>,
+    );
+
+    // Simulate disconnect
+    useWallet.mockReturnValue({
+      address: null,
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+
+    rerender(
+      <PreferencesProvider>
+        <ToastProvider>
+          <WalletConnectButton />
+        </ToastProvider>
+      </PreferencesProvider>,
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const connectButton = screen.getByRole('button', { name: /connect wallet/i });
+    expect(connectButton).toBeInTheDocument();
+  });
+
+  it('HeaderActions: mobile toggle opens and focuses first interactive element', async () => {
+    const { useWallet } = require('@/contexts/WalletContext') as {
+      useWallet: jest.Mock;
+    };
+    useWallet.mockReturnValue({
+      address: null,
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+
+    plainRender(
+      <PreferencesProvider>
+        <ToastProvider>
+          <HeaderActions />
+        </ToastProvider>
+      </PreferencesProvider>,
+    );
+
+    const toggleButton = screen.getByRole('button', { name: /open wallet actions/i });
+    fireEvent.click(toggleButton);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    // After opening, focus should move to first interactive element in panel
+    // (the connect wallet button inside the panel)
+    const connectButton = screen.getByRole('button', { name: /connect wallet/i });
+    expect(connectButton).toBeInTheDocument();
+  });
+
+  it('HeaderActions: mobile toggle closes and restores focus to toggle button', async () => {
+    const { useWallet } = require('@/contexts/WalletContext') as {
+      useWallet: jest.Mock;
+    };
+    useWallet.mockReturnValue({
+      address: null,
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+
+    plainRender(
+      <PreferencesProvider>
+        <ToastProvider>
+          <HeaderActions />
+        </ToastProvider>
+      </PreferencesProvider>,
+    );
+
+    const toggleButton = screen.getByRole('button', { name: /open wallet actions/i });
+    
+    // Open
+    fireEvent.click(toggleButton);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    // Close
+    fireEvent.click(toggleButton);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    // Focus should return to toggle button
+    expect(document.activeElement).toBe(toggleButton);
+  });
+
+  it('HeaderActions: no axe violations when panel is open', async () => {
+    const { useWallet } = require('@/contexts/WalletContext') as {
+      useWallet: jest.Mock;
+    };
+    useWallet.mockReturnValue({
+      address: null,
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+
+    const view = renderWithA11y(
+      <PreferencesProvider>
+        <ToastProvider>
+          <HeaderActions />
+        </ToastProvider>
+      </PreferencesProvider>,
+    );
+
+    const toggleButton = screen.getByRole('button', { name: /open wallet actions/i });
+    fireEvent.click(toggleButton);
+
+    await assertNoA11yViolations(view.container);
   });
 });

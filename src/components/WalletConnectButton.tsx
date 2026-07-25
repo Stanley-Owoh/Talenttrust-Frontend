@@ -5,10 +5,12 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useToast } from '@/components/toast/toast-provider';
 import { truncateAddress } from '@/lib/truncateAddress';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { useWalletFocus } from '@/hooks/useWalletFocus';
 
 export const WalletConnectButton = () => {
   const { address, isConnecting, error, connect, disconnect } = useWallet();
   const { showError } = useToast();
+  const { connectButtonRef, connectedElementRef } = useWalletFocus(address, isConnecting);
 
   const { copied, copy } = useCopyToClipboard({
     delay: 2000,
@@ -65,7 +67,7 @@ export const WalletConnectButton = () => {
 
   if (address) {
     return (
-      <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-1 ring-1 ring-slate-200">
+      <div ref={connectedElementRef} tabIndex={-1} className="flex items-center gap-2 rounded-xl bg-slate-100 p-1 ring-1 ring-slate-200">
         <div className="flex items-center gap-2 px-3 py-1.5">
           <div className="h-2 w-2 rounded-full bg-green-500" aria-hidden="true" />
           <span className="text-sm font-medium text-slate-700 font-mono">
@@ -104,6 +106,7 @@ export const WalletConnectButton = () => {
 
   return (
     <button
+      ref={connectButtonRef}
       onClick={connect}
       disabled={isConnecting}
       aria-label="Connect wallet"
