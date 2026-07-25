@@ -56,6 +56,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     dialogRef,
     initialFocusRef: cancelBtnRef,
     onEscape: onCancel,
+    // Restore focus to the element that opened the dialog (trigger button)
+    // when the dialog closes or unmounts — satisfies WCAG 2.1 SC 3.2.2.
+    restoreFocus: true,
   });
 
   useEffect(() => {
@@ -138,18 +141,26 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </h2>
         <p id={descriptionId} className="text-sm text-gray-700 mb-6">{description}</p>
         <div className="flex justify-end space-x-3">
+          {/* Cancel — receives initial focus; explicit focus-visible ring for keyboard users */}
           <button
             ref={cancelBtnRef}
             type="button"
             onClick={onCancel}
-            
+            className="px-4 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
           >
             {cancelLabel}
           </button>
+          {/* Confirm — styled to its tone; consistent focus-visible ring */}
           <button
             type="button"
             onClick={onConfirm}
-            className="px-4 py-2 rounded bg-primary-600 text-white hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className={[
+              'px-4 py-2 rounded text-white',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+              tone === 'destructive'
+                ? 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500'
+                : 'bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-500',
+            ].join(' ')}
           >
             {confirmLabel}
           </button>
