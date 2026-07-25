@@ -1438,3 +1438,74 @@ describe('ToastErrorBoundary', () => {
     expect(screen.getByText('Recovered!')).toBeInTheDocument();
   });
 });
+
+describe('Toast status/count live region', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.clearAllTimers();
+    });
+    jest.useRealTimers();
+  });
+
+  function RapidToastHarness() {
+    const { showSuccess, showError, dismissToast } = useToast();
+    return (
+      <div>
+        <button type="button" onClick={() => showSuccess({ title: 'Success' })}>Add Success</button>
+        <button type="button" onClick={() => showError({ title: 'Error' })}>Add Error</button>
+      </div>
+    );
+  }
+
+  it('debounces the announcement of toast count and status', () => {
+    render(
+      <ToastProvider>
+        <RapidToastHarness />
+      </ToastProvider>
+    );
+
+    // Initial mount should have no toasts, timer is set but wait
+    // We add two toasts rapidly
+    fireEvent.click(screen.getByRole('button', { name: 'Add Success' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Error' }));
+
+    // Before debounce time, announcement shouldn't show the combined yet
+    // Wait, the status is debounced 500ms
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+    expect(screen.queryByText('2 notifications (1 error, 1 success)')).not.toBeInTheDocument();
+
+    // After debounce
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(screen.getByText('2 notifications (1 error, 1 success)')).toBeInTheDocument();
+  });
+
+  it('announces zero notifications when all toasts are dismissed', async () => {
+    render(
+      <ToastProvider>
+        <RapidToastHarness />
+      </ToastProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Success' }));
+    
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(screen.getByText('1 notification (1 success)')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /dismiss success notification/i }));
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(screen.getByText('0 notifications')).toBeInTheDocument();
+  });
+});
