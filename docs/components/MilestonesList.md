@@ -16,7 +16,9 @@ An accessible, dismissible banner is surfaced above the milestones list when the
 - **Keyboard accessibility**:
   - The banner container has `role="status"` to announce updates to screen readers.
   - Links inside the banner target the specific milestone element ID (`#milestone-${id}`) to allow users to jump or scroll directly to the milestone card.
+  - Dismiss and in-list links use `focus-visible` rings so keyboard focus is visible without changing layout.
   - Focus is programmatically restored to the scrollable milestones list container when the banner is dismissed, preventing loss of keyboard focus (WCAG 2.1.1).
+  - Enter and Space activate the dismiss control; Tab reaches links, dismiss, then the scroll region.
 
 ## Implementation Details
 
