@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { FormField } from '@/components/FormField';
 import { ErrorSummary } from '@/components/ErrorSummary';
+import { WalletAddressInput } from '@/components/WalletAddressInput';
 import { useToast } from '@/components/toast/toast-provider';
 import { saveContract } from '@/lib/repository';
 import { normalizeStellarAddress } from '@/lib/stellarAddress';
@@ -53,6 +54,23 @@ const CreateContractForm: React.FC<CreateContractFormProps> = ({ onSuccess, onCa
   const [totalValue, setTotalValue] = useState('');
   const [currency, setCurrency] = useState<string>(CURRENCY_OPTIONS[0]);
   const [errors, setErrors] = useState<ValidationError[]>([]);
+
+  /**
+   * Called by WalletAddressInput on blur to update the parent's errors
+   * state so ErrorSummary stays in sync with the inline error.
+   */
+  const handleWalletValidation = useCallback(
+    (fieldId: string, error: string | null) => {
+      setErrors((prev) => {
+        const filtered = prev.filter((e) => e.fieldId !== fieldId);
+        if (error) {
+          return [...filtered, { fieldId, message: error }];
+        }
+        return filtered;
+      });
+    },
+    []
+  );
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -128,22 +146,16 @@ const CreateContractForm: React.FC<CreateContractFormProps> = ({ onSuccess, onCa
           />
         </FormField>
 
-        <FormField
+        <WalletAddressInput
           id="freelancerAddress"
           label="Freelancer Stellar address"
           helperText="Must be a valid Stellar public key starting with G"
+          value={freelancerAddress}
+          onChange={setFreelancerAddress}
           error={errors.find((e) => e.fieldId === 'freelancerAddress')?.message}
           required
-        >
-          <input
-            type="text"
-            value={freelancerAddress}
-            onChange={(e) => setFreelancerAddress(e.target.value)}
-            placeholder="GABC…"
-            autoComplete="off"
-            className={`${inputClass} font-mono`}
-          />
-        </FormField>
+          onValidation={handleWalletValidation}
+        />
 
         <FormField
           id="totalValue"

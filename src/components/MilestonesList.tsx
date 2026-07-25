@@ -24,8 +24,7 @@ export type MilestonesListProps = {
 export const REMINDER_WINDOW_DAYS = 7;
 
 const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) => {
-  const { formatAmount, preferences } = usePreferences();
-  const { listDensity } = preferences;
+  const { formatAmount } = usePreferences();
   const [isDismissed, setIsDismissed] = useState(false);
   const listContainerRef = useRef<HTMLDivElement>(null);
 
@@ -172,13 +171,13 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
         role={milestones.length > 0 ? 'region' : undefined}
         aria-labelledby={milestones.length > 0 ? 'milestones-title milestones-count' : undefined}
         tabIndex={milestones.length > 0 ? 0 : undefined}
-        className={`mt-6 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 ${listDensity === 'compact' ? 'space-y-2' : 'space-y-4'}`}
+        className="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
       >
         {milestones.map((milestone) => (
           <article
             key={milestone.id}
             id={`milestone-${milestone.id}`}
-            className={`rounded-3xl border border-slate-200 bg-slate-50 shadow-sm ${listDensity === 'compact' ? 'p-3' : 'p-4'}`}
+            className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>

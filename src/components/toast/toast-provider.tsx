@@ -1,6 +1,9 @@
 'use client';
 
 import {
+  Component,
+  ErrorInfo,
+  ReactNode,
   createContext,
   useCallback,
   useContext,
@@ -9,6 +12,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { reportError } from '@/lib/errorReporter';
 import { usePreferences } from '@/lib/preferences';
 import type { ToastDuration } from '@/lib/preferences';
 
@@ -277,7 +281,48 @@ type ToastTimerState = {
  * action button. Clicking it fires `onClick` then immediately dismisses the
  * toast. The label is always rendered as a plain text node to prevent XSS.
  */
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+export class ToastErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    reportError(error, 'ToastErrorBoundary', 'error', { info });
+  }
+
+  reset = () => this.setState({ hasError: false });
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          role="region"
+          aria-label="Notifications Fallback"
+          className="pointer-events-none fixed right-4 top-4 z-50 flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-3"
+        >
+          <div className="pointer-events-auto overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-sm shadow-lg" role="alert">
+            <div className="h-1.5 w-full bg-rose-500" />
+            <div className="flex flex-col gap-2 p-4">
+              <p className="text-sm font-semibold">Notifications failed to load</p>
+              <button
+                type="button"
+                onClick={this.reset}
+                className="self-start rounded-md px-3 py-1 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1 bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastRecord[]>([]);
   const toastTimersRef = useRef<Record<string, ToastTimerState>>({});
 
@@ -475,14 +520,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <ToastAnnouncer toasts={toasts} />
-      <ToastViewport
-        density={preferences.toastDensity}
-        onDismiss={dismissToast}
-        onPauseTimer={pauseToastTimer}
-        onResumeTimer={resumeToastTimer}
-        toasts={toasts}
-      />
+      <ToastErrorBoundary>
+        <ToastAnnouncer toasts={toasts} />
+        <ToastViewport
+          density={preferences.toastDensity}
+          onDismiss={dismissToast}
+          onPauseTimer={pauseToastTimer}
+          onResumeTimer={resumeToastTimer}
+          toasts={toasts}
+        />
+      </ToastErrorBoundary>
     </ToastContext.Provider>
   );
 }

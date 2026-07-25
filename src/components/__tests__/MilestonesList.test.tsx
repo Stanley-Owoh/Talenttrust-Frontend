@@ -1,21 +1,9 @@
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react';
-import { renderHook } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import MilestonesList from '../MilestonesList';
 import type { Milestone } from '../MilestonesList';
 import { parseLocalDate, isDueSoon } from '../../lib/dueSoon';
-import { PreferencesProvider, usePreferences } from '@/lib/preferences';
-import { resetCache } from '@/lib/safeStorage';
-
-const PREFS_KEY = 'talenttrust-user-preferences';
-
-const renderWithProvider = (ui: React.ReactElement) =>
-  render(<PreferencesProvider>{ui}</PreferencesProvider>);
-
-const prefsWrapper = ({ children }: { children: React.ReactNode }) => (
-  <PreferencesProvider>{children}</PreferencesProvider>
-);
 
 const SAMPLE: Milestone[] = [
   { id: '1', title: 'Milestone 1', status: 'Pending', payout: 500, currency: 'USD', dueDate: 'May 10, 2026' },
@@ -266,86 +254,5 @@ describe('MilestonesList', () => {
       expect(isDueSoon(undefined, today, 7)).toBe(false);
       expect(isDueSoon('not-a-date', today, 7)).toBe(false);
     });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// List density integration tests
-// ---------------------------------------------------------------------------
-
-describe('MilestonesList – list density', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    resetCache();
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('uses comfortable spacing (space-y-4, p-4) by default', () => {
-    const { container } = renderWithProvider(<MilestonesList milestones={SAMPLE} />);
-    const region = container.querySelector('.max-h-\\[calc\\(100vh-260px\\)\\]') as HTMLElement;
-    expect(region.className).toContain('space-y-4');
-    const article = container.querySelector('article');
-    expect(article?.className).toContain('p-4');
-  });
-
-  it('uses compact spacing (space-y-2, p-3) when listDensity is compact', () => {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ listDensity: 'compact' }));
-    const { container } = renderWithProvider(<MilestonesList milestones={SAMPLE} />);
-    const region = container.querySelector('.max-h-\\[calc\\(100vh-260px\\)\\]') as HTMLElement;
-    expect(region.className).toContain('space-y-2');
-    const article = container.querySelector('article');
-    expect(article?.className).toContain('p-3');
-  });
-
-  it('does NOT use p-4 on articles when compact', () => {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ listDensity: 'compact' }));
-    const { container } = renderWithProvider(<MilestonesList milestones={SAMPLE} />);
-    container.querySelectorAll('article').forEach((a) => {
-      expect(a.className).not.toContain('p-4');
-    });
-  });
-
-  it('does NOT use p-3 on articles when comfortable', () => {
-    const { container } = renderWithProvider(<MilestonesList milestones={SAMPLE} />);
-    container.querySelectorAll('article').forEach((a) => {
-      expect(a.className).not.toContain('p-3');
-    });
-  });
-
-  it('updates spacing live when preference changes mid-session', () => {
-    const { result } = renderHook(() => usePreferences(), { wrapper: prefsWrapper });
-    expect(result.current.preferences.listDensity).toBe('comfortable');
-
-    act(() => {
-      result.current.updatePreference('listDensity', 'compact');
-    });
-
-    expect(result.current.preferences.listDensity).toBe('compact');
-    const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
-    expect(saved.listDensity).toBe('compact');
-  });
-
-  it('falls back to comfortable when listDensity stored value is invalid', () => {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ listDensity: 'ultra' }));
-    const { container } = renderWithProvider(<MilestonesList milestones={SAMPLE} />);
-    const region = container.querySelector('.max-h-\\[calc\\(100vh-260px\\)\\]') as HTMLElement;
-    expect(region.className).toContain('space-y-4');
-  });
-
-  it('falls back to comfortable when localStorage is corrupt JSON', () => {
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-    localStorage.setItem(PREFS_KEY, '%%%bad-json%%%');
-    const { container } = renderWithProvider(<MilestonesList milestones={SAMPLE} />);
-    const region = container.querySelector('.max-h-\\[calc\\(100vh-260px\\)\\]') as HTMLElement;
-    expect(region.className).toContain('space-y-4');
-  });
-
-  it('passes axe accessibility audit with compact density', async () => {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ listDensity: 'compact' }));
-    const { container } = renderWithProvider(<MilestonesList milestones={SAMPLE} />);
-    expect(await axe(container)).toHaveNoViolations();
   });
 });
