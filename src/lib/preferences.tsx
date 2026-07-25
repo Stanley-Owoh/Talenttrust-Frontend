@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { getItem, setItem } from './safeStorage';
 
@@ -103,7 +103,7 @@ const ALLOWED_TOAST_DURATIONS: ReadonlySet<ToastDuration> = new Set(['short', 'n
 
 interface PreferencesContextType {
   preferences: UserPreferences;
-  updatePreference: <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => void;
+  updatePreference: <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => Promise<void>;
   formatAmount: (amount: number, currency?: string) => string;
 }
 
@@ -220,6 +220,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [isHydrated, setIsHydrated] = useState(false);
   const systemPrefersDark = useMediaQuery('(prefers-color-scheme: dark)');
+  const pendingUpdates = useRef<Record<string, number>>({});
 
   // Load from localStorage on mount. Every value is routed through
   // `sanitizePreferences` so tampered, corrupted, or prototype-polluting
@@ -262,8 +263,29 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     applyTheme(preferences.theme);
   }, [preferences.theme, systemPrefersDark]);
 
-  const updatePreference = <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
+  const updatePreference = async <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
+    const previous = preferences[key];
+    const currentReq = (pendingUpdates.current[key as string] || 0) + 1;
+    pendingUpdates.current[key as string] = currentReq;
+
     setPreferences(prev => ({ ...prev, [key]: value }));
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        setTimeout(() => {
+          if (typeof window !== 'undefined' && (window as any).__SIMULATE_SETTINGS_ERROR) {
+            reject(new Error('Failed to save settings'));
+          } else {
+            resolve();
+          }
+        }, 600);
+      });
+    } catch (error) {
+      if (pendingUpdates.current[key as string] === currentReq) {
+        setPreferences(prev => ({ ...prev, [key]: previous }));
+      }
+      throw error;
+    }
   };
 
   /**
@@ -307,7 +329,7 @@ export function usePreferences() {
     // Return default preferences if used outside a provider (useful for testing)
     return {
       preferences: DEFAULT_PREFERENCES,
-      updatePreference: () => {},
+      updatePreference: async () => {},
       formatAmount: (amount: number, currency: string = 'USD') => 
         safeCurrencyFormat(amount, currency, 'en-US'),
     };
