@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { SettingsPanel } from '../SettingsPanel';
 import { PreferencesProvider } from '@/lib/preferences';
@@ -259,6 +259,86 @@ describe('SettingsPanel', () => {
     first.focus();
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(focusable[focusable.length - 1]);
+  });
+
+  // --- Accessibility: radiogroup keyboard interactions ---
+
+  it('supports arrow key navigation in radiogroups', async () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
+    const themeOptions = within(themeGroup).getAllByRole('radio');
+
+    fireEvent.keyDown(themeGroup, { key: 'ArrowRight' });
+    await waitFor(() => {
+      expect(themeOptions[0]).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(themeOptions[0]);
+    });
+
+    fireEvent.keyDown(themeGroup, { key: 'ArrowLeft' });
+    await waitFor(() => {
+      expect(themeOptions[2]).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(themeOptions[2]);
+    });
+
+    const currencyGroup = screen.getByRole('radiogroup', { name: /currency display/i });
+    const currencyOptions = within(currencyGroup).getAllByRole('radio');
+    fireEvent.keyDown(currencyGroup, { key: 'ArrowDown' });
+    await waitFor(() => {
+      expect(currencyOptions[1]).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(currencyOptions[1]);
+    });
+
+    const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
+    const densityOptions = within(densityGroup).getAllByRole('radio');
+    fireEvent.keyDown(densityGroup, { key: 'ArrowUp' });
+    await waitFor(() => {
+      expect(densityOptions[1]).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(densityOptions[1]);
+    });
+  });
+
+  it('manages roving tabIndex for radiogroups', () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
+    const currencyGroup = screen.getByRole('radiogroup', { name: /currency display/i });
+    const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
+
+    const themeButtons = within(themeGroup).getAllByRole('radio');
+    const currencyButtons = within(currencyGroup).getAllByRole('radio');
+    const densityButtons = within(densityGroup).getAllByRole('radio');
+
+    expect(themeButtons[2]).toHaveAttribute('tabIndex', '0');
+    expect(themeButtons[0]).toHaveAttribute('tabIndex', '-1');
+    expect(themeButtons[1]).toHaveAttribute('tabIndex', '-1');
+
+    expect(currencyButtons[0]).toHaveAttribute('tabIndex', '0');
+    expect(currencyButtons[1]).toHaveAttribute('tabIndex', '-1');
+    expect(currencyButtons[2]).toHaveAttribute('tabIndex', '-1');
+
+    expect(densityButtons[0]).toHaveAttribute('tabIndex', '0');
+    expect(densityButtons[1]).toHaveAttribute('tabIndex', '-1');
+  });
+
+  it('activates radios with Enter and Space', async () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
+    const lightRadio = within(themeGroup).getByRole('radio', { name: /light/i });
+    const darkRadio = within(themeGroup).getByRole('radio', { name: /dark/i });
+
+    lightRadio.focus();
+    fireEvent.keyDown(lightRadio, { key: ' ' });
+    await waitFor(() => {
+      expect(lightRadio).toHaveAttribute('aria-checked', 'true');
+    });
+
+    darkRadio.focus();
+    fireEvent.keyDown(darkRadio, { key: 'Enter' });
+    await waitFor(() => {
+      expect(darkRadio).toHaveAttribute('aria-checked', 'true');
+    });
   });
 
   // --- Accessibility validation with jest-axe ---
