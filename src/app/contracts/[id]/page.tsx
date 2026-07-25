@@ -46,7 +46,9 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPersistingStatus, setIsPersistingStatus] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<ContractData['status'] | null>(null);
   const isMountedRef = useRef(true);
+  const isPersistingStatusRef = useRef(false);
   const { showError, showSuccess } = useToast();
 
   /**
@@ -89,24 +91,26 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       successTitle: string,
       successDescription: string,
     ) => {
-      if (!contractData) {
-        const message = 'Contract details are unavailable, so the status could not be updated.';
-        setErrorMessage(message);
-        showError({
-          title: 'Unable to update contract',
-          description: message,
-        });
+      if (!contractData || isPersistingStatusRef.current) {
         return;
       }
 
+      const previousStatus = contractData.status;
+
+      isPersistingStatusRef.current = true;
       setIsPersistingStatus(true);
+      setPendingStatus(nextStatus);
       setErrorMessage(null);
+      setContractData((prev) => (prev ? { ...prev, status: nextStatus } : prev));
 
       const persisted = upsertContract(buildPersistedContract(contractData, nextStatus));
 
       if (!persisted) {
         const message = 'The contract status could not be persisted. Please try again.';
+        setContractData((prev) => (prev ? { ...prev, status: previousStatus } : prev));
+        setPendingStatus(null);
         setErrorMessage(message);
+        isPersistingStatusRef.current = false;
         showError({
           title: 'Unable to update contract',
           description: message,
@@ -115,8 +119,8 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
         return;
       }
 
-      const updatedContract = { ...contractData, status: nextStatus };
-      setContractData(updatedContract);
+      setPendingStatus(null);
+      isPersistingStatusRef.current = false;
       showSuccess({
         title: successTitle,
         description: successDescription,
@@ -192,7 +196,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
     // Replace with summary navigation.
   };
 
-  const status = contractData?.status || 'Active';
+  const status = pendingStatus ?? contractData?.status ?? 'Active';
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
