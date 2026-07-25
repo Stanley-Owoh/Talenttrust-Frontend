@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { SettingsPanel } from '../SettingsPanel';
 import { PreferencesProvider } from '@/lib/preferences';
@@ -231,6 +231,37 @@ describe('SettingsPanel', () => {
     expect(document.activeElement).toBe(
       screen.getByRole('button', { name: /close settings/i })
     );
+  });
+
+  it('restores focus to the trigger after the dialog closes', async () => {
+    const TestHarness = () => {
+      const [isOpen, setIsOpen] = React.useState(false);
+
+      return (
+        <>
+          <button type="button" onClick={() => setIsOpen(true)}>
+            Open settings
+          </button>
+          <SettingsPanel isOpen={isOpen} onClose={() => setIsOpen(false)} />
+        </>
+      );
+    };
+
+    renderWithProvider(<TestHarness />);
+    const trigger = screen.getByRole('button', { name: /open settings/i });
+
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    const closeButton = await screen.findByRole('button', { name: /close settings/i });
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(trigger).toHaveFocus();
   });
 
   it('Tab on the last focusable element wraps focus to the first', () => {
