@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { StrictMode } from 'react';
 import { PreferencesProvider } from '@/lib/preferences';
 import { ToastProvider, useToast } from './toast-provider';
+import { axe } from 'jest-axe';
 
 function ToastHarness() {
   const { showError, showSuccess } = useToast();
@@ -1372,5 +1373,209 @@ describe('toastDuration preference', () => {
     // Advance time — none should auto-dismiss (all persistent).
     act(() => { jest.advanceTimersByTime(60000); });
     expect(screen.getAllByRole('status')).toHaveLength(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// a11y: toast view — jest-axe assertions
+//
+// Covers the three key rendering states of the toast view:
+//   • empty   — ToastProvider mounted, no toasts in the viewport
+//   • loaded  — a success toast is visible (role="status", polite live region)
+//   • error   — an error toast is visible  (role="alert",  assertive live region)
+//
+// Each test uses axe() directly so violations are surfaced as readable
+// diff output rather than a generic length assertion.
+//
+// Timer discipline: fake timers are engaged so no toast auto-dismisses
+// mid-assertion (which would make axe see a partially-removed DOM).
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal harness: two trigger buttons, no side-effects.
+ * Both are rendered even in the "empty" state so the component tree
+ * is identical across all three states — only the trigger call differs.
+ */
+function A11yHarness() {
+  const { showSuccess, showError } = useToast();
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() =>
+          showSuccess({
+            title: 'Milestone released',
+            description: 'Funds are on the way to the freelancer wallet.',
+            duration: 10_000,
+          })
+        }
+      >
+        Trigger success
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          showError({
+            title: 'Wallet not connected',
+            description: 'Connect a wallet before approving this release.',
+            duration: 10_000,
+          })
+        }
+      >
+        Trigger error
+      </button>
+    </div>
+  );
+}
+
+describe('a11y: toast view — jest-axe', () => {
+  // Real timers are required here: axe() uses window.setTimeout internally
+  // and will deadlock if fake timers are active (the Promise it creates
+  // will never settle). The toasts are created with a long duration so
+  // they will not auto-dismiss during the ~50 ms axe run.
+
+  it('empty state (no toasts) has no axe violations', async () => {
+    const { container } = render(
+      <ToastProvider>
+        <A11yHarness />
+      </ToastProvider>,
+    );
+
+    // No toast triggered — viewport renders but is empty.
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
+  });
+
+  it('loaded state (success toast visible) has no axe violations', async () => {
+    const { container } = render(
+      <ToastProvider>
+        <A11yHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+
+    // Verify the toast is actually in the DOM before running axe.
+    expect(screen.getByRole('status')).toBeInTheDocument();
+
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
+  });
+
+  it('error state (error toast visible) has no axe violations', async () => {
+    const { container } = render(
+      <ToastProvider>
+        <A11yHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger error/i }));
+
+    // Verify the toast is actually in the DOM before running axe.
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
+  });
+
+  it('loaded state with an action button has no axe violations', async () => {
+    function ActionHarness() {
+      const { showSuccess } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            showSuccess({
+              title: 'Contract saved',
+              description: 'Your changes have been persisted.',
+              duration: 10_000,
+              action: { label: 'Undo', onClick: jest.fn() },
+            })
+          }
+        >
+          Trigger action toast
+        </button>
+      );
+    }
+
+    const { container } = render(
+      <ToastProvider>
+        <ActionHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger action toast/i }));
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
+  });
+
+  it('error state with an action button has no axe violations', async () => {
+    function ActionErrorHarness() {
+      const { showError } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            showError({
+              title: 'Upload failed',
+              description: 'The file could not be uploaded. Please try again.',
+              duration: 10_000,
+              action: { label: 'Retry', onClick: jest.fn() },
+            })
+          }
+        >
+          Trigger action error toast
+        </button>
+      );
+    }
+
+    const { container } = render(
+      <ToastProvider>
+        <ActionErrorHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger action error toast/i }));
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
+  });
+
+  it('max-visible cap (4 toasts) has no axe violations', async () => {
+    function FourToastHarness() {
+      const { showSuccess } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            for (let i = 1; i <= 4; i++) {
+              showSuccess({ title: `Toast ${i}`, duration: 10_000 });
+            }
+          }}
+        >
+          Add 4 toasts
+        </button>
+      );
+    }
+
+    const { container } = render(
+      <ToastProvider>
+        <FourToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /add 4 toasts/i }));
+
+    expect(screen.getAllByRole('status')).toHaveLength(4);
+
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 });
