@@ -5,7 +5,7 @@ import '@testing-library/jest-dom';
 import { WalletConnectButton } from '../WalletConnectButton';
 import { WalletContextType, useWallet } from '@/contexts/WalletContext';
 import * as truncateAddressModule from '@/lib/truncateAddress';
-import { testA11y } from '@/test-utils/a11y';
+import { axe, testA11y } from '@/test-utils/a11y';
 
 jest.mock('@/contexts/WalletContext', () => ({
   useWallet: jest.fn(),
@@ -618,5 +618,152 @@ describe('WalletConnectButton — keyboard operation', () => {
     const copyIndex = buttons.findIndex((b) => b.getAttribute('aria-label') === 'Copy address to clipboard');
     const disconnectIndex = buttons.findIndex((b) => b.getAttribute('aria-label') === 'Disconnect wallet');
     expect(copyIndex).toBeLessThan(disconnectIndex);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// a11y: wallet view — jest-axe
+//
+// Covers every distinct render state of WalletConnectButton:
+//
+//   • empty      — disconnected, not connecting, no error  (Connect Wallet button)
+//   • connecting — connection attempt in flight             (disabled + spinner)
+//   • loaded     — wallet address present                   (Copy + Disconnect)
+//   • loaded/copied — address present, copy just succeeded  (checkmark icon)
+//   • error      — connection attempt failed                (Retry button)
+//
+// Timer discipline: real timers are required — axe() schedules work via
+// window.setTimeout and will deadlock under fake timers (the Promise never
+// settles). Toasts and copy-reset timers are not triggered in these tests
+// so there is nothing to fake-advance.
+// ---------------------------------------------------------------------------
+
+describe('a11y: wallet view — jest-axe', () => {
+  // Restore the original clipboard after each test so a defineProperty in one
+  // test does not bleed into the next.
+  const savedClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    if (savedClipboard) {
+      Object.defineProperty(navigator, 'clipboard', savedClipboard);
+    }
+  });
+
+  // --- empty state (disconnected) ---
+
+  it('empty state (disconnected, no error) has no axe violations', async () => {
+    mockUseWallet.mockReturnValue(
+      createWalletState({ address: null, isConnecting: false, error: null }),
+    );
+
+    const { container } = render(<WalletConnectButton />);
+    expect(screen.getByRole('button', { name: 'Connect wallet' })).toBeInTheDocument();
+
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
+  });
+
+  // --- connecting state ---
+
+  it('connecting state (spinner, disabled button) has no axe violations', async () => {
+    mockUseWallet.mockReturnValue(
+      createWalletState({ address: null, isConnecting: true, error: null }),
+    );
+
+    const { container } = render(<WalletConnectButton />);
+    expect(screen.getByRole('button', { name: 'Connect wallet' })).toBeDisabled();
+
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
+  });
+
+  // --- loaded state (address present) ---
+
+  it('loaded state (wallet connected) has no axe violations', async () => {
+    mockUseWallet.mockReturnValue(
+      createWalletState({
+        address: 'GAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQDZ7H',
+      }),
+    );
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: jest.fn().mockResolvedValue(undefined) },
+    });
+
+    const { container } = render(<WalletConnectButton />);
+    expect(screen.getByRole('button', { name: 'Copy address to clipboard' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Disconnect wallet' })).toBeInTheDocument();
+
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
+  });
+
+  // --- loaded/copied state (checkmark icon variant) ---
+
+  it('loaded state after a successful copy (checkmark icon) has no axe violations', async () => {
+    // Use real timers so axe can settle; the 2-second reset timer will not
+    // fire during the axe run (~50 ms).
+    jest.useFakeTimers(); // start fake so we can freeze the copied state
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    mockUseWallet.mockReturnValue(
+      createWalletState({
+        address: 'GAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQDZ7H',
+      }),
+    );
+
+    const { container } = render(<WalletConnectButton />);
+
+    // Trigger copy and flush the async clipboard write.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy address to clipboard' }));
+      await Promise.resolve();
+    });
+
+    // Now switch to real timers so axe's own setTimeout calls work.
+    jest.useRealTimers();
+
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
+  });
+
+  // --- error state ---
+
+  it('error state (connection failed, Retry button) has no axe violations', async () => {
+    mockUseWallet.mockReturnValue(
+      createWalletState({
+        address: null,
+        isConnecting: false,
+        error: 'Freighter wallet is not installed. Please install the Freighter browser extension.',
+      }),
+    );
+
+    const { container } = render(<WalletConnectButton />);
+    expect(screen.getByRole('button', { name: 'Retry wallet connection' })).toBeInTheDocument();
+    expect(screen.getByText('Connection Error')).toBeInTheDocument();
+
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
+  });
+
+  it('error state with user-rejected message has no axe violations', async () => {
+    mockUseWallet.mockReturnValue(
+      createWalletState({
+        address: null,
+        isConnecting: false,
+        error: 'User rejected the connection request.',
+      }),
+    );
+
+    const { container } = render(<WalletConnectButton />);
+    expect(screen.getByRole('button', { name: 'Retry wallet connection' })).toBeInTheDocument();
+
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 });
