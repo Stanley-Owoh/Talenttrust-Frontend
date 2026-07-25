@@ -50,6 +50,7 @@ import { PreferencesProvider } from '@/lib/preferences';
 import { SettingsTrigger } from '@/components/settings/SettingsTrigger';
 import { WalletProvider } from '@/contexts/WalletContext';
 import RouteAnnouncer from '@/components/RouteAnnouncer';
+import { CommandPalette } from '@/components/CommandPalette';
 import Navbar from '@/components/Navbar';
 import HeaderActions from '@/components/HeaderActions';
 
@@ -87,6 +88,7 @@ export default function RootLayout({
                   {children}
                 </main>
               </div>
+              <CommandPalette />
               <SettingsTrigger />
             </WalletProvider>
           </ToastProvider>
