@@ -21,6 +21,14 @@ export interface ConfirmDialogProps {
   onConfirm: () => void;
   /** Callback when the user cancels or closes the dialog */
   onCancel: () => void;
+  /** Whether the dialog is in a loading state */
+  isLoading?: boolean;
+  /** Error message to display inside the dialog */
+  error?: string;
+  /** Whether the dialog is in an empty state */
+  isEmpty?: boolean;
+  /** Whether the dialog action was successful */
+  isSuccess?: boolean;
 }
 
 /**
@@ -136,22 +144,32 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <h2 id={titleId} className="text-lg font-semibold mb-4">
           {title}
         </h2>
-        <p id={descriptionId} className="text-sm text-gray-700 mb-6">{description}</p>
+        {isSuccess ? (
+          <div role="status" className="mb-6 p-3 bg-green-100 text-green-800 rounded">Action successful.</div>
+        ) : isEmpty ? (
+          <div className="mb-6 p-3 text-gray-500 italic">No data available.</div>
+        ) : (
+          <p id={descriptionId} className="text-sm text-gray-700 mb-6">{description}</p>
+        )}
+        {error && (
+          <div role="alert" className="mb-4 p-3 bg-red-100 text-red-800 rounded">{error}</div>
+        )}
         <div className="flex justify-end space-x-3">
           <button
             ref={cancelBtnRef}
             type="button"
             onClick={onCancel}
-            
+            disabled={isLoading}
           >
             {cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="px-4 py-2 rounded bg-primary-600 text-white hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            disabled={isLoading || isEmpty || isSuccess}
+            className="px-4 py-2 rounded bg-primary-600 text-white hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
           >
-            {confirmLabel}
+            {isLoading ? 'Loading...' : confirmLabel}
           </button>
         </div>
       </div>
