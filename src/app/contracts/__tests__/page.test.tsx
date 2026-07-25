@@ -1,7 +1,8 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ContractsPage from '../page';
 import * as repository from '@/lib/repository';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import * as stellarAddress from '@/lib/stellarAddress';
 
@@ -18,6 +19,15 @@ jest.mock('@/lib/repository', () => {
 });
 jest.mock('@/lib/stellarAddress');
 
+jest.mock('next/navigation', () => {
+  const original = jest.requireActual('next/navigation');
+  return {
+    ...original,
+    useRouter: jest.fn(),
+    useSearchParams: jest.fn(),
+  };
+});
+
 const mockListContracts = repository.listContracts as jest.MockedFunction<
   typeof repository.listContracts
 >;
@@ -27,14 +37,27 @@ const mockSaveContract = repository.saveContract as jest.MockedFunction<
 const mockIsValidStellarAddress = stellarAddress.isValidStellarAddress as jest.MockedFunction<
   typeof stellarAddress.isValidStellarAddress
 >;
+const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>;
+const mockUseSearchParams = useSearchParams as jest.MockedFunction<typeof useSearchParams>;
+const mockPush = jest.fn();
 
 const VALID_ADDRESS = 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H';
+
+const createSearchParams = (query = '') => {
+  const params = new URLSearchParams(query);
+  return {
+    get: (name: string) => params.get(name),
+    toString: () => params.toString(),
+  } as ReturnType<typeof useSearchParams>;
+};
 
 describe('ContractsPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
     mockListContracts.mockReturnValue([]);
+    mockUseRouter.mockReturnValue({ push: mockPush } as unknown as ReturnType<typeof useRouter>);
+    mockUseSearchParams.mockReturnValue(createSearchParams());
     mockIsValidStellarAddress.mockImplementation((addr: string | null | undefined) => addr === VALID_ADDRESS);
   });
 
@@ -481,5 +504,133 @@ describe('ContractsPage', () => {
     });
 
     expect(mockListContracts).toHaveBeenCalled();
+  });
+
+  describe('URL-persisted filter and sort state', () => {
+    const alphaContract = {
+      contractName: 'Alpha Website',
+      parties: [
+        { label: 'Acme Corp', address: VALID_ADDRESS },
+        { label: 'Designer', address: VALID_ADDRESS },
+      ],
+      totalValue: 5000,
+      currency: 'USD',
+      status: 'Active' as const,
+      createdAt: 'Jan 1, 2025',
+      milestoneCount: 2,
+    };
+
+    const betaContract = {
+      contractName: 'Beta Mobile App',
+      parties: [
+        { label: 'Beta LLC', address: VALID_ADDRESS },
+        { label: 'Developer', address: VALID_ADDRESS },
+      ],
+      totalValue: 12000,
+      currency: 'USD',
+      status: 'Pending' as const,
+      createdAt: 'Mar 1, 2025',
+      milestoneCount: 4,
+    };
+
+    const gammaContract = {
+      contractName: 'Gamma Audit',
+      parties: [
+        { label: 'Gamma Foundation', address: VALID_ADDRESS },
+        { label: 'Auditor', address: VALID_ADDRESS },
+      ],
+      totalValue: 2500,
+      currency: 'USD',
+      status: 'Completed' as const,
+      createdAt: 'Feb 1, 2025',
+      milestoneCount: 1,
+    };
+
+    it('restores search, status, and sort from valid URL query params on load', () => {
+      mockUseSearchParams.mockReturnValue(createSearchParams('q=beta&status=Pending&sort=value-asc'));
+      mockListContracts.mockReturnValue([alphaContract, betaContract, gammaContract]);
+
+      render(<ContractsPage />);
+
+      expect(screen.getByRole('searchbox', { name: /search contracts/i })).toHaveValue('beta');
+      expect(screen.getByRole('radio', { name: 'Pending' })).toBeChecked();
+      expect(screen.getByLabelText(/sort contracts/i)).toHaveValue('value-asc');
+      expect(screen.getByText('Beta Mobile App')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Website')).not.toBeInTheDocument();
+      expect(screen.getByText('Showing 1 of 3 contracts')).toBeInTheDocument();
+    });
+
+    it('ignores invalid status and sort query params and keeps safe defaults', () => {
+      jest.useFakeTimers();
+      mockUseSearchParams.mockReturnValue(createSearchParams('status=Closed&sort=drop-table'));
+      mockListContracts.mockReturnValue([alphaContract, betaContract, gammaContract]);
+
+      render(<ContractsPage />);
+
+      expect(screen.getByRole('radio', { name: 'All' })).toBeChecked();
+      expect(screen.getByLabelText(/sort contracts/i)).toHaveValue('created-desc');
+      expect(screen.getByText('Alpha Website')).toBeInTheDocument();
+      expect(screen.getByText('Beta Mobile App')).toBeInTheDocument();
+      expect(screen.getByText('Gamma Audit')).toBeInTheDocument();
+
+      act(() => {
+        jest.advanceTimersByTime(300);
+      });
+
+      expect(mockPush).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+
+    it('debounces search URL updates and produces a shareable link', () => {
+      jest.useFakeTimers();
+      mockListContracts.mockReturnValue([alphaContract, betaContract, gammaContract]);
+      render(<ContractsPage />);
+
+      fireEvent.change(screen.getByRole('searchbox', { name: /search contracts/i }), {
+        target: { value: 'acme' },
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(299);
+      });
+      expect(mockPush).not.toHaveBeenCalled();
+
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(mockPush).toHaveBeenCalledWith('/contracts?q=acme');
+      jest.useRealTimers();
+    });
+
+    it('round-trips status and sort changes through the URL for browser history', () => {
+      jest.useFakeTimers();
+      mockListContracts.mockReturnValue([alphaContract, betaContract, gammaContract]);
+      render(<ContractsPage />);
+
+      fireEvent.click(screen.getByRole('radio', { name: 'Active' }));
+      fireEvent.change(screen.getByLabelText(/sort contracts/i), {
+        target: { value: 'value-desc' },
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(300);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith('/contracts?status=Active&sort=value-desc');
+      expect(screen.getByText('Alpha Website')).toBeInTheDocument();
+      expect(screen.queryByText('Beta Mobile App')).not.toBeInTheDocument();
+      jest.useRealTimers();
+    });
+
+    it('shows a no-match empty state when URL-restored filters exclude every contract', () => {
+      mockUseSearchParams.mockReturnValue(createSearchParams('q=nonexistent&status=Disputed'));
+      mockListContracts.mockReturnValue([alphaContract, betaContract, gammaContract]);
+
+      render(<ContractsPage />);
+
+      expect(screen.getByText('No contracts match your filters')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Website')).not.toBeInTheDocument();
+      expect(screen.getByText('Showing 0 of 3 contracts')).toBeInTheDocument();
+    });
   });
 });
