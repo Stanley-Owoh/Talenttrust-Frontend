@@ -78,6 +78,13 @@ async function renderPage() {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  // Pin "today" so due-soon rendering (which duplicates a milestone into the
+  // due-soon summary) is deterministic regardless of when CI runs. Chosen so
+  // none of the fixture due dates fall inside the due-soon window.
+  jest.useFakeTimers({
+    now: new Date('2026-07-22T12:00:00Z'),
+    advanceTimers: true,
+  });
   mockedListMilestones.mockReturnValue([]);
   mockedSaveMilestone.mockImplementation(() => {});
   window.localStorage.clear();
@@ -87,6 +94,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  jest.useRealTimers();
   jest.clearAllMocks();
   window.localStorage.clear();
 });

@@ -77,7 +77,6 @@ describe('PreferencesProvider', () => {
       quietMode: false,
       toastDuration: 'normal',
       idleDisconnectMs: 0,
-      listDensity: 'comfortable',
     });
     (console.error as jest.Mock).mockRestore();
   });
@@ -143,7 +142,7 @@ describe('PreferencesProvider', () => {
     expect(r2.current.preferences.quietMode).toBe(false);
   });
 
-  it('persists only the seven known keys even after a malicious payload round-trips', async () => {
+  it('persists only the six known keys even after a malicious payload round-trips', async () => {
     localStorage.setItem(
       'talenttrust-user-preferences',
       JSON.stringify({
@@ -153,7 +152,6 @@ describe('PreferencesProvider', () => {
         quietMode: true,
         toastDuration: 'long',
         idleDisconnectMs: 10000,
-        listDensity: 'compact',
         secretKey: 'leaked',
       }),
     );
@@ -169,7 +167,6 @@ describe('PreferencesProvider', () => {
     expect(Object.keys(serialized).sort()).toEqual([
       'amountFormat',
       'idleDisconnectMs',
-      'listDensity',
       'quietMode',
       'theme',
       'toastDensity',
@@ -226,7 +223,6 @@ describe('sanitizePreferences (pure helper)', () => {
     quietMode: false,
     toastDuration: 'normal',
     idleDisconnectMs: 0,
-    listDensity: 'comfortable',
   };
 
   it('returns DEFAULT_PREFERENCES for null', () => {
@@ -258,7 +254,6 @@ describe('sanitizePreferences (pure helper)', () => {
         quietMode: true,
         toastDuration: 'long',
         idleDisconnectMs: 15000,
-        listDensity: 'compact',
       }),
     ).toEqual({
       theme: 'dark',
@@ -267,7 +262,6 @@ describe('sanitizePreferences (pure helper)', () => {
       quietMode: true,
       toastDuration: 'long',
       idleDisconnectMs: 15000,
-      listDensity: 'compact',
     });
   });
 
@@ -281,7 +275,6 @@ describe('sanitizePreferences (pure helper)', () => {
       quietMode: true,
       toastDuration: 'normal',
       idleDisconnectMs: 0,
-      listDensity: 'comfortable',
     });
   });
 
@@ -368,7 +361,6 @@ describe('sanitizePreferences (pure helper)', () => {
       quietMode: 'yes', // invalid
       toastDuration: 'persistent', // valid
       idleDisconnectMs: 10000, // valid
-      listDensity: 'compact', // valid
       bogus: true, // unknown
       constructor: { hacked: 1 }, // dangerous
     } as unknown as UserPreferences);
@@ -379,7 +371,6 @@ describe('sanitizePreferences (pure helper)', () => {
       quietMode: false,
       toastDuration: 'persistent',
       idleDisconnectMs: 10000,
-      listDensity: 'compact',
     });
   });
 
@@ -402,18 +393,6 @@ describe('sanitizePreferences (pure helper)', () => {
     expect(sanitizePreferences({ idleDisconnectMs: null } as unknown as UserPreferences)).toEqual({
       ...DEFAULTS,
     });
-  });
-
-  it('accepts valid listDensity values', () => {
-    expect(sanitizePreferences({ listDensity: 'comfortable' })).toEqual({ ...DEFAULTS, listDensity: 'comfortable' });
-    expect(sanitizePreferences({ listDensity: 'compact' })).toEqual({ ...DEFAULTS, listDensity: 'compact' });
-  });
-
-  it('rejects invalid listDensity values and falls back to comfortable', () => {
-    expect(sanitizePreferences({ listDensity: 'wide' })).toEqual({ ...DEFAULTS });
-    expect(sanitizePreferences({ listDensity: 1 } as unknown as UserPreferences)).toEqual({ ...DEFAULTS });
-    expect(sanitizePreferences({ listDensity: null } as unknown as UserPreferences)).toEqual({ ...DEFAULTS });
-    expect(sanitizePreferences({ listDensity: true } as unknown as UserPreferences)).toEqual({ ...DEFAULTS });
   });
 
   it('ignores inherited keys on the source object (only own keys are read)', () => {

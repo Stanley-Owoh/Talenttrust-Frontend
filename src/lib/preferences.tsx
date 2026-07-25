@@ -8,15 +8,6 @@ export type Theme = 'light' | 'dark' | 'system';
 export type AmountFormat = 'usd' | 'ngn' | 'compact';
 export type ToastDensity = 'relaxed' | 'compact';
 /**
- * Controls the vertical spacing between list items across the application.
- *
- * | Value          | Description                                      |
- * |----------------|--------------------------------------------------|
- * | `'comfortable'`| Default spacing – generous padding between rows |
- * | `'compact'`    | Reduced spacing – fits more rows on screen       |
- */
-export type ListDensity = 'comfortable' | 'compact';
-/**
  * Controls the default auto-dismiss duration for toasts when the caller does
  * not supply an explicit `duration`.
  *
@@ -65,11 +56,6 @@ export interface UserPreferences {
    * Allowed values: 0 or between 5000 ms and 30000 ms.
    */
   idleDisconnectMs: number;
-  /**
-   * Controls the vertical spacing between list items (e.g. milestones).
-   * `'comfortable'` is the default; `'compact'` reduces padding for denser views.
-   */
-  listDensity: ListDensity;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -79,7 +65,6 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   quietMode: false,
   toastDuration: 'normal',
   idleDisconnectMs: 0,
-  listDensity: 'comfortable',
 };
 
 /**
@@ -95,7 +80,6 @@ const KNOWN_KEYS: ReadonlySet<keyof UserPreferences> = new Set([
   'quietMode',
   'toastDuration',
   'idleDisconnectMs',
-  'listDensity',
 ]);
 
 /**
@@ -116,7 +100,6 @@ const ALLOWED_THEMES: ReadonlySet<Theme> = new Set(['light', 'dark', 'system']);
 const ALLOWED_AMOUNT_FORMATS: ReadonlySet<AmountFormat> = new Set(['usd', 'ngn', 'compact']);
 const ALLOWED_TOAST_DENSITIES: ReadonlySet<ToastDensity> = new Set(['relaxed', 'compact']);
 const ALLOWED_TOAST_DURATIONS: ReadonlySet<ToastDuration> = new Set(['short', 'normal', 'long', 'persistent']);
-const ALLOWED_LIST_DENSITIES: ReadonlySet<ListDensity> = new Set(['comfortable', 'compact']);
 
 interface PreferencesContextType {
   preferences: UserPreferences;
@@ -141,8 +124,8 @@ const STORAGE_KEY = 'talenttrust-user-preferences';
  *   (`Object.keys`) so inherited prototype keys can never reach the merge step.
  * - Rejects `__proto__`, `constructor`, and `prototype` keys outright so a
  *   spread or `Object.assign` downstream cannot rewire the prototype chain.
- * - Whitelists the six known keys (`theme`, `amountFormat`, `toastDensity`,
- *   `quietMode`, `toastDuration`, `listDensity`) and validates each value against its allowed
+ * - Whitelists the five known keys (`theme`, `amountFormat`, `toastDensity`,
+ *   `quietMode`, `toastDuration`) and validates each value against its allowed
  *   set. Unknown keys are silently dropped; invalid values fall back to the
  *   default.
  *
@@ -170,7 +153,6 @@ export function sanitizePreferences(raw: unknown): UserPreferences {
   let quietMode: boolean = DEFAULT_PREFERENCES.quietMode;
   let toastDuration: ToastDuration = DEFAULT_PREFERENCES.toastDuration;
   let idleDisconnectMs: number = DEFAULT_PREFERENCES.idleDisconnectMs;
-  let listDensity: ListDensity = DEFAULT_PREFERENCES.listDensity;
 
   for (const key of Object.keys(raw as object)) {
     // Drop dangerous keys regardless of value. These are the keys historically
@@ -223,15 +205,10 @@ export function sanitizePreferences(raw: unknown): UserPreferences {
           }
         }
         break;
-      case 'listDensity':
-        if (typeof value === 'string' && ALLOWED_LIST_DENSITIES.has(value as ListDensity)) {
-          listDensity = value as ListDensity;
-        }
-        break;
     }
   }
 
-  return { theme, amountFormat, toastDensity, quietMode, toastDuration, idleDisconnectMs, listDensity };
+  return { theme, amountFormat, toastDensity, quietMode, toastDuration, idleDisconnectMs };
 }
 
 /**

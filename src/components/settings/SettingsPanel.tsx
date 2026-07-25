@@ -2,7 +2,6 @@
 
 import React, { useRef, useEffect } from 'react';
 import { usePreferences, Theme, AmountFormat, ToastDensity } from '@/lib/preferences';
-import { DensityToggle } from './DensityToggle';
 
 const FOCUSABLE_SELECTORS =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -136,12 +135,6 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 </div>
               </div>
             </div>
-          </section>
-
-          {/* Layout Section */}
-          <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Layout</h3>
-            <DensityToggle />
           </section>
 
           {/* Notifications Section */}
