@@ -438,6 +438,49 @@ describe('ContractsPage', () => {
     expect(screen.getByText(/Active · Created Apr 20, 2026/)).toBeInTheDocument();
   });
 
+  describe('Structure Snapshots', () => {
+    it('matches snapshot for the empty state', () => {
+      mockListContracts.mockReturnValue([]);
+      const { container } = render(<ContractsPage />);
+
+      expect(container.firstChild).toMatchSnapshot();
+    });
+
+    it('matches snapshot for the loaded state with contracts', () => {
+      const mockContracts = [
+        {
+          contractName: 'Website Redesign',
+          parties: [
+            { label: 'Client', address: VALID_ADDRESS },
+            { label: 'Freelancer', address: VALID_ADDRESS },
+          ],
+          totalValue: 5000,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Jan 15, 2025',
+          milestoneCount: 3,
+        },
+        {
+          contractName: 'Mobile App Development',
+          parties: [
+            { label: 'Client', address: VALID_ADDRESS },
+            { label: 'Developer', address: VALID_ADDRESS },
+          ],
+          totalValue: 10000,
+          currency: 'EUR',
+          status: 'Pending' as const,
+          createdAt: 'Feb 1, 2025',
+          milestoneCount: 5,
+        },
+      ];
+
+      mockListContracts.mockReturnValue(mockContracts);
+      const { container } = render(<ContractsPage />);
+
+      expect(container.firstChild).toMatchSnapshot();
+    });
+  });
+
   it('calls saveContract and refreshes contracts on form submission', async () => {
     mockListContracts.mockReturnValue([]);
     render(<ContractsPage />);
