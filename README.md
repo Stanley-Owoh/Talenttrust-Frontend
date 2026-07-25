@@ -39,6 +39,7 @@ This repository keeps user-facing and implementation notes inside the `docs/` fo
 
 - `docs/components/Accessibility.md` — Accessibility testing, a11y helpers, and issue #383 notes
 - `docs/components/ReputationPage.md` — Reputation page implementation and rendering states
+- `docs/components/SettingsPanel.md` — Settings drawer, trigger, and preferences examples
 - `docs/data-model.md` — Data model and persistence guide
 - `docs/persistence.md` — Persistence API and local storage patterns
 - `docs/preferences.md` — Preferences provider and currency/locale helpers
