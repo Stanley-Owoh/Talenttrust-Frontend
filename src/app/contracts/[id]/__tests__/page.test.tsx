@@ -484,7 +484,9 @@ describe('existing contract detail page behaviour', () => {
     });
 
     expect(within(getContractSummarySection()).getByLabelText('Status: Active')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /release funds to the contractor/i })).toHaveFocus();
+    // Focus moves to the error toast's dismiss button so keyboard users can
+    // immediately act on the notification.
+    expect(screen.getByRole('button', { name: /dismiss error notification/i })).toHaveFocus();
     expect(screen.getByText('Unable to update contract')).toBeInTheDocument();
     const alerts = screen.getAllByRole('alert');
     expect(alerts.some(el => el.textContent?.includes('The contract status could not be persisted. Please try again.'))).toBe(true);
