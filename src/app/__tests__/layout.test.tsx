@@ -7,6 +7,7 @@ import RootLayout from '../layout';
 // Mock next/navigation for RouteAnnouncer's usePathname call.
 jest.mock('next/navigation', () => ({
   usePathname: jest.fn().mockReturnValue('/'),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), prefetch: jest.fn() }),
 }));
 
 function renderLayout() {
