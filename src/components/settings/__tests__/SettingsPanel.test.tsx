@@ -1,7 +1,12 @@
 import React from 'react';
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { axe } from 'jest-axe';
-import { SettingsPanel } from '../SettingsPanel';
+import { SettingsPanel, ThemeErrorBoundary } from '../SettingsPanel';
+import { reportError } from '@/lib/errorReporter';
+
+jest.mock('@/lib/errorReporter', () => ({
+  reportError: jest.fn(),
+}));
 import { PreferencesProvider } from '@/lib/preferences';
 import { resetCache } from '@/lib/safeStorage';
 
@@ -13,6 +18,105 @@ const renderWithProvider = (ui: React.ReactElement) => {
     </PreferencesProvider>
   );
 };
+
+describe('ThemeErrorBoundary', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('renders children when there is no error', () => {
+    render(
+      <ThemeErrorBoundary>
+        <div data-testid="child">Healthy Child</div>
+      </ThemeErrorBoundary>
+    );
+    expect(screen.getByTestId('child')).toBeInTheDocument();
+  });
+
+  it('renders fallback UI when a child throws an error and calls reportError', () => {
+    // Suppress React's default console.error for unhandled exceptions in tests
+    const originalError = console.error;
+    console.error = jest.fn();
+
+    const ProblemChild = () => {
+      throw new Error('Test Theme Error');
+    };
+
+    render(
+      <ThemeErrorBoundary>
+        <ProblemChild />
+      </ThemeErrorBoundary>
+    );
+
+    expect(screen.getByText('Theme section failed to load.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'ThemeErrorBoundary');
+
+    // Restore console.error
+    console.error = originalError;
+  });
+
+  it('recovers when Retry is clicked', () => {
+    const originalError = console.error;
+    console.error = jest.fn();
+
+    let shouldThrow = true;
+    const RecoverableChild = () => {
+      if (shouldThrow) {
+        throw new Error('Initial crash');
+      }
+      return <div>Recovered!</div>;
+    };
+
+    render(
+      <ThemeErrorBoundary>
+        <RecoverableChild />
+      </ThemeErrorBoundary>
+    );
+
+    expect(screen.getByText('Theme section failed to load.')).toBeInTheDocument();
+
+    // Change condition so it doesn't throw next time
+    shouldThrow = false;
+    
+    // Click retry
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    
+    expect(screen.getByText('Recovered!')).toBeInTheDocument();
+    expect(screen.queryByText('Theme section failed to load.')).not.toBeInTheDocument();
+
+    console.error = originalError;
+  });
+
+  it('keeps the rest of the settings panel visible when the theme section fails', () => {
+    const originalError = console.error;
+    console.error = jest.fn();
+
+    const ProblemChild = () => {
+      throw new Error('Theme section crash');
+    };
+
+    render(
+      <PreferencesProvider>
+        <div>
+          <ThemeErrorBoundary>
+            <ProblemChild />
+          </ThemeErrorBoundary>
+          <section aria-label="Currency Display">Currency Controls</section>
+          <section aria-label="Notifications">Notification Controls</section>
+        </div>
+      </PreferencesProvider>
+    );
+
+    expect(screen.getByText('Theme section failed to load.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.getByText('Currency Controls')).toBeInTheDocument();
+    expect(screen.getByText('Notification Controls')).toBeInTheDocument();
+
+    console.error = originalError;
+  });
+});
 
 describe('SettingsPanel', () => {
   beforeEach(() => {
