@@ -70,20 +70,20 @@ export default function ReputationProfile({
 
   return (
     <section className="w-full max-w-5xl mx-auto space-y-8 px-4 py-10 sm:px-6 lg:px-8" aria-labelledby="profile-heading">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8">
         <h2 className="sr-only" id="profile-heading">Reputation profile for {name}</h2>
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-2xl font-semibold text-white">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--foreground)] text-2xl font-semibold text-[var(--background)]">
               {name.slice(0, 1).toUpperCase()}
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500">Reputation profile</p>
-              <h1 className="text-2xl font-semibold text-slate-950">{name}</h1>
+              <p className="text-sm font-medium text-[var(--muted-foreground)]">Reputation profile</p>
+              <h1 className="text-2xl font-semibold text-[var(--foreground)]">{name}</h1>
             </div>
           </div>
-          <div className="flex flex-col gap-2 rounded-3xl bg-slate-50 p-4 text-slate-700 sm:p-5">
-            <p className="text-sm font-medium text-slate-500">Privacy-friendly defaults</p>
+          <div className="flex flex-col gap-2 rounded-3xl bg-[var(--muted)] p-4 text-[var(--muted-foreground)] sm:p-5">
+            <p className="text-sm font-medium text-[var(--muted-foreground)]">Privacy-friendly defaults</p>
             <p className="text-sm leading-6">Only summary trust signals are shown by default. Sensitive metadata remains hidden.</p>
           </div>
         </div>
@@ -100,10 +100,10 @@ export default function ReputationProfile({
           * When score is absent or null, the "No reputation yet" text is shown
           * without a meter role.
           */}
-         <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-            <p className="text-sm font-medium text-slate-500" id="reputation-score-label">Reputation score</p>
-            <p className="mt-3 text-3xl font-semibold text-slate-950" aria-labelledby="reputation-score-label">
+          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+           <div className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5">
+             <p className="text-sm font-medium text-[var(--muted-foreground)]" id="reputation-score-label">Reputation score</p>
+             <p className="mt-3 text-3xl font-semibold text-[var(--foreground)]" aria-labelledby="reputation-score-label">
               {hasReputation ? (
                 <>
                   <span
@@ -120,9 +120,9 @@ export default function ReputationProfile({
               ) : 'No reputation yet'}
             </p>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-            <p className="text-sm font-medium text-slate-500" id="reputation-level-label">Level</p>
-            <p className="mt-3 text-xl font-semibold text-slate-950" aria-labelledby="reputation-level-label">
+           <div className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5">
+             <p className="text-sm font-medium text-[var(--muted-foreground)]" id="reputation-level-label">Level</p>
+             <p className="mt-3 text-xl font-semibold text-[var(--foreground)]" aria-labelledby="reputation-level-label">
               {hasReputation ? (
                 <>
                   <span className="sr-only">Level </span>{resolvedLevel}
@@ -130,15 +130,15 @@ export default function ReputationProfile({
               ) : 'Pending'}
             </p>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-            <p className="text-sm font-medium text-slate-500">Explanation</p>
-            <p className="mt-3 text-sm leading-6 text-slate-700">{reputationSummary}</p>
+           <div className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5">
+             <p className="text-sm font-medium text-[var(--muted-foreground)]">Explanation</p>
+             <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">{reputationSummary}</p>
           </div>
         </div>
 
         {hasReputation && (
-          <div className="mt-6 border-t border-slate-200 pt-6">
-            <h2 className="text-sm font-semibold text-slate-900" id="reputation-legend-title">
+           <div className="mt-6 border-t border-[var(--border)] pt-6">
+             <h2 className="text-sm font-semibold text-[var(--foreground)]" id="reputation-legend-title">
               Reputation Level Legend
             </h2>
             <ul
@@ -155,11 +155,11 @@ export default function ReputationProfile({
                     key={band.label}
                     className={`rounded-2xl border p-3 transition-colors ${
                       isActive
-                        ? 'border-indigo-200 bg-indigo-50/50 text-indigo-900 font-semibold'
-                        : 'border-slate-200 bg-slate-50/50 text-slate-600'
+                        ? 'border-[var(--legend-active-border)] bg-[var(--legend-active-bg)] text-[var(--legend-active-foreground)] font-semibold'
+                        : 'border-[var(--border)] bg-[var(--surface)]/50 text-[var(--muted-foreground)]'
                     }`}
                   >
-                    <p className="font-bold text-xs uppercase tracking-wider text-slate-400">
+                    <p className="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
                       {band.min.toFixed(1)} - {band.max.toFixed(1)}
                     </p>
                     <p className="mt-1 text-sm">{band.label}</p>
@@ -171,9 +171,9 @@ export default function ReputationProfile({
         )}
 
         {showPartial && (
-          <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
-            <p className="font-semibold">Partial reputation data</p>
-            <p className="mt-1 text-sm leading-6">
+           <div className="mt-6 rounded-3xl border-[var(--status-warning-bg)] bg-[var(--status-warning-bg)] p-4 text-[var(--status-warning-foreground)]">
+             <p className="font-semibold">Partial reputation data</p>
+             <p className="mt-1 text-sm leading-6">
               A score exists but history is currently hidden until verified actions are available. This keeps your profile safe and private.
             </p>
           </div>
@@ -192,23 +192,23 @@ export default function ReputationProfile({
        * - When the date string is not a valid ISO date the `dateTime` attribute
        *   is omitted, keeping the markup valid.
        */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+       <div className="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-slate-950">Reputation history</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <h2 className="text-xl font-semibold text-[var(--foreground)]">Reputation history</h2>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
               History is shown as safe, aggregated events with no wallet or personal metadata by default.
             </p>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600">
+          <span className="rounded-full bg-[var(--muted)] px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
             {history.length ? 'Visible' : 'Private by default'}
           </span>
         </div>
 
         {history.length === 0 ? (
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-slate-700">
-            <p className="font-semibold text-slate-900">No reputation history available yet.</p>
-            <p className="mt-2 text-sm leading-6">
+           <div className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--muted-foreground)]">
+             <p className="font-semibold text-[var(--foreground)]">No reputation history available yet.</p>
+             <p className="mt-2 text-sm leading-6">
               Reputation history appears once you complete verified actions. Your profile remains safe and privacy-friendly until then.
             </p>
           </div>
@@ -219,14 +219,14 @@ export default function ReputationProfile({
               // If it is, expose the ISO value via dateTime for machine readability.
               const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
               return (
-                <li key={event.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-500">{event.type}</p>
-                      <p className="mt-1 text-base font-semibold text-slate-950">{event.summary}</p>
-                    </div>
-                    <time
-                      className="text-sm text-slate-500"
+                <li key={event.id} className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5">
+                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                     <div>
+                       <p className="text-sm font-medium text-[var(--muted-foreground)]">{event.type}</p>
+                       <p className="mt-1 text-base font-semibold text-[var(--foreground)]">{event.summary}</p>
+                     </div>
+                     <time
+                       className="text-sm text-[var(--muted-foreground)]"
                       {...(isValidDate ? { dateTime: event.date } : {})}
                     >
                       {event.date}
