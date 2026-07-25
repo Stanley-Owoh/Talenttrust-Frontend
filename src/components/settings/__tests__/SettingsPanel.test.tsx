@@ -49,7 +49,6 @@ describe('SettingsPanel', () => {
     const darkButton = screen.getByRole('radio', { name: /dark/i });
     fireEvent.click(darkButton);
     
-    // Check if it's active
     expect(darkButton.getAttribute('aria-checked')).toBe('true');
     expect(darkButton.className).toContain('bg-[var(--primary)]');
   });
@@ -66,8 +65,6 @@ describe('SettingsPanel', () => {
   it('updates toast density preference', () => {
     renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
 
-    // Scope to the Toast Density radiogroup to avoid collision with the
-    // "compact" option that also exists in the Currency Display group.
     const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
     const compactButton = within(densityGroup).getByRole('radio', { name: /compact/i });
     fireEvent.click(compactButton);
@@ -135,7 +132,6 @@ describe('SettingsPanel', () => {
   });
 
   it('restores preferences from localStorage on remount (simulated reload)', () => {
-    // Pre-seed localStorage as if a previous session saved dark + NGN
     localStorage.setItem(
       'talenttrust-user-preferences',
       JSON.stringify({ theme: 'dark', amountFormat: 'ngn', toastDensity: 'compact', quietMode: true })
@@ -143,20 +139,16 @@ describe('SettingsPanel', () => {
 
     renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
 
-    // Theme: dark should be checked
     const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
     expect(within(themeGroup).getByRole('radio', { name: /dark/i }).getAttribute('aria-checked')).toBe('true');
     expect(within(themeGroup).getByRole('radio', { name: /light/i }).getAttribute('aria-checked')).toBe('false');
 
-    // Currency: ngn should be checked
     const currencyGroup = screen.getByRole('radiogroup', { name: /currency display/i });
     expect(within(currencyGroup).getByRole('radio', { name: /ngn/i }).getAttribute('aria-checked')).toBe('true');
 
-    // Toast density: compact should be checked
     const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
     expect(within(densityGroup).getByRole('radio', { name: /compact/i }).getAttribute('aria-checked')).toBe('true');
 
-    // Quiet mode: on
     expect(screen.getByRole('switch', { name: /quiet mode/i }).getAttribute('aria-checked')).toBe('true');
   });
 
@@ -166,7 +158,6 @@ describe('SettingsPanel', () => {
       <SettingsPanel isOpen={true} onClose={onClose} />
     );
 
-    // The backdrop is the first child of the outer wrapper
     const backdrop = container.querySelector('.absolute.inset-0');
     expect(backdrop).not.toBeNull();
     fireEvent.click(backdrop!);
@@ -226,11 +217,19 @@ describe('SettingsPanel', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  // --- Focus management ---
+
   it('sets initial focus on the close button when opened', () => {
     renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
     expect(document.activeElement).toBe(
       screen.getByRole('button', { name: /close settings/i })
     );
+  });
+
+  it('focus stays inside the dialog (no focus leak to body)', () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.contains(document.activeElement)).toBe(true);
   });
 
   it('Tab on the last focusable element wraps focus to the first', () => {
@@ -261,6 +260,77 @@ describe('SettingsPanel', () => {
     expect(document.activeElement).toBe(focusable[focusable.length - 1]);
   });
 
+  it('Tab cycling never places focus outside the dialog', () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+    const dialog = screen.getByRole('dialog');
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+
+    for (const el of focusable) {
+      el.focus();
+      fireEvent.keyDown(document, { key: 'Tab', shiftKey: false });
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
+  });
+
+  it('Shift+Tab cycling never places focus outside the dialog', () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+    const dialog = screen.getByRole('dialog');
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+
+    for (const el of [...focusable].reverse()) {
+      el.focus();
+      fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
+  });
+
+  it('Escape does nothing when panel is closed', () => {
+    const onClose = jest.fn();
+    renderWithProvider(<SettingsPanel isOpen={false} onClose={onClose} />);
+    
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('initial focus is not set when panel is not open', () => {
+    renderWithProvider(<SettingsPanel isOpen={false} onClose={() => {}} />);
+    
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.activeElement).not.toBe(screen.queryByRole('button', { name: /close settings/i }));
+  });
+
+  // --- Verify all preference controls are properly labeled ---
+
+  it('all preference controls have proper ARIA labels and roles', () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+    
+    const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
+    expect(themeGroup).toBeInTheDocument();
+    
+    const currencyGroup = screen.getByRole('radiogroup', { name: /currency display/i });
+    expect(currencyGroup).toBeInTheDocument();
+    
+    const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
+    expect(densityGroup).toBeInTheDocument();
+    
+    const quietSwitch = screen.getByRole('switch', { name: /quiet mode/i });
+    expect(quietSwitch).toBeInTheDocument();
+    
+    const themeButtons = within(themeGroup).getAllByRole('radio');
+    expect(themeButtons).toHaveLength(3);
+    expect(themeButtons[0]).toHaveAccessibleName('light');
+    expect(themeButtons[1]).toHaveAccessibleName('dark');
+    expect(themeButtons[2]).toHaveAccessibleName('system');
+  });
+
   // --- Accessibility validation with jest-axe ---
 
   it('passes accessibility audit with jest-axe when open', async () => {
@@ -279,54 +349,5 @@ describe('SettingsPanel', () => {
     
     const results = await axe(container);
     expect(results).toHaveNoViolations();
-  });
-
-
-
-  // --- Edge cases for focus management ---
-
-  it('does not call onClose when Escape is pressed while dialog is closed', () => {
-    const onClose = jest.fn();
-    renderWithProvider(<SettingsPanel isOpen={false} onClose={onClose} />);
-    
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it('initial focus is not set when panel is not open', () => {
-    renderWithProvider(<SettingsPanel isOpen={false} onClose={() => {}} />);
-    
-    // Should not have any dialog content
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(document.activeElement).not.toBe(screen.queryByRole('button', { name: /close settings/i }));
-  });
-
-  // --- Verify all preference controls are properly labeled ---
-
-  it('all preference controls have proper ARIA labels and roles', () => {
-    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
-    
-    // Theme radiogroup
-    const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
-    expect(themeGroup).toBeInTheDocument();
-    
-    // Currency radiogroup
-    const currencyGroup = screen.getByRole('radiogroup', { name: /currency display/i });
-    expect(currencyGroup).toBeInTheDocument();
-    
-    // Toast density radiogroup
-    const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
-    expect(densityGroup).toBeInTheDocument();
-    
-    // Quiet mode switch
-    const quietSwitch = screen.getByRole('switch', { name: /quiet mode/i });
-    expect(quietSwitch).toBeInTheDocument();
-    
-    // All theme radio buttons should be properly labeled
-    const themeButtons = within(themeGroup).getAllByRole('radio');
-    expect(themeButtons).toHaveLength(3);
-    expect(themeButtons[0]).toHaveAccessibleName('light');
-    expect(themeButtons[1]).toHaveAccessibleName('dark');
-    expect(themeButtons[2]).toHaveAccessibleName('system');
   });
 });

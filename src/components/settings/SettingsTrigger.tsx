@@ -1,21 +1,14 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { SettingsPanel } from './SettingsPanel';
 
 export function SettingsTrigger() {
   const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  const handleClose = () => {
-    setIsOpen(false);
-    requestAnimationFrame(() => triggerRef.current?.focus());
-  };
 
   return (
     <>
       <button
-        ref={triggerRef}
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 right-6 p-3 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-lg hover:scale-110 transition-transform z-40 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2"
         aria-label="Open Settings"
@@ -41,7 +34,7 @@ export function SettingsTrigger() {
         </svg>
       </button>
 
-      <SettingsPanel isOpen={isOpen} onClose={handleClose} />
+      <SettingsPanel isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </>
   );
 }
