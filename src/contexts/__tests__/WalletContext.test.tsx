@@ -233,6 +233,47 @@ describe('WalletContext persistence', () => {
 
       expect(resolved).toBe(true);
     });
+
+    it('guards against concurrent connect calls (connect while connecting)', async () => {
+      renderWithProviders(<WalletConsumer />);
+      
+      const connectBtn = screen.getByTestId('connect-btn');
+      
+      // First call
+      await act(async () => {
+        connectBtn.click();
+      });
+      
+      expect(screen.getByTestId('is-connecting')).toHaveTextContent('Connecting');
+      
+      // Wait halfway through the connection
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+      
+      // Second call while still connecting
+      await act(async () => {
+        connectBtn.click();
+      });
+      
+      // Finish the first connection
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+      
+      expect(screen.getByTestId('is-connecting')).toHaveTextContent('Not connecting');
+      expect(screen.getByTestId('address')).toHaveTextContent(MOCKED_STELLAR_ADDRESS);
+      
+      // If the second call incorrectly proceeded, advancing the timer again would 
+      // uncover the defect (isConnecting would be false while the second call was in flight).
+      // Since it's guarded, the second call returns early. Let's advance time again just in case
+      // to ensure no lingering side effects.
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+      
+      expect(screen.getByTestId('is-connecting')).toHaveTextContent('Not connecting');
+    });
   });
 
   describe('disconnect()', () => {
