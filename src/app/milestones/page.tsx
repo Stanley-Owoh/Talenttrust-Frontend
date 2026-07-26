@@ -244,7 +244,19 @@ const MilestonesContent: React.FC = () => {
   );
 
   return (
-    <main className="min-h-screen p-8">
+    /*
+     * ACCESSIBILITY LANDMARK STRUCTURE (WCAG 2.1 AA / issue #682)
+     *
+     * No <main> landmark here — the root layout (src/app/layout.tsx) already
+     * provides the single <main id="main-content" tabIndex={-1}> landmark that
+     * RouteAnnouncer targets for focus-on-route-change (WCAG 2.4.3). A nested
+     * <main> would produce duplicate landmarks and break that focus management.
+     * Same fix applied to loading.tsx below.
+     *
+     * Heading hierarchy: <h1> is used here (correct, since layout's <header>
+     * does not render an <h1> — the app name is a <span>, not a heading).
+     */
+    <div className="min-h-screen p-8">
       <h1 className="text-2xl font-bold mb-6">Milestones</h1>
 
       {showSampleBanner && (
@@ -350,7 +362,7 @@ const MilestonesContent: React.FC = () => {
           onCancel={handleCancelForm}
         />
       )}
-    </main>
+    </div>
   );
 };
 

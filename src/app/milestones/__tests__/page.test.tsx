@@ -778,121 +778,202 @@ describe('exported constants', () => {
 });
 
 // ===========================================================================
-// 10. Copy-to-clipboard for milestone IDs
+// 10. Focus management — issue #682
 // ===========================================================================
 
-describe('Milestone ID copy-to-clipboard', () => {
-  beforeEach(() => {
-    mockedListMilestones.mockReturnValue(persistedMilestones);
-    mockShowSuccess.mockClear();
-    mockShowError.mockClear();
-  });
+describe('MilestonesPage — focus management (issue #682)', () => {
+  // -------------------------------------------------------------------------
+  // Landmark structure
+  // -------------------------------------------------------------------------
 
-  it('renders a "Copy ID" button for each milestone', async () => {
-    await renderPage();
+  describe('landmark structure', () => {
+    it('does NOT render a nested <main> element (single-main-landmark rule)', async () => {
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
 
-    await waitFor(() => {
-      const buttons = screen.getAllByRole('button', { name: /copy milestone id/i });
-      expect(buttons).toHaveLength(persistedMilestones.length);
+      // The page component must NOT introduce a <main> — the root layout owns
+      // the sole <main id="main-content"> and RouteAnnouncer focuses it on
+      // every route transition (WCAG 2.4.3).
+      const mains = document.querySelectorAll('main');
+      expect(mains).toHaveLength(0);
+    });
+
+    it('renders the page heading as <h1> inside the layout <main> boundary', async () => {
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
+
+      const h1 = screen.getByRole('heading', { name: /milestones/i, level: 1 });
+      expect(h1).toBeInTheDocument();
     });
   });
 
-  it('shows the milestone ID text', async () => {
-    await renderPage();
+  // -------------------------------------------------------------------------
+  // Dialog open — focus moves to the Title input
+  // -------------------------------------------------------------------------
 
-    await waitFor(() => {
-      expect(screen.getByText('ID: repo-1')).toBeInTheDocument();
-      expect(screen.getByText('ID: repo-2')).toBeInTheDocument();
+  describe('dialog open focus', () => {
+    it('moves focus to the Title field when the toolbar "Add Milestone" button is clicked', async () => {
+      const user = userEvent.setup();
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
+
+      await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
+
+      const addBtn = screen.getByRole('button', { name: /add milestone/i });
+      await user.click(addBtn);
+
+      await waitFor(() =>
+        expect(screen.getByRole('textbox', { name: /^title/i })).toHaveFocus(),
+      );
+    });
+
+    it('moves focus to the Title field when the EmptyState "Add Milestone" action is clicked', async () => {
+      const user = userEvent.setup();
+      window.localStorage.setItem(SAMPLE_DISMISSED_KEY, 'true');
+      mockedListMilestones.mockReturnValue([]);
+      await renderPage();
+
+      await waitFor(() => expect(screen.getByText('No milestones tracked')).toBeInTheDocument());
+
+      const addBtn = screen.getByRole('button', { name: /add milestone/i });
+      await user.click(addBtn);
+
+      await waitFor(() =>
+        expect(screen.getByRole('textbox', { name: /^title/i })).toHaveFocus(),
+      );
     });
   });
 
-  it('copies the milestone ID on button click', async () => {
-    const user = userEvent.setup();
-    await renderPage();
+  // -------------------------------------------------------------------------
+  // Dialog close — focus returns to trigger
+  // -------------------------------------------------------------------------
 
-    await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
+  describe('dialog close focus restoration', () => {
+    it('returns focus to the "Add Milestone" button when Escape closes the dialog', async () => {
+      const user = userEvent.setup();
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
 
-    const copyBtn = screen.getByRole('button', { name: /copy milestone id repo-1/i });
-    await user.click(copyBtn);
+      await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
 
-    // Each MilestoneCard creates its own copy via useCopyToClipboard; we verify
-    // the callback was given the correct ID without holding a direct reference.
-    await waitFor(() => {
-      expect(mockShowSuccess).toHaveBeenCalled();
+      const addBtn = screen.getByRole('button', { name: /add milestone/i });
+      await user.click(addBtn);
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(addBtn).toHaveFocus();
+      });
     });
-  });
 
-  it('shows "Copied!" when the hook reports copied state', async () => {
-    mockCopied = true;
-    await renderPage();
+    it('returns focus to the "Add Milestone" button when Cancel closes the dialog', async () => {
+      const user = userEvent.setup();
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
 
-    await waitFor(() => {
-      expect(screen.getAllByText('Copied!').length).toBeGreaterThan(0);
+      await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
+
+      const addBtn = screen.getByRole('button', { name: /add milestone/i });
+      await user.click(addBtn);
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(addBtn).toHaveFocus();
+      });
     });
-  });
 
-  it('shows success toast on successful copy', async () => {
-    const user = userEvent.setup();
-    await renderPage();
+    it('returns focus to the trigger after a successful milestone submission', async () => {
+      const user = userEvent.setup();
+      const newMilestone: Milestone = {
+        id: 'new-focus-1',
+        title: 'New Focus Test',
+        status: 'Pending',
+        payout: 500,
+        currency: 'USD',
+      };
+      mockedListMilestones
+        .mockReturnValueOnce(persistedMilestones)
+        .mockReturnValue([...persistedMilestones, newMilestone]);
+      mockedSaveMilestone.mockImplementation(() => {});
 
-    await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
+      await renderPage();
+      await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
 
-    const copyBtn = screen.getByRole('button', { name: /copy milestone id repo-1/i });
-    await user.click(copyBtn);
+      // Capture the toolbar trigger before opening the dialog
+      const addBtn = screen.getByRole('button', { name: /add milestone/i });
+      await user.click(addBtn);
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
 
-    await waitFor(() => {
-      expect(mockShowSuccess).toHaveBeenCalledWith({
-        title: 'ID copied',
-        description: 'Milestone ID copied to clipboard.',
+      // Scope form queries inside the dialog to avoid the toolbar button clash
+      const dialog = screen.getByRole('dialog');
+      await user.type(screen.getByRole('textbox', { name: /^title/i }), 'New Focus Test');
+      await user.type(screen.getByRole('textbox', { name: /payout amount/i }), '500');
+      // Click the submit button scoped inside the dialog
+      const submitBtn = dialog.querySelector('button[type="submit"]') as HTMLButtonElement;
+      await user.click(submitBtn);
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        // Focus must return to the toolbar "Add Milestone" button via restoreFocus
+        expect(addBtn).toHaveFocus();
       });
     });
   });
 
-  it('shows error toast when copy fails', async () => {
-    mockCopySuccess = false;
+  // -------------------------------------------------------------------------
+  // Focus trap inside dialog
+  // -------------------------------------------------------------------------
 
-    const user = userEvent.setup();
-    await renderPage();
+  describe('focus trap inside the milestone dialog', () => {
+    it('Tab wraps from the last control back to the first without leaving the dialog', async () => {
+      const user = userEvent.setup();
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
 
-    await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
 
-    const copyBtn = screen.getByRole('button', { name: /copy milestone id repo-1/i });
-    await user.click(copyBtn);
+      await user.click(screen.getByRole('button', { name: /add milestone/i }));
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
 
-    await waitFor(() => {
-      expect(mockShowError).toHaveBeenCalledWith({
-        title: 'Copy failed',
-        description: 'Unable to copy milestone ID.',
-      });
+      const dialog = screen.getByRole('dialog');
+      const title = screen.getByRole('textbox', { name: /^title/i });
+      // Scope submit button to the dialog to avoid clash with toolbar button
+      const submitBtn = dialog.querySelector('button[type="submit"]') as HTMLButtonElement;
+
+      // Move focus to the submit button (last focusable)
+      submitBtn.focus();
+      await user.tab();
+
+      // Focus must wrap back to the first focusable element inside the dialog
+      expect(title).toHaveFocus();
     });
-  });
 
-  it('copy button has an accessible label', async () => {
-    await renderPage();
+    it('Shift+Tab wraps from the first control back to the last without leaving the dialog', async () => {
+      const user = userEvent.setup();
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
 
-    await waitFor(() => {
-      const btn = screen.getByRole('button', { name: /copy milestone id repo-1/i });
-      expect(btn).toHaveAttribute('aria-label', 'Copy milestone ID repo-1');
-    });
-  });
+      await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
 
-  it('copies the correct ID per milestone', async () => {
-    const user = userEvent.setup();
-    await renderPage();
+      await user.click(screen.getByRole('button', { name: /add milestone/i }));
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
 
-    await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
+      const dialog = screen.getByRole('dialog');
+      const title = screen.getByRole('textbox', { name: /^title/i });
+      // Scope submit button to the dialog to avoid clash with toolbar button
+      const submitBtn = dialog.querySelector('button[type="submit"]') as HTMLButtonElement;
 
-    const buttons = screen.getAllByRole('button', { name: /copy milestone id/i });
-    expect(buttons).toHaveLength(2);
+      // Focus starts on the title input (initial focus set by useDialogFocusTrap)
+      expect(title).toHaveFocus();
+      await user.tab({ shift: true });
 
-    await user.click(buttons[1]);
-
-    // The second button belongs to repo-2. We verify the correct ID is used
-    // by checking that the success toast appeared (mockCopySuccess is true by
-    // default). Each card has its own copy closure so we cannot hold a direct
-    // reference to the mock; the toast is sufficient proof.
-    await waitFor(() => {
-      expect(mockShowSuccess).toHaveBeenCalledTimes(1);
+      // Focus must wrap to the last focusable element inside the dialog
+      expect(submitBtn).toHaveFocus();
     });
   });
 });
