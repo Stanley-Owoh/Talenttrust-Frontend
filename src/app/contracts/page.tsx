@@ -11,8 +11,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import EmptyState from '../../components/EmptyState';
 import ContractsList from '../../components/contracts/ContractsList';
 import { ContractCreationForm } from '../../components/ContractCreationForm';
-import EditableContractRow from '../../components/EditableContractRow';
-import { listContracts, saveContract, updateContract } from '@/lib/repository';
+import { ContractRowItem } from '../../components/contracts/ContractRowItem';
+import { BulkActionToolbar } from '../../components/contracts/BulkActionToolbar';
+import { listContracts, saveContract, deleteContract } from '@/lib/repository';
+import { useToast } from '@/components/toast/toast-provider';
 import type { Contract } from '@/types/domain';
 
 const ContractsPage: React.FC = () => {
@@ -20,7 +22,15 @@ const ContractsPage: React.FC = () => {
   // a state update so the list reflects newly added items immediately.
   const [contracts, setContracts] = useState<Contract[]>(() => listContracts());
   const [showForm, setShowForm] = useState(false);
-  const { showError } = useToast();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { addToast } = useToast();
+
+  /**
+   * Generates a unique identifier for a contract
+   */
+  const getContractId = useCallback((contract: Contract, index: number): string => {
+    return `${contract.contractName}-${index}`;
+  }, []);
 
   /**
    * Opens the contract creation form modal.
@@ -38,17 +48,9 @@ const ContractsPage: React.FC = () => {
 
     setContracts((prev) => [...prev, optimisticContract as Contract]);
     setShowForm(false);
-
-    const persisted = saveContract(contract);
-    if (!persisted) {
-      setContracts((prev) => prev.filter((item) => (item as OptimisticContract).__optimisticId !== optimisticId));
-      showError({
-        title: 'Unable to create contract',
-        description: 'Your contract could not be saved. Please try again.',
-      });
-      return;
-    }
-  }, [showError]);
+    // Clear selection after new contract is added
+    setSelectedIds(new Set());
+  }, []);
 
   /**
    * Closes the contract creation form modal.
@@ -58,17 +60,94 @@ const ContractsPage: React.FC = () => {
   }, []);
 
   /**
-   * Persists an inline row edit (keyed by the row's original name so renames
-   * update in place) and refreshes the list from storage.
+   * Handles individual contract row selection
    */
-  const handleInlineSave = useCallback((originalName: string, updated: Contract) => {
-    updateContract(originalName, updated);
-    setContracts(listContracts());
+  const handleSelectContract = useCallback(
+    (index: number, selected: boolean) => {
+      const newSelected = new Set(selectedIds);
+      const contractId = getContractId(contracts[index], index);
+
+      if (selected) {
+        newSelected.add(contractId);
+      } else {
+        newSelected.delete(contractId);
+      }
+
+      setSelectedIds(newSelected);
+    },
+    [selectedIds, contracts, getContractId]
+  );
+
+  /**
+   * Handles select all contracts
+   */
+  const handleSelectAll = useCallback(() => {
+    const allIds = new Set(
+      contracts.map((contract, index) => getContractId(contract, index))
+    );
+    setSelectedIds(allIds);
+  }, [contracts, getContractId]);
+
+  /**
+   * Handles clear all selections
+   */
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds(new Set());
   }, []);
 
+  /**
+   * Handles bulk delete of selected contracts
+   */
+  const handleBulkDelete = useCallback(() => {
+    const contractsToDelete = contracts.filter((_, index) => {
+      const contractId = getContractId(contracts[index], index);
+      return selectedIds.has(contractId);
+    });
+
+    contractsToDelete.forEach((contract) => {
+      deleteContract(contract.contractName);
+    });
+
+    // Re-read storage and clear selection
+    setContracts(listContracts());
+    setSelectedIds(new Set());
+  }, [contracts, selectedIds, getContractId]);
+
+  /**
+   * Handles bulk export of selected contracts
+   */
+  const handleBulkExport = useCallback(() => {
+    const contractsToExport = contracts.filter((_, index) => {
+      const contractId = getContractId(contracts[index], index);
+      return selectedIds.has(contractId);
+    });
+
+    if (contractsToExport.length === 0) {
+      addToast({
+        type: 'error',
+        message: 'No contracts selected for export.',
+      });
+      return;
+    }
+
+    // Create JSON export
+    const dataStr = JSON.stringify(contractsToExport, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+
+    // Create and trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `contracts-export-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [contracts, selectedIds, getContractId, addToast]);
+
   return (
-    <main className="min-h-screen p-8">
-      <h1 className="mb-6 text-2xl font-bold">Contracts</h1>
+    <main className="min-h-screen p-8 pb-24">
+      <h1 className="text-2xl font-bold mb-6">Contracts</h1>
 
       {!showForm && contracts.length === 0 && (
         <EmptyState
@@ -91,12 +170,21 @@ const ContractsPage: React.FC = () => {
               Create Contract
             </button>
           </div>
-          <ul className="space-y-4">
+
+          {/* Contract list with bulk selection */}
+          <ul className="space-y-4" role="presentation">
             {contracts.map((contract, idx) => (
-              <EditableContractRow
+              <ContractRowItem
                 key={`${contract.contractName}-${idx}`}
-                contract={contract}
-                onSave={handleInlineSave}
+                contractName={contract.contractName}
+                parties={contract.parties}
+                totalValue={contract.totalValue}
+                currency={contract.currency}
+                status={contract.status}
+                createdAt={contract.createdAt}
+                milestoneCount={contract.milestoneCount}
+                isSelected={selectedIds.has(getContractId(contract, idx))}
+                onSelect={(selected) => handleSelectContract(idx, selected)}
               />
             ))}
           </ul>
@@ -109,6 +197,17 @@ const ContractsPage: React.FC = () => {
           onCancel={handleCancelForm}
         />
       )}
+
+      {/* Bulk action toolbar */}
+      <BulkActionToolbar
+        selectedCount={selectedIds.size}
+        totalCount={contracts.length}
+        onSelectAll={handleSelectAll}
+        onClearSelection={handleClearSelection}
+        onDelete={handleBulkDelete}
+        onExport={handleBulkExport}
+        isOpen={selectedIds.size > 0}
+      />
     </main>
   );
 };
