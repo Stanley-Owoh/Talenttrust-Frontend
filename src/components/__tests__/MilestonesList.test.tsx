@@ -4,6 +4,8 @@ import { axe } from 'jest-axe';
 import MilestonesList from '../MilestonesList';
 import type { Milestone } from '../MilestonesList';
 import { parseLocalDate, isDueSoon } from '../../lib/dueSoon';
+import { PreferencesProvider } from '@/lib/preferences';
+import { resetCache } from '../../lib/safeStorage';
 
 const SAMPLE: Milestone[] = [
   { id: '1', title: 'Milestone 1', status: 'Pending', payout: 500, currency: 'USD', dueDate: 'May 10, 2026' },
@@ -72,6 +74,106 @@ describe('MilestonesList', () => {
     it('does not use a static aria-label on the scroll region', () => {
       const { container } = render(<MilestonesList milestones={SAMPLE} />);
       expect(scrollRegion(container)).not.toHaveAttribute('aria-label');
+    });
+  });
+
+  describe('density toggle', () => {
+    beforeEach(() => {
+      localStorage.clear();
+      resetCache();
+    });
+
+    const renderWithProvider = (ui: React.ReactElement) =>
+      render(<PreferencesProvider>{ui}</PreferencesProvider>);
+
+    it('renders the density toggle button with comfortable as default', () => {
+      renderWithProvider(<MilestonesList milestones={SAMPLE} />);
+      const toggle = screen.getByRole('button', { name: 'Switch to compact density' });
+      expect(toggle).toBeInTheDocument();
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      expect(toggle).toHaveTextContent('Comfortable');
+    });
+
+    it('renders the toggle button reflecting stored compact preference', () => {
+      localStorage.setItem(
+        'talenttrust-user-preferences',
+        JSON.stringify({ milestonesDensity: 'compact' }),
+      );
+      renderWithProvider(<MilestonesList milestones={SAMPLE} />);
+      const toggle = screen.getByRole('button', { name: 'Switch to comfortable density' });
+      expect(toggle).toBeInTheDocument();
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      expect(toggle).toHaveTextContent('Compact');
+    });
+
+    it('toggles from comfortable to compact on click', () => {
+      renderWithProvider(<MilestonesList milestones={SAMPLE} />);
+      const toggle = screen.getByRole('button', { name: 'Switch to compact density' });
+      fireEvent.click(toggle);
+
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      expect(toggle).toHaveTextContent('Compact');
+      expect(toggle).toHaveAttribute('aria-label', 'Switch to comfortable density');
+    });
+
+    it('toggles from compact back to comfortable on second click', () => {
+      localStorage.setItem(
+        'talenttrust-user-preferences',
+        JSON.stringify({ milestonesDensity: 'compact' }),
+      );
+      renderWithProvider(<MilestonesList milestones={SAMPLE} />);
+      const toggle = screen.getByRole('button', { name: 'Switch to comfortable density' });
+      fireEvent.click(toggle);
+
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      expect(toggle).toHaveTextContent('Comfortable');
+      expect(toggle).toHaveAttribute('aria-label', 'Switch to compact density');
+    });
+
+    it('persists density preference to localStorage on toggle', () => {
+      renderWithProvider(<MilestonesList milestones={SAMPLE} />);
+      const toggle = screen.getByRole('button', { name: 'Switch to compact density' });
+      fireEvent.click(toggle);
+
+      const saved = JSON.parse(
+        localStorage.getItem('talenttrust-user-preferences') || '{}',
+      );
+      expect(saved.milestonesDensity).toBe('compact');
+    });
+
+    it('applies comfortable (default) spacing classes', () => {
+      const { container } = renderWithProvider(<MilestonesList milestones={SAMPLE} />);
+      const region = scrollRegion(container);
+      expect(region.className).toContain('space-y-4');
+      expect(region.className).toContain('mt-6');
+      expect(region.className).not.toContain('space-y-2');
+    });
+
+    it('applies compact spacing classes when toggled', () => {
+      localStorage.setItem(
+        'talenttrust-user-preferences',
+        JSON.stringify({ milestonesDensity: 'compact' }),
+      );
+      const { container } = renderWithProvider(<MilestonesList milestones={SAMPLE} />);
+      const region = scrollRegion(container);
+      expect(region.className).toContain('space-y-2');
+      expect(region.className).toContain('mt-4');
+      expect(region.className).not.toContain('space-y-4');
+    });
+
+    it('falls back to comfortable when stored value is invalid', () => {
+      localStorage.setItem(
+        'talenttrust-user-preferences',
+        JSON.stringify({ milestonesDensity: 'invalid' }),
+      );
+      renderWithProvider(<MilestonesList milestones={SAMPLE} />);
+      const toggle = screen.getByRole('button', { name: 'Switch to compact density' });
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('passes axe accessibility checks with density toggle present', async () => {
+      const { container } = renderWithProvider(<MilestonesList milestones={SAMPLE} />);
+      expect(await axe(container)).toHaveNoViolations();
     });
   });
 

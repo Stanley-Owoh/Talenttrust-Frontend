@@ -74,7 +74,7 @@ describe('PreferencesProvider', () => {
       theme: 'system',
       amountFormat: 'usd',
       toastDensity: 'relaxed',
-      walletDensity: 'comfortable',
+      milestonesDensity: 'comfortable',
       quietMode: false,
       toastDuration: 'normal',
       idleDisconnectMs: 0,
@@ -169,6 +169,7 @@ describe('PreferencesProvider', () => {
     expect(Object.keys(serialized).sort()).toEqual([
       'amountFormat',
       'idleDisconnectMs',
+      'milestonesDensity',
       'quietMode',
       'theme',
       'toastDensity',
@@ -223,7 +224,7 @@ describe('sanitizePreferences (pure helper)', () => {
     theme: 'system',
     amountFormat: 'usd',
     toastDensity: 'relaxed',
-    walletDensity: 'comfortable',
+    milestonesDensity: 'comfortable',
     quietMode: false,
     toastDuration: 'normal',
     idleDisconnectMs: 0,
@@ -255,7 +256,7 @@ describe('sanitizePreferences (pure helper)', () => {
         theme: 'dark',
         amountFormat: 'compact',
         toastDensity: 'compact',
-        walletDensity: 'compact',
+        milestonesDensity: 'compact',
         quietMode: true,
         toastDuration: 'long',
         idleDisconnectMs: 15000,
@@ -264,7 +265,7 @@ describe('sanitizePreferences (pure helper)', () => {
       theme: 'dark',
       amountFormat: 'compact',
       toastDensity: 'compact',
-      walletDensity: 'compact',
+      milestonesDensity: 'compact',
       quietMode: true,
       toastDuration: 'long',
       idleDisconnectMs: 15000,
@@ -278,7 +279,7 @@ describe('sanitizePreferences (pure helper)', () => {
       theme: 'light',
       amountFormat: 'usd',
       toastDensity: 'relaxed',
-      walletDensity: 'comfortable',
+      milestonesDensity: 'comfortable',
       quietMode: true,
       toastDuration: 'normal',
       idleDisconnectMs: 0,
@@ -316,6 +317,30 @@ describe('sanitizePreferences (pure helper)', () => {
   it('rejects invalid toastDensity values', () => {
     expect(sanitizePreferences({ toastDensity: 'wide' })).toEqual({ ...DEFAULTS });
     expect(sanitizePreferences({ toastDensity: 2 } as unknown as UserPreferences)).toEqual({
+      ...DEFAULTS,
+    });
+  });
+
+  it('accepts valid milestonesDensity values', () => {
+    expect(sanitizePreferences({ milestonesDensity: 'compact' })).toEqual({
+      ...DEFAULTS,
+      milestonesDensity: 'compact',
+    });
+    expect(sanitizePreferences({ milestonesDensity: 'comfortable' })).toEqual({
+      ...DEFAULTS,
+      milestonesDensity: 'comfortable',
+    });
+  });
+
+  it('rejects invalid milestonesDensity values and falls back to default', () => {
+    expect(sanitizePreferences({ milestonesDensity: 'wide' })).toEqual({ ...DEFAULTS });
+    expect(sanitizePreferences({ milestonesDensity: 1 } as unknown as UserPreferences)).toEqual({
+      ...DEFAULTS,
+    });
+    expect(sanitizePreferences({ milestonesDensity: null } as unknown as UserPreferences)).toEqual({
+      ...DEFAULTS,
+    });
+    expect(sanitizePreferences({ milestonesDensity: true } as unknown as UserPreferences)).toEqual({
       ...DEFAULTS,
     });
   });
@@ -365,7 +390,7 @@ describe('sanitizePreferences (pure helper)', () => {
       theme: 'dark',
       amountFormat: '???', // invalid
       toastDensity: 'compact',
-      walletDensity: 'invalid', // invalid
+      milestonesDensity: 'compact', // valid
       quietMode: 'yes', // invalid
       toastDuration: 'persistent', // valid
       idleDisconnectMs: 10000, // valid
@@ -376,7 +401,7 @@ describe('sanitizePreferences (pure helper)', () => {
       theme: 'dark',
       amountFormat: 'usd',
       toastDensity: 'compact',
-      walletDensity: 'comfortable',
+      milestonesDensity: 'compact',
       quietMode: false,
       toastDuration: 'persistent',
       idleDisconnectMs: 10000,
