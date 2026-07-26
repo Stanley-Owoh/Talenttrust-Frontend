@@ -2,9 +2,14 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ContractsPage from '../page';
 import * as repository from '@/lib/repository';
-
 import * as stellarAddress from '@/lib/stellarAddress';
 
+// Prevent actual download calls during tests
+jest.mock('@/lib/exportContracts', () => ({
+  ...jest.requireActual('@/lib/exportContracts'),
+  downloadContractsCsv: jest.fn(),
+  downloadContractsJson: jest.fn(),
+}));
 
 // Mock dependencies
 jest.mock('@/lib/repository', () => {
@@ -27,6 +32,9 @@ const mockSaveContract = repository.saveContract as jest.MockedFunction<
 const mockIsValidStellarAddress = stellarAddress.isValidStellarAddress as jest.MockedFunction<
   typeof stellarAddress.isValidStellarAddress
 >;
+
+const mockDownloadCsv = jest.requireMock('@/lib/exportContracts').downloadContractsCsv as jest.Mock;
+const mockDownloadJson = jest.requireMock('@/lib/exportContracts').downloadContractsJson as jest.Mock;
 
 const VALID_ADDRESS = 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H';
 
@@ -481,5 +489,174 @@ describe('ContractsPage', () => {
     });
 
     expect(mockListContracts).toHaveBeenCalled();
+  });
+
+  describe('Export Buttons', () => {
+    beforeEach(() => {
+      mockDownloadCsv.mockClear();
+      mockDownloadJson.mockClear();
+    });
+
+    it('renders CSV and JSON export buttons when contracts exist', () => {
+      const contracts = [
+        {
+          contractName: 'Test Contract',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 1000,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Jan 1, 2025',
+          milestoneCount: 1,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
+      render(<ContractsPage />);
+
+      expect(screen.getByRole('button', { name: /export contracts as csv/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /export contracts as json/i })).toBeInTheDocument();
+    });
+
+    it('does not render export buttons when no contracts exist', () => {
+      mockListContracts.mockReturnValue([]);
+      render(<ContractsPage />);
+
+      expect(screen.queryByRole('button', { name: /export contracts as csv/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /export contracts as json/i })).not.toBeInTheDocument();
+    });
+
+    it('calls downloadContractsCsv when CSV button is clicked', () => {
+      const contracts = [
+        {
+          contractName: 'Test Contract',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 1000,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Jan 1, 2025',
+          milestoneCount: 1,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
+      render(<ContractsPage />);
+
+      fireEvent.click(screen.getByRole('button', { name: /export contracts as csv/i }));
+      expect(mockDownloadCsv).toHaveBeenCalledTimes(1);
+      expect(mockDownloadCsv).toHaveBeenCalledWith(contracts);
+    });
+
+    it('calls downloadContractsJson when JSON button is clicked', () => {
+      const contracts = [
+        {
+          contractName: 'Test Contract',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 1000,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Jan 1, 2025',
+          milestoneCount: 1,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
+      render(<ContractsPage />);
+
+      fireEvent.click(screen.getByRole('button', { name: /export contracts as json/i }));
+      expect(mockDownloadJson).toHaveBeenCalledTimes(1);
+      expect(mockDownloadJson).toHaveBeenCalledWith(contracts);
+    });
+
+    it('passes correct contracts data to export functions', () => {
+      const contracts = [
+        {
+          contractName: 'Alpha',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 500,
+          currency: 'USD',
+          status: 'Pending' as const,
+          createdAt: 'Mar 1, 2025',
+          milestoneCount: 2,
+        },
+        {
+          contractName: 'Beta',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 1500,
+          currency: 'EUR',
+          status: 'Active' as const,
+          createdAt: 'Apr 10, 2025',
+          milestoneCount: 4,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
+      render(<ContractsPage />);
+
+      fireEvent.click(screen.getByRole('button', { name: /export contracts as csv/i }));
+      expect(mockDownloadCsv).toHaveBeenCalledWith(contracts);
+
+      fireEvent.click(screen.getByRole('button', { name: /export contracts as json/i }));
+      expect(mockDownloadJson).toHaveBeenCalledWith(contracts);
+    });
+
+    it('shows contract count text when contracts exist', () => {
+      const contracts = [
+        {
+          contractName: 'Alpha',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 500,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Mar 1, 2025',
+          milestoneCount: 2,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
+      render(<ContractsPage />);
+
+      expect(screen.getByText('1 contract')).toBeInTheDocument();
+    });
+
+    it('shows plural contract count when multiple contracts exist', () => {
+      const contracts = [
+        {
+          contractName: 'Alpha',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 500,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Mar 1, 2025',
+          milestoneCount: 2,
+        },
+        {
+          contractName: 'Beta',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 1500,
+          currency: 'EUR',
+          status: 'Active' as const,
+          createdAt: 'Apr 10, 2025',
+          milestoneCount: 4,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
+      render(<ContractsPage />);
+
+      expect(screen.getByText('2 contracts')).toBeInTheDocument();
+    });
+
+    it('buttons have accessible labels', () => {
+      const contracts = [
+        {
+          contractName: 'Test',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 100,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Jan 1, 2025',
+          milestoneCount: 1,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
+      render(<ContractsPage />);
+
+      expect(screen.getByRole('button', { name: 'Export contracts as CSV' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Export contracts as JSON' })).toBeInTheDocument();
+    });
   });
 });
