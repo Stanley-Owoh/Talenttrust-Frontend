@@ -56,6 +56,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     dialogRef,
     initialFocusRef: cancelBtnRef,
     onEscape: onCancel,
+    restoreFocus: true,
   });
 
   useEffect(() => {

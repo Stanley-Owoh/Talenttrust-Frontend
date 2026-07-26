@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { usePreferences, Theme, AmountFormat, ToastDensity } from '@/lib/preferences';
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 
 const FOCUSABLE_SELECTORS =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -15,46 +16,15 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const { preferences, updatePreference } = usePreferences();
   const panelRef = useRef<HTMLDivElement>(null);
 
-  /**
-   * Focus management effect for modal dialog accessibility.
-   * - Sets initial focus to the close button when dialog opens
-   * - Implements focus trapping to prevent focus from leaving the dialog
-   * - Handles Tab key wrapping from last to first element
-   * - Handles Shift+Tab wrapping from first to last element
-   * - Closes dialog on Escape key press
-   */
-  useEffect(() => {
-    if (!isOpen) return;
-    const panel = panelRef.current;
-    if (!panel) return;
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
 
-    // Set initial focus to the close button
-    const closeBtn = panel.querySelector<HTMLElement>('[aria-label="Close settings"]');
-    closeBtn?.focus();
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-      if (e.key === 'Tab') {
-        const els = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS));
-        if (els.length === 0) return;
-        const first = els[0];
-        const last = els[els.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useDialogFocusTrap({
+    isOpen,
+    dialogRef: panelRef,
+    initialFocusRef: closeBtnRef,
+    onEscape: onClose,
+    restoreFocus: true,
+  });
 
   if (!isOpen) return null;
 
@@ -77,6 +47,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
           <h2 id="settings-panel-title" className="text-xl font-bold text-[var(--foreground)]">Settings</h2>
           <button 
+            ref={closeBtnRef}
             onClick={onClose}
             className="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
             aria-label="Close settings"
