@@ -56,7 +56,7 @@ const persistedMilestones: Milestone[] = [
 ];
 
 const mixedMilestones: Milestone[] = [
-  { id: 'm-1', title: 'Active Work',      status: 'Active',    payout: 1000, currency: 'USD', dueDate: '2026-08-01' },
+  { id: 'm-1', title: 'Active Work',      status: 'Active',    payout: 1000, currency: 'USD', dueDate: '2026-09-01' },
   { id: 'm-2', title: 'Pending Task',     status: 'Pending',   payout: 2000, currency: 'USD', dueDate: '2026-08-10' },
   { id: 'm-3', title: 'Done Milestone',   status: 'Completed', payout: 3000, currency: 'USD', dueDate: '2026-06-01' },
   { id: 'm-4', title: 'Settled Payment',  status: 'Paid',      payout: 4000, currency: 'USD', dueDate: '2026-06-15' },

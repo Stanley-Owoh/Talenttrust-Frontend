@@ -133,6 +133,7 @@ describe('ContractDetailPage', () => {
 
     await waitFor(() => {
       expect(mockedUpsertContract).toHaveBeenCalledWith({
+        id: contractData.id,
         contractName: contractData.name,
         parties: contractData.parties,
         totalValue: contractData.totalValue,
@@ -430,7 +431,7 @@ describe('existing contract detail page behaviour', () => {
 
     await waitFor(() => {
       expect(mockedUpsertContract).toHaveBeenCalledWith(
-        expect.objectContaining({ contractName: contractData.name, status: 'Disputed' }),
+        expect.objectContaining({ id: contractData.id, contractName: contractData.name, status: 'Disputed' }),
       );
     });
 
