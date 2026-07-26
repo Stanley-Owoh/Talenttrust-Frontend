@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
-import StatusBadge, { StatusType, statusColorMap, statusIconMap } from './StatusBadge';
+import { useCallback, useRef, useState } from 'react';
+import { StatusType, statusColorMap, statusIconMap } from './StatusBadge';
+import MilestoneRow from './milestones/MilestoneRow';
 import { usePreferences } from '@/lib/preferences';
 import { isDueSoon } from '@/lib/dueSoon';
 import { findCurrencyMismatches, normalizeCurrencyCode } from '@/lib/currencyMismatch';
@@ -19,13 +20,48 @@ export type Milestone = {
 export type MilestonesListProps = {
   milestones: Milestone[];
   contractCurrency?: string;
+  /**
+   * Called whenever a milestone row is saved in inline edit mode. The parent
+   * is the single source of truth for milestones state and persistence —
+   * this component never mutates its `milestones` prop directly.
+   *
+   * Returning `false` from this callback surfaces the failure to the user as
+   * an in-line error inside the row. The default implementation in the
+   * parent (`page.tsx`) routes through `repository.updateMilestone`, which
+   * returns `false` when the milestone id cannot be found (e.g. removed by
+   * another tab).
+   */
+  onUpdateMilestone?: (id: string, patch: Partial<Milestone>) => boolean;
 };
 
 export const REMINDER_WINDOW_DAYS = 7;
 
-const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) => {
+const MilestonesList = ({
+  milestones,
+  contractCurrency,
+  onUpdateMilestone,
+}: MilestonesListProps) => {
   const { formatAmount } = usePreferences();
   const [isDismissed, setIsDismissed] = useState(false);
+  /**
+   * Tracks which row is currently in inline edit mode. Mutually exclusive —
+   * opening one row closes any other row that was being edited so we never
+   * have two dirty unsaved edit states competing for focus or screen reader
+   * output.
+   */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  /**
+   * Polite live-region message conveyed to assistive technologies after a
+   * save / save-failure. Cleared on the *next* save so repeated messages
+   * are always announced (screen readers intentionally skip repeat strings).
+   */
+  const [announcement, setAnnouncement] = useState('');
+  /**
+   * We force-bump a key on the live region right before writing the message
+   * so ATs re-announce identical strings ("Milestone saved.") on repeat.
+   */
+  const [announcementNonce, setAnnouncementNonce] = useState(0);
+
   const listContainerRef = useRef<HTMLDivElement>(null);
 
   const today = new Date();
@@ -55,7 +91,7 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
     (m) =>
       m.status !== 'Paid' &&
       m.status !== 'Completed' &&
-      isDueSoon(m.dueDate, today, REMINDER_WINDOW_DAYS)
+      isDueSoon(m.dueDate, today, REMINDER_WINDOW_DAYS),
   );
 
   const showBanner = dueSoonMilestones.length > 0 && !isDismissed;
@@ -65,6 +101,36 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
     // Programmatically shift focus to the list container to avoid focus loss (WCAG 2.1.1)
     listContainerRef.current?.focus();
   };
+
+  const pushAnnouncement = useCallback((message: string) => {
+    setAnnouncement('');
+    // Bump the nonce on the wrapper span so a same-message repeat still
+    // announces (some SRs dedupe on identical text + key).
+    setAnnouncementNonce((n) => n + 1);
+    // Defer the actual write so React mounts a fresh text node first.
+    requestAnimationFrame(() => setAnnouncement(message));
+  }, []);
+
+  const handleSave = useCallback(
+    (id: string, patch: Partial<Milestone>) => {
+      const ok = onUpdateMilestone ? onUpdateMilestone(id, patch) : true;
+      if (ok) {
+        setEditingId(null);
+        // The row component also announces via `onAnnounce`. We deliberately
+        // re-announce here so an `onUpdateMilestone` that returns `true`
+        // still resolves to a "saved" status even if the row's local
+        // announcer was bypassed (e.g. parent owns the milestone copy).
+      } else {
+        pushAnnouncement('Failed to save milestone.');
+      }
+    },
+    [onUpdateMilestone, pushAnnouncement],
+  );
+
+  const handleCancel = useCallback(() => {
+    setEditingId(null);
+    setAnnouncement('');
+  }, []);
 
   return (
     <section aria-labelledby="milestones-title" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -151,6 +217,21 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
         </div>
       )}
 
+      {/* Polite live region for save / save-failure announcements. The wrapping
+          span's `key` (via `key={announcementNonce}`) is bumped on every
+          write so screen readers re-announce identical strings. Controlled
+          entirely from `MilestoneRow.onAnnounce` and the parent save handler. */}
+      <span
+        key={announcementNonce}
+        data-testid="milestones-announcement"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {announcement}
+      </span>
+
       {/*
         Keyboard Accessibility (WCAG 2.1.1):
         The scrollable container is focusable (tabIndex={0}) with role="region" so keyboard-only users
@@ -174,25 +255,15 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
         className="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
       >
         {milestones.map((milestone) => (
-          <article
+          <MilestoneRow
             key={milestone.id}
-            id={`milestone-${milestone.id}`}
-            className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">{milestone.title}</p>
-                <p className="mt-1 text-sm text-slate-500">Due {milestone.dueDate ?? 'TBD'}</p>
-              </div>
-              <StatusBadge status={milestone.status} />
-            </div>
-            <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600">
-              <p>Payout</p>
-              <p className="font-semibold text-slate-900">
-                {formatAmount(milestone.payout, milestone.currency)}
-              </p>
-            </div>
-          </article>
+            milestone={milestone}
+            isEditing={editingId === milestone.id}
+            onRequestEdit={() => setEditingId(milestone.id)}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            onAnnounce={pushAnnouncement}
+          />
         ))}
       </div>
     </section>

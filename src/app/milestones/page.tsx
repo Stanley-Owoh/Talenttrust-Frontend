@@ -6,7 +6,7 @@ import EmptyState from '../../components/EmptyState';
 import MilestonesList from '../../components/MilestonesList';
 import MilestoneFilter, { type MilestoneStatusFilter } from '../../components/milestones/MilestoneFilter';
 import { MilestoneCreationForm } from '../../components/milestones/MilestoneCreationForm';
-import { listMilestones, saveMilestone } from '@/lib/repository';
+import { listMilestones, saveMilestone, updateMilestone } from '@/lib/repository';
 import { getItem, setItem } from '@/lib/safeStorage';
 import type { Milestone } from '@/types/domain';
 
@@ -145,6 +145,31 @@ const MilestonesContent: React.FC = () => {
     setShowForm(false);
   }, []);
 
+  /**
+   * Inline-edit save handler.
+   *
+   * Persistence layer:
+   *   1. Call `updateMilestone(id, patch)` to push the change into
+   *      localStorage. Returns `true` on success, `false` if the milestone
+   *      no longer exists in storage.
+   *   2. Refresh local state from storage so the UI immediately reflects the
+   *      persisted version (defensive against stale React state).
+   *
+   * Returning the boolean up to `MilestonesList` lets it surface a failure
+   * announcement to assistive technologies.
+   */
+  const handleUpdateMilestone = useCallback(
+    (id: string, patch: Partial<Milestone>): boolean => {
+      const ok = updateMilestone(id, patch);
+      if (ok) {
+        const persisted = listMilestones();
+        setMilestones(persisted);
+      }
+      return ok;
+    },
+    [],
+  );
+
   return (
     <main className="min-h-screen p-8">
       <h1 className="text-2xl font-bold mb-6">Milestones</h1>
@@ -220,7 +245,10 @@ const MilestonesContent: React.FC = () => {
               onAction={handleAddMilestone}
             />
           ) : (
-            <MilestonesList milestones={filtered} />
+            <MilestonesList
+              milestones={filtered}
+              onUpdateMilestone={handleUpdateMilestone}
+            />
           )}
         </>
       )}

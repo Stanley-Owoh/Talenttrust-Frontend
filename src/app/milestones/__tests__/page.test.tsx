@@ -27,6 +27,7 @@ jest.mock('next/navigation', () => ({
 jest.mock('@/lib/repository', () => ({
   listMilestones: jest.fn(),
   saveMilestone: jest.fn(),
+  updateMilestone: jest.fn(() => true),
 }));
 
 const mockedListMilestones = jest.mocked(listMilestones);
