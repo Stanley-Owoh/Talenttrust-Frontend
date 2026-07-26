@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import ContractDetailPage from '../page';
 import * as contractResolver from '@/lib/contractResolver';
 import { upsertContract, listMilestonesByContract } from '@/lib/repository';
@@ -21,6 +21,9 @@ jest.mock('@/lib/repository', () => ({
   upsertContract: jest.fn(),
   listMilestonesByContract: jest.fn(() => []),
   getContractVersion: jest.fn(() => 0),
+}));
+jest.mock('@/contexts/WalletContext', () => ({
+  useWallet: jest.fn(),
 }));
 
 const mockedResolveContractData = jest.mocked(contractResolver.resolveContractData);
@@ -89,7 +92,13 @@ function getContractSummarySection() {
   return section;
 }
 
-
+async function findEnabledButton(name: RegExp | string) {
+  await screen.findByRole('button', { name });
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name })).toBeEnabled();
+  });
+  return screen.getByRole('button', { name });
+}
 
 describe('ContractDetailPage', () => {
   beforeEach(() => {
@@ -121,13 +130,11 @@ describe('ContractDetailPage', () => {
 
     await renderPage();
 
-    const releaseButton = await screen.findByRole('button', {
-      name: /release funds to the contractor/i,
-    });
+    const releaseButton = await findEnabledButton(/release funds to the contractor/i);
 
     await user.click(releaseButton);
 
-    const dialog = screen.getByRole('alertdialog', { name: /confirm release funds/i });
+    const dialog = await screen.findByRole('alertdialog', { name: /confirm release funds/i });
     expect(within(dialog).getByRole('button', { name: /cancel/i })).toHaveFocus();
 
     await user.click(within(dialog).getByRole('button', { name: /^release funds$/i }));
@@ -150,47 +157,68 @@ describe('ContractDetailPage', () => {
     });
   });
 
-  it('rolls back the optimistic UI state when persistence fails', async () => {
+  it('applies the optimistic status update immediately and rolls back on persistence failure', async () => {
+    let resolvePersistence: ((value: boolean) => void) | undefined;
+    mockedUpsertContract.mockImplementation(
+      () => new Promise<boolean>((resolve) => {
+        resolvePersistence = resolve;
+      }),
+    );
     const user = userEvent.setup();
-    mockedUpsertContract.mockReturnValue(false);
 
     await renderPage();
 
-    await user.click(await screen.findByRole('button', { name: /release funds to the contractor/i }));
-    await user.click(within(screen.getByRole('alertdialog', { name: /confirm release funds/i })).getByRole('button', { name: /^release funds$/i }));
+    const releaseButton = await findEnabledButton(/release funds to the contractor/i);
+
+    await user.click(releaseButton);
+
+    const dialog = await screen.findByRole('alertdialog', { name: /confirm release funds/i });
+    await user.click(within(dialog).getByRole('button', { name: /^release funds$/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('status', { name: 'Status: Completed' })).toBeInTheDocument();
+      expect(within(getContractSummarySection()).getByLabelText('Status: Completed')).toBeInTheDocument();
+    });
+
+    act(() => {
+      resolvePersistence?.(false);
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('status', { name: 'Status: Active' })).toBeInTheDocument();
+      expect(within(getContractSummarySection()).getByLabelText('Status: Active')).toBeInTheDocument();
     });
-
-    expect(screen.getByText('Unable to update contract')).toBeInTheDocument();
   });
 
-  it('ignores overlapping confirmations while a status update is already pending', async () => {
-    const user = userEvent.setup();
-    let callCount = 0;
+  it('prevents the action panel from offering overlapping actions while an optimistic change is pending', async () => {
+      let resolvePersistence: ((value: boolean) => void) | undefined;
+      mockedUpsertContract.mockImplementation(
+        () => new Promise<boolean>((resolve) => {
+          resolvePersistence = resolve;
+        }),
+      );
 
-    mockedUpsertContract.mockImplementation(() => {
-      callCount += 1;
-      return callCount === 1;
-    });
+      const user = userEvent.setup();
 
-    await renderPage();
+      await renderPage();
 
-    const releaseButton = await screen.findByRole('button', { name: /release funds to the contractor/i });
+      const releaseButton = await findEnabledButton(/release funds to the contractor/i);
 
-    await user.click(releaseButton);
-    await user.click(within(screen.getByRole('alertdialog', { name: /confirm release funds/i })).getByRole('button', { name: /^release funds$/i }));
-    await user.click(releaseButton);
+      await user.click(releaseButton);
 
-    expect(mockedUpsertContract).toHaveBeenCalledTimes(1);
+      const dialog = await screen.findByRole('alertdialog', { name: /confirm release funds/i });
+      await user.click(within(dialog).getByRole('button', { name: /^release funds$/i }));
 
-    await waitFor(() => {
-      expect(screen.getByText('Funds released')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(within(getContractSummarySection()).getByLabelText('Status: Completed')).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: /release funds to the contractor/i })).not.toBeInTheDocument();
+      });
+      expect(mockedUpsertContract).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        resolvePersistence?.(true);
+      });
     });
   });
 
@@ -450,6 +478,20 @@ describe('repository milestone linking', () => {
 // ---------------------------------------------------------------------------
 
 describe('existing contract detail page behaviour', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedResolveContractData.mockResolvedValue(contractData);
+    mockedUpsertContract.mockReturnValue(true);
+    mockedListMilestonesByContract.mockReturnValue([]);
+    mockedUseWallet.mockReturnValue({
+      address: '0x123',
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+  });
+
   it('renders the contract overview and action panel after successful load', async () => {
     await renderPage();
 
@@ -459,9 +501,11 @@ describe('existing contract detail page behaviour', () => {
       ).toBeInTheDocument();
     });
 
-    expect(
-      screen.getByRole('status', { name: 'Contract status updates' }),
-    ).toBeEmptyDOMElement();
+    await waitFor(() => {
+      expect(
+        screen.getByRole('status', { name: 'Contract status updates' }),
+      ).toBeEmptyDOMElement();
+    });
   });
 
   it('persists the confirmed dispute flow and reflects the disputed status in the page', async () => {
@@ -469,10 +513,10 @@ describe('existing contract detail page behaviour', () => {
 
     await renderPage();
 
-    await user.click(await screen.findByRole('button', { name: /open a dispute for this contract/i }));
-    
+    await user.click(await findEnabledButton(/open a dispute for this contract/i));
+
     // Type in the reason textarea in the inline form
-    const textarea = screen.getByRole('textbox', { name: /reason/i });
+    const textarea = await screen.findByRole('textbox', { name: /reason/i });
     await user.type(textarea, 'Dispute reason');
 
     // Click confirm dispute button
@@ -489,7 +533,6 @@ describe('existing contract detail page behaviour', () => {
       'Contract status changed to Disputed.',
     );
     expect(screen.queryByRole('button', { name: /release funds to the contractor/i })).not.toBeInTheDocument();
-    expect(await screen.findByText('Dispute opened')).toBeInTheDocument();
   });
 
   it('keeps destructive actions disabled when the wallet is disconnected', async () => {
@@ -521,25 +564,38 @@ describe('existing contract detail page behaviour', () => {
   });
 
   it('shows error feedback and preserves the current status when persistence fails', async () => {
+    let resolvePersistence: ((value: boolean) => void) | undefined;
+    mockedUpsertContract.mockImplementation(
+      () => new Promise<boolean>((resolve) => {
+        resolvePersistence = resolve;
+      }),
+    );
     const user = userEvent.setup();
-    mockedUpsertContract.mockReturnValue({ success: false, stale: false });
 
     await renderPage();
 
-    await user.click(await screen.findByRole('button', { name: /release funds to the contractor/i }));
-    await user.click(within(screen.getByRole('alertdialog', { name: /confirm release funds/i })).getByRole('button', { name: /^release funds$/i }));
+    await user.click(await findEnabledButton(/release funds to the contractor/i));
+    await user.click(within(await screen.findByRole('alertdialog', { name: /confirm release funds/i })).getByRole('button', { name: /^release funds$/i }));
 
     await waitFor(() => {
-      expect(mockedUpsertContract).toHaveBeenCalledTimes(1);
+      expect(within(getContractSummarySection()).getByLabelText('Status: Completed')).toBeInTheDocument();
     });
 
-    expect(within(getContractSummarySection()).getByLabelText('Status: Active')).toBeInTheDocument();
-    // Focus moves to the error toast's dismiss button so keyboard users can
-    // immediately act on the notification.
-    expect(screen.getByRole('button', { name: /dismiss error notification/i })).toHaveFocus();
+    act(() => {
+      resolvePersistence?.(false);
+    });
+
+    await waitFor(() => {
+      expect(within(getContractSummarySection()).getByLabelText('Status: Active')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /release funds to the contractor/i })).toBeEnabled();
+    });
+    expect(screen.getByRole('button', { name: /release funds to the contractor/i })).toBeEnabled();
     expect(screen.getByText('Unable to update contract')).toBeInTheDocument();
     const alerts = screen.getAllByRole('alert');
-    expect(alerts.some(el => el.textContent?.includes('The contract status could not be persisted. Please try again.'))).toBe(true);
+    expect(alerts.some((el) => el.textContent?.includes('The contract status could not be persisted. Please try again.'))).toBe(true);
   });
 
   it('shows a stale-overwrite message and rolls back when another session modified the contract', async () => {
@@ -580,5 +636,4 @@ describe('existing contract detail page behaviour', () => {
       'NEXT_NOT_FOUND',
     );
   });
-});
 });

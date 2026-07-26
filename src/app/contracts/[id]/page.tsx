@@ -50,6 +50,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
   const [pendingStatus, setPendingStatus] = useState<ContractData['status'] | null>(null);
   const isMountedRef = useRef(true);
   const isPersistingStatusRef = useRef(false);
+  const activeStatusRequestRef = useRef(0);
   const { showError, showSuccess } = useToast();
 
   /**
@@ -91,7 +92,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
    * @param successDescription - The toast description shown after success.
    */
   const persistContractStatus = useCallback(
-    (
+    async (
       nextStatus: ContractData['status'],
       successTitle: string,
       successDescription: string,
@@ -100,37 +101,69 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
         return;
       }
 
-      const previousStatus = contractData.status;
-
-      isPersistingStatusRef.current = true;
-      setIsPersistingStatus(true);
-      setPendingStatus(nextStatus);
-      setErrorMessage(null);
-      setContractData((prev) => (prev ? { ...prev, status: nextStatus } : prev));
-
-      const persisted = upsertContract(buildPersistedContract(contractData, nextStatus));
-
-      if (!persisted) {
-        const message = 'The contract status could not be persisted. Please try again.';
-        setContractData((prev) => (prev ? { ...prev, status: previousStatus } : prev));
-        setPendingStatus(null);
+      if (isPersistingStatusRef.current) {
+        const message = 'Another status update is already in progress. Please wait a moment and try again.';
         setErrorMessage(message);
         isPersistingStatusRef.current = false;
         showError({
           title: 'Unable to update contract',
           description: message,
         });
-        setIsPersistingStatus(false);
         return;
       }
 
-      setPendingStatus(null);
-      isPersistingStatusRef.current = false;
-      showSuccess({
-        title: successTitle,
-        description: successDescription,
-      });
-      setIsPersistingStatus(false);
+      const requestId = activeStatusRequestRef.current + 1;
+      activeStatusRequestRef.current = requestId;
+      isPersistingStatusRef.current = true;
+      setErrorMessage(null);
+
+      const currentContract = contractData;
+      const optimisticContract = { ...currentContract, status: nextStatus };
+
+      if (isMountedRef.current) {
+        setIsPersistingStatus(true);
+        setContractData(optimisticContract);
+      }
+
+      try {
+        const persisted = await Promise.resolve(
+          upsertContract(buildPersistedContract(currentContract, nextStatus)),
+        );
+
+        if (!persisted) {
+          throw new Error('The contract status could not be persisted. Please try again.');
+        }
+
+        if (activeStatusRequestRef.current !== requestId) {
+          return;
+        }
+
+        showSuccess({
+          title: successTitle,
+          description: successDescription,
+        });
+      } catch (error) {
+        if (activeStatusRequestRef.current !== requestId) {
+          return;
+        }
+
+        if (isMountedRef.current) {
+          setContractData(currentContract);
+        }
+        const message = error instanceof Error ? error.message : 'The contract status could not be persisted. Please try again.';
+        setErrorMessage(message);
+        showError({
+          title: 'Unable to update contract',
+          description: message,
+        });
+      } finally {
+        if (activeStatusRequestRef.current === requestId) {
+          isPersistingStatusRef.current = false;
+          if (isMountedRef.current) {
+            setIsPersistingStatus(false);
+          }
+        }
+      }
     },
     [buildPersistedContract, contractData, showError, showSuccess],
   );
@@ -181,21 +214,12 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
    * error is shown.
    */
   const handleReleaseFunds = useCallback(() => {
-    setErrorMessage(null);
-    const result = persistStatus('Completed');
-    if (result.ok) {
-      showSuccess({
-        title: 'Funds released',
-        description: 'The contract was marked as Completed and the change was saved.',
-      });
-    } else {
-      setErrorMessage(result.error);
-      showError({
-        title: 'Unable to update contract',
-        description: result.error,
-      });
-    }
-  }, [persistStatus, showSuccess, showError]);
+    void persistContractStatus(
+      'Completed',
+      'Funds released',
+      'The contract was marked as Completed and the change was saved.',
+    );
+  }, [persistContractStatus]);
 
   /**
    * Persists the confirmed dispute action as a disputed contract.
@@ -203,21 +227,12 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
    * error is shown.
    */
   const handleDispute = useCallback(() => {
-    setErrorMessage(null);
-    const result = persistStatus('Disputed');
-    if (result.ok) {
-      showSuccess({
-        title: 'Dispute opened',
-        description: 'The contract was marked as Disputed and the change was saved.',
-      });
-    } else {
-      setErrorMessage(result.error);
-      showError({
-        title: 'Unable to update contract',
-        description: result.error,
-      });
-    }
-  }, [persistStatus, showSuccess, showError]);
+    void persistContractStatus(
+      'Disputed',
+      'Dispute opened',
+      'The contract was marked as Disputed and the change was saved.',
+    );
+  }, [persistContractStatus]);
 
   const handleViewSummary = () => {
     // Replace with summary navigation.
