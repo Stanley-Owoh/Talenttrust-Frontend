@@ -117,6 +117,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
 
       const updatedContract = { ...contractData, status: nextStatus };
       setContractData(updatedContract);
+      setErrorMessage(null);
       showSuccess({
         title: successTitle,
         description: successDescription,

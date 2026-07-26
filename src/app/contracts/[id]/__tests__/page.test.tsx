@@ -618,6 +618,54 @@ describe('existing contract detail page behaviour', () => {
     expect(alerts.some(el => el.textContent?.includes('This contract was updated in another session. Please reload and try again.'))).toBe(true);
   });
 
+  it('dismisses the contract error toast after a failed persistence attempt', async () => {
+    const user = userEvent.setup();
+    mockedUpsertContract.mockReturnValue(false);
+
+    await renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /release funds to the contractor/i }));
+    await user.click(within(screen.getByRole('alertdialog', { name: /confirm release funds/i })).getByRole('button', { name: /^release funds$/i }));
+
+    expect(await screen.findByText('Unable to update contract')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /dismiss error notification/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('alert')).toHaveLength(1);
+    });
+  });
+
+  it('retries the contract action successfully after an initial persistence failure', async () => {
+    const user = userEvent.setup();
+    mockedUpsertContract.mockReturnValue(false);
+
+    await renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /release funds to the contractor/i }));
+    await user.click(within(screen.getByRole('alertdialog', { name: /confirm release funds/i })).getByRole('button', { name: /^release funds$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Unable to update contract')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /dismiss error notification/i }));
+
+    mockedUpsertContract.mockReturnValue(true);
+
+    await user.click(await screen.findByRole('button', { name: /release funds to the contractor/i }));
+    await user.click(within(screen.getByRole('alertdialog', { name: /confirm release funds/i })).getByRole('button', { name: /^release funds$/i }));
+
+    await waitFor(() => {
+      expect(mockedUpsertContract).toHaveBeenCalledTimes(2);
+    });
+
+    await waitFor(() => {
+      expect(within(getContractSummarySection()).getByLabelText('Status: Completed')).toBeInTheDocument();
+      expect(screen.queryByText('Unable to update contract')).not.toBeInTheDocument();
+    });
+  });
+
   it('keeps the "Back to contracts" link for a valid id', async () => {
     await renderPage('contract-42');
 
