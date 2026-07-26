@@ -192,6 +192,16 @@ describe('MilestonesList', () => {
     );
   });
 
+  it('matches the expected per-status text counts (1 tally chip + 1 StatusBadge per row)', () => {
+    render(<MilestonesList milestones={SAMPLE} />);
+    // Each pending row contributes 2 'Pending' text nodes: one in the
+    // status tally chip at the top of the list, one inside that row's
+    // StatusBadge. With SAMPLE containing 1 Pending row and 1 Completed
+    // row we expect exactly 2 of each.
+    expect(screen.getAllByText('Pending')).toHaveLength(2);
+    expect(screen.getAllByText('Completed')).toHaveLength(2);
+  });
+
   it('does not render a currency warning when the contract currency is absent', () => {
     r(<MilestonesList milestones={MIXED_CURRENCY_SAMPLE} />);
 
@@ -208,8 +218,13 @@ describe('MilestonesList', () => {
 
     const alert = screen.getByRole('alert');
     expect(alert).toHaveTextContent('2 milestones use EUR, GBP instead of USD.');
-    expect(alert).toHaveTextContent('Milestone 2: €1,000.00');
-    expect(alert).toHaveTextContent('Milestone 3: £250.00');
+    // The same formatted amount can appear multiple times on the page
+    // (e.g. inside the row's payout AND inside the warning's list), so
+    // assert presence with getAllByText + index 0 to avoid strict-mode errors.
+    expect(screen.getAllByText(/€1,000\.00/)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/£250\.00/)[0]).toBeInTheDocument();
+    expect(alert).toHaveTextContent('Milestone 2:');
+    expect(alert).toHaveTextContent('Milestone 3:');
   });
 
   it('passes axe accessibility checks with a populated list', async () => {
