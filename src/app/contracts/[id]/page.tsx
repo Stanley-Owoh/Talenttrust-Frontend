@@ -130,6 +130,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
 
       const updatedContract = { ...contractData, status: nextStatus };
       setContractData(updatedContract);
+      setErrorMessage(null);
       showSuccess({
         title: successTitle,
         description: successDescription,
@@ -224,9 +225,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
-      {contractData ? (
-        <ContractStatusAnnouncer status={contractData.status} />
-      ) : null}
+      {contractData ? <ContractStatusAnnouncer status={contractData.status} /> : null}
       <div className="mx-auto max-w-screen-2xl space-y-6">
         <div className="flex items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div>
@@ -237,9 +236,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
                 { label: `#${id}` },
               ]}
             />
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-              Contract #{id}
-            </h1>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Contract #{id}</h1>
           </div>
           <Link
             href="/contracts"
@@ -279,11 +276,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
               {isLoading ? (
                 <MilestonesListSkeleton />
               ) : contractData ? (
-                <MilestonesList
-                  milestones={milestones}
-                  contractCurrency={contractData.currency}
-                  onUpdateMilestone={handleUpdateMilestone}
-                />
+                <MilestonesList milestones={milestones} contractCurrency={contractData.currency} />
               ) : null}
             </SafeBoundary>
           </div>

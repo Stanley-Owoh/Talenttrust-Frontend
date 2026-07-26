@@ -48,10 +48,17 @@ export const metadata: Metadata = {
 
 import { PreferencesProvider } from '@/lib/preferences';
 import { SettingsTrigger } from '@/components/settings/SettingsTrigger';
+import { CommandPalette } from '@/components/CommandPalette';
 import { WalletProvider } from '@/contexts/WalletContext';
+import { CommandPaletteProvider, CommandPalette } from '@/components/CommandPalette';
 import RouteAnnouncer from '@/components/RouteAnnouncer';
+import { CommandPalette } from '@/components/CommandPalette';
 import Navbar from '@/components/Navbar';
 import HeaderActions from '@/components/HeaderActions';
+import CommandPalette from '@/components/CommandPalette';
+import { registerDefaultCommands } from '@/lib/commands/defaultCommands';
+
+registerDefaultCommands();
 
 export default function RootLayout({
   children,
@@ -64,6 +71,7 @@ export default function RootLayout({
         <PreferencesProvider>
           <ToastProvider>
             <WalletProvider>
+            <CommandPaletteProvider>
               {/* Skip link must be the first focusable element so keyboard users
                   can bypass the sticky header on every page (WCAG 2.4.1). */}
               <a
@@ -87,7 +95,9 @@ export default function RootLayout({
                   {children}
                 </main>
               </div>
+              <CommandPalette />
               <SettingsTrigger />
+              <CommandPalette />
             </WalletProvider>
           </ToastProvider>
         </PreferencesProvider>

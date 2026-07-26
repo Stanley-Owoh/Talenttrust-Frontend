@@ -1,11 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import StatusBadge, {
-  StatusType,
-  statusColorMap,
-  statusIconMap,
-} from './StatusBadge';
-import { FormField } from './FormField';
+import { useCallback, useRef, useState } from 'react';
+import { StatusType, statusColorMap, statusIconMap } from './StatusBadge';
+import MilestoneRow from './milestones/MilestoneRow';
 import { usePreferences } from '@/lib/preferences';
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { useToast } from '@/components/toast/toast-provider';
 import { isDueSoon } from '@/lib/dueSoon';
 import {
   findCurrencyMismatches,
@@ -24,6 +22,8 @@ export type Milestone = {
   /** Id of the parent `Contract` this milestone belongs to, when known. */
   contractId?: string;
 };
+
+export const PAGE_SIZE_DEFAULT = 5;
 
 export type MilestonesListProps = {
   milestones: Milestone[];
@@ -47,21 +47,76 @@ const MilestonesList = ({
   onUpdateMilestone,
 }: MilestonesListProps) => {
   const { formatAmount } = usePreferences();
-  const [isDismissed, setIsDismissed] = useState(false);
-  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(
-    null,
+  const { showSuccess, showError } = useToast();
+  const { copied, copy } = useCopyToClipboard({
+    onSuccess: () => showSuccess({ title: 'ID copied', description: 'Milestone ID copied to clipboard.' }),
+    onError: () => showError({ title: 'Copy failed', description: 'Unable to copy milestone ID.' }),
+  });
+
+  return (
+    <article
+      id={`milestone-${milestone.id}`}
+      className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-600">{milestone.title}</p>
+          <p className="mt-1 text-sm text-slate-500">Due {milestone.dueDate ?? 'TBD'}</p>
+        </div>
+        <StatusBadge status={milestone.status} />
+      </div>
+      <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+        <span className="font-mono">ID: {milestone.id}</span>
+        <button
+          type="button"
+          onClick={() => copy(milestone.id)}
+          aria-label={copied ? 'Copied' : `Copy milestone ID ${milestone.id}`}
+          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-medium text-blue-600 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 transition-colors"
+        >
+          {copied ? 'Copied!' : 'Copy ID'}
+        </button>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
+        <p>Payout</p>
+        <p className="font-semibold text-slate-900">
+          {formatAmount(milestone.payout, milestone.currency)}
+        </p>
+      </div>
+    </article>
   );
-  const [draftMilestone, setDraftMilestone] = useState<Milestone | null>(null);
-  const [errors, setErrors] = useState<
-    Array<{ fieldId: string; message: string }>
-  >([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+};
+
+const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) => {
+  const { formatAmount, preferences, updatePreference } = usePreferences();
+  const [isDismissed, setIsDismissed] = useState(false);
+  /**
+   * Tracks which row is currently in inline edit mode. Mutually exclusive —
+   * opening one row closes any other row that was being edited so we never
+   * have two dirty unsaved edit states competing for focus or screen reader
+   * output.
+   */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  /**
+   * Polite live-region message conveyed to assistive technologies after a
+   * save / save-failure. Cleared on the *next* save so repeated messages
+   * are always announced (screen readers intentionally skip repeat strings).
+   */
+  const [announcement, setAnnouncement] = useState('');
+  /**
+   * We force-bump a key on the live region right before writing the message
+   * so ATs re-announce identical strings ("Milestone saved.") on repeat.
+   */
+  const [announcementNonce, setAnnouncementNonce] = useState(0);
+
   const listContainerRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
+  const isCompact = preferences.milestonesDensity === 'compact';
+
   const today = new Date();
+  const visibleMilestones = milestones.slice(0, displayCount);
+  const hasMore = displayCount < milestones.length;
 
   const mismatchedMilestoneIds = contractCurrency
     ? new Set(findCurrencyMismatches(contractCurrency, milestones))
@@ -97,16 +152,11 @@ const MilestonesList = ({
 
   const showBanner = dueSoonMilestones.length > 0 && !isDismissed;
 
-  useEffect(() => {
-    if (!editingMilestoneId) return;
-    titleInputRef.current?.focus();
-  }, [editingMilestoneId]);
-
-  useEffect(() => {
-    if (!feedbackMessage) return;
-    const timeoutId = window.setTimeout(() => setFeedbackMessage(null), 1800);
-    return () => window.clearTimeout(timeoutId);
-  }, [feedbackMessage]);
+  const handleToggleDensity = () => {
+    const next: 'comfortable' | 'compact' = isCompact ? 'comfortable' : 'compact';
+    updatePreference('milestonesDensity', next);
+    setIsDensityAnnounced(true);
+  };
 
   const handleDismiss = () => {
     setIsDismissed(true);
@@ -114,148 +164,35 @@ const MilestonesList = ({
     listContainerRef.current?.focus();
   };
 
-  const validateDraft = useCallback((milestone: Milestone) => {
-    const errs: Array<{ fieldId: string; message: string }> = [];
-    const sanitizedTitle = sanitizeUserText(
-      milestone.title,
-      MAX_MILESTONE_TITLE_LENGTH,
-    );
-    const unboundedTitle = sanitizeUserText(
-      milestone.title,
-      Number.MAX_SAFE_INTEGER,
-    );
-
-    if (!sanitizedTitle) {
-      errs.push({ fieldId: 'milestone-title', message: 'Title is required' });
-    } else if (unboundedTitle.length > MAX_MILESTONE_TITLE_LENGTH) {
-      errs.push({
-        fieldId: 'milestone-title',
-        message: `Title must be no more than ${MAX_MILESTONE_TITLE_LENGTH} characters`,
-      });
-    }
-
-    const numericPayout = Number.parseFloat(String(milestone.payout));
-    if (!String(milestone.payout).trim()) {
-      errs.push({
-        fieldId: 'milestone-payout',
-        message: 'Payout amount is required',
-      });
-    } else if (Number.isNaN(numericPayout) || numericPayout <= 0) {
-      errs.push({
-        fieldId: 'milestone-payout',
-        message: 'Payout must be a positive number',
-      });
-    }
-
-    if (!milestone.currency.trim()) {
-      errs.push({
-        fieldId: 'milestone-currency',
-        message: 'Currency is required',
-      });
-    }
-
-    return errs;
+  const pushAnnouncement = useCallback((message: string) => {
+    setAnnouncement('');
+    // Bump the nonce on the wrapper span so a same-message repeat still
+    // announces (some SRs dedupe on identical text + key).
+    setAnnouncementNonce((n) => n + 1);
+    // Defer the actual write so React mounts a fresh text node first.
+    requestAnimationFrame(() => setAnnouncement(message));
   }, []);
 
-  const getFieldError = (fieldId: string) =>
-    errors.find((error) => error.fieldId === fieldId)?.message;
+  const handleSave = useCallback(
+    (id: string, patch: Partial<Milestone>) => {
+      const ok = onUpdateMilestone ? onUpdateMilestone(id, patch) : true;
+      if (ok) {
+        setEditingId(null);
+        // The row component also announces via `onAnnounce`. We deliberately
+        // re-announce here so an `onUpdateMilestone` that returns `true`
+        // still resolves to a "saved" status even if the row's local
+        // announcer was bypassed (e.g. parent owns the milestone copy).
+      } else {
+        pushAnnouncement('Failed to save milestone.');
+      }
+    },
+    [onUpdateMilestone, pushAnnouncement],
+  );
 
-  const handleEditStart = (milestone: Milestone) => {
-    restoreFocusRef.current =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    setEditingMilestoneId(milestone.id);
-    setDraftMilestone({
-      ...milestone,
-      dueDate: milestone.dueDate ?? '',
-    });
-    setErrors([]);
-    setFeedbackMessage(null);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingMilestoneId(null);
-    setDraftMilestone(null);
-    setErrors([]);
-    setIsSaving(false);
-    setFeedbackMessage(null);
-    restoreFocusRef.current?.focus();
-    restoreFocusRef.current = null;
-  };
-
-  const handleSaveEdit = (event?: React.FormEvent<HTMLFormElement>) => {
-    event?.preventDefault();
-
-    if (!draftMilestone || isSaving) return;
-
-    const validationErrors = validateDraft(draftMilestone);
-    setErrors(validationErrors);
-
-    if (validationErrors.length > 0) {
-      titleInputRef.current?.focus();
-      setFeedbackMessage('Please fix the highlighted fields to continue.');
-      return;
-    }
-
-    setIsSaving(true);
-    setFeedbackMessage(null);
-
-    const sanitizedTitle = sanitizeUserText(
-      draftMilestone.title,
-      MAX_MILESTONE_TITLE_LENGTH,
-    );
-    const updatedMilestone: Milestone = {
-      ...draftMilestone,
-      title: sanitizedTitle,
-      payout: Number.parseFloat(String(draftMilestone.payout)),
-      currency: draftMilestone.currency.trim(),
-      dueDate: draftMilestone.dueDate?.trim() || undefined,
-      status: draftMilestone.status,
-    };
-
-    const wasPersisted = onUpdateMilestone
-      ? onUpdateMilestone(updatedMilestone)
-      : true;
-
-    if (wasPersisted) {
-      setEditingMilestoneId(null);
-      setDraftMilestone(null);
-      setErrors([]);
-      setFeedbackMessage('Changes saved');
-      restoreFocusRef.current?.focus();
-      restoreFocusRef.current = null;
-    } else {
-      setErrors([
-        {
-          fieldId: 'milestone-root',
-          message: 'Unable to save changes. Please try again.',
-        },
-      ]);
-      setFeedbackMessage('Unable to save changes.');
-    }
-
-    setIsSaving(false);
-  };
-
-  const handleDraftChange = <K extends keyof Milestone>(
-    field: K,
-    value: Milestone[K],
-  ) => {
-    if (!draftMilestone) return;
-
-    setDraftMilestone({
-      ...draftMilestone,
-      [field]: value,
-    });
-  };
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLFormElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      handleCancelEdit();
-    }
-  };
+  const handleCancel = useCallback(() => {
+    setEditingId(null);
+    setAnnouncement('');
+  }, []);
 
   return (
     <section
@@ -269,16 +206,53 @@ const MilestonesList = ({
         >
           Milestones
         </h2>
-        <span id="milestones-count" className="text-sm text-slate-500">
-          {milestones.length} total
-        </span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleToggleDensity}
+            aria-pressed={isCompact}
+            aria-label={isCompact ? 'Switch to comfortable density' : 'Switch to compact density'}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+          >
+            <svg
+              aria-hidden="true"
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              {isCompact ? (
+                <>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16" />
+                </>
+              ) : (
+                <>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </>
+              )}
+            </svg>
+            {isCompact ? 'Compact' : 'Comfortable'}
+          </button>
+          <span id="milestones-count" className="text-sm text-slate-500">{milestones.length} total</span>
+        </div>
       </div>
+
+      {/* aria-live region: announces density change to screen readers */}
+      <span
+        className="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {isDensityAnnounced ? `Milestones density set to ${isCompact ? 'compact' : 'comfortable'}` : ''}
+      </span>
 
       {tallies.length > 0 && (
         <div
           role="list"
           aria-label="Milestone status summary"
-          className="mt-4 flex flex-wrap gap-2"
+          className={`flex flex-wrap gap-2 ${isCompact ? 'mt-2' : 'mt-4'}`}
         >
           {tallies.map(({ status, count }) => (
             <span
@@ -358,7 +332,7 @@ const MilestonesList = ({
             type="button"
             onClick={handleDismiss}
             aria-label="Dismiss reminder"
-            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 hover:text-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1 dark:text-amber-400 dark:hover:bg-amber-500/10 dark:hover:text-amber-200 transition-colors"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 hover:text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1 dark:text-amber-400 dark:hover:bg-amber-500/10 dark:hover:text-amber-200 transition-colors"
           >
             <span aria-hidden="true" className="text-lg leading-none">
               &times;
@@ -366,6 +340,21 @@ const MilestonesList = ({
           </button>
         </div>
       )}
+
+      {/* Polite live region for save / save-failure announcements. The wrapping
+          span's `key` (via `key={announcementNonce}`) is bumped on every
+          write so screen readers re-announce identical strings. Controlled
+          entirely from `MilestoneRow.onAnnounce` and the parent save handler. */}
+      <span
+        key={announcementNonce}
+        data-testid="milestones-announcement"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {announcement}
+      </span>
 
       {/*
         Keyboard Accessibility (WCAG 2.1.1):
@@ -391,188 +380,31 @@ const MilestonesList = ({
             : undefined
         }
         tabIndex={milestones.length > 0 ? 0 : undefined}
-        className="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
+        className={`max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 ${isCompact ? 'mt-4 space-y-2' : 'mt-6 space-y-4'}`}
       >
-        {milestones.map((milestone) => {
-          const isEditing = editingMilestoneId === milestone.id;
-
-          return (
-            <article
-              key={milestone.id}
-              id={`milestone-${milestone.id}`}
-              className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
+        {milestones.map((milestone) => (
+          <MilestoneRow
+            key={milestone.id}
+            milestone={milestone}
+            isEditing={editingId === milestone.id}
+            onRequestEdit={() => setEditingId(milestone.id)}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            onAnnounce={pushAnnouncement}
+          />
+        ))}
+        {hasMore && (
+          <div className="flex justify-center pt-2">
+            <button
+              type="button"
+              onClick={() => setDisplayCount((prev) => Math.min(prev + pageSize, milestones.length))}
+              data-testid="load-more-btn"
+              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
             >
-              {isEditing && draftMilestone ? (
-                <form
-                  onSubmit={handleSaveEdit}
-                  onKeyDown={handleKeyDown}
-                  noValidate
-                >
-                  {feedbackMessage ? (
-                    <p
-                      role="status"
-                      aria-live="polite"
-                      className="mb-3 text-sm text-slate-600"
-                    >
-                      {feedbackMessage}
-                    </p>
-                  ) : null}
-
-                  <div className="space-y-3">
-                    <FormField
-                      label="Title"
-                      id="milestone-title"
-                      error={getFieldError('milestone-title')}
-                      required
-                    >
-                      <input
-                        ref={titleInputRef}
-                        type="text"
-                        value={draftMilestone.title}
-                        onChange={(event) =>
-                          handleDraftChange('title', event.target.value)
-                        }
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </FormField>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <FormField
-                        label="Payout Amount"
-                        id="milestone-payout"
-                        error={getFieldError('milestone-payout')}
-                        required
-                      >
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={draftMilestone.payout.toString()}
-                          onChange={(event) =>
-                            handleDraftChange(
-                              'payout',
-                              Number.parseFloat(event.target.value) || 0,
-                            )
-                          }
-                          className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </FormField>
-
-                      <FormField
-                        label="Currency"
-                        id="milestone-currency"
-                        error={getFieldError('milestone-currency')}
-                        required
-                      >
-                        <select
-                          value={draftMilestone.currency}
-                          onChange={(event) =>
-                            handleDraftChange('currency', event.target.value)
-                          }
-                          className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="USD">USD</option>
-                          <option value="EUR">EUR</option>
-                          <option value="GBP">GBP</option>
-                          <option value="XLM">XLM</option>
-                        </select>
-                      </FormField>
-                    </div>
-
-                    <FormField label="Status" id="milestone-status">
-                      <select
-                        value={draftMilestone.status}
-                        onChange={(event) =>
-                          handleDraftChange(
-                            'status',
-                            event.target.value as Milestone['status'],
-                          )
-                        }
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {STATUS_OPTIONS.map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
-                      </select>
-                    </FormField>
-
-                    <FormField
-                      label="Due Date"
-                      id="milestone-dueDate"
-                      helperText="Optional — e.g., Jun 1, 2025"
-                    >
-                      <input
-                        type="text"
-                        value={draftMilestone.dueDate ?? ''}
-                        onChange={(event) =>
-                          handleDraftChange(
-                            'dueDate',
-                            event.target.value || undefined,
-                          )
-                        }
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </FormField>
-                  </div>
-
-                  {getFieldError('milestone-root') ? (
-                    <p role="alert" className="mt-3 text-sm text-red-600">
-                      {getFieldError('milestone-root')}
-                    </p>
-                  ) : null}
-
-                  <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={handleCancelEdit}
-                      className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSaving}
-                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                    >
-                      {isSaving ? 'Saving…' : 'Save'}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-600">
-                        {milestone.title}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Due {milestone.dueDate ?? 'TBD'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={milestone.status} />
-                      <button
-                        type="button"
-                        aria-label="Edit milestone"
-                        onClick={() => handleEditStart(milestone)}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600">
-                    <p>Payout</p>
-                    <p className="font-semibold text-slate-900">
-                      {formatAmount(milestone.payout, milestone.currency)}
-                    </p>
-                  </div>
-                </>
-              )}
-            </article>
-          );
-        })}
+              Load More ({milestones.length - displayCount} remaining)
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

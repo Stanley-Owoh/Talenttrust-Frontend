@@ -45,7 +45,13 @@ const FilterBarSkeleton = () => (
 
 export default function MilestonesLoading() {
   return (
-    <main className="min-h-screen p-8" aria-busy="true">
+    /*
+     * No <main> here — the root layout owns the single <main id="main-content">
+     * landmark. A nested <main> would duplicate the landmark and confuse
+     * screen readers (WCAG 2.4.1 / issue #682). aria-busy is moved to
+     * the wrapping <div> which is the direct child of layout's <main>.
+     */
+    <div className="min-h-screen p-8" aria-busy="true">
       <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         Loading milestones…
       </span>
@@ -61,6 +67,6 @@ export default function MilestonesLoading() {
 
       {/* Milestone card list skeleton */}
       <MilestonesListSkeleton />
-    </main>
+    </div>
   );
 }

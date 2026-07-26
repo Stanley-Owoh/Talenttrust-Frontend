@@ -91,6 +91,7 @@ const CreateContractForm: React.FC<CreateContractFormProps> = ({ onSuccess, onCa
     setErrors([]);
 
     const contract: Contract = {
+      id: crypto.randomUUID(),
       contractName: contractName.trim(),
       parties: [
         { label: 'Client', address: 'TalentTrust Client' },
@@ -139,7 +140,10 @@ const CreateContractForm: React.FC<CreateContractFormProps> = ({ onSuccess, onCa
           <input
             type="text"
             value={contractName}
-            onChange={(e) => setContractName(e.target.value)}
+            onChange={(e) => {
+              setContractName(e.target.value);
+              setErrors((prev) => prev.filter((err) => err.fieldId !== 'contractName'));
+            }}
             placeholder="e.g. Website Redesign"
             autoComplete="off"
             className={inputClass}
@@ -166,7 +170,10 @@ const CreateContractForm: React.FC<CreateContractFormProps> = ({ onSuccess, onCa
           <input
             type="number"
             value={totalValue}
-            onChange={(e) => setTotalValue(e.target.value)}
+            onChange={(e) => {
+              setTotalValue(e.target.value);
+              setErrors((prev) => prev.filter((err) => err.fieldId !== 'totalValue'));
+            }}
             placeholder="0.00"
             min="0.01"
             step="any"
@@ -182,7 +189,10 @@ const CreateContractForm: React.FC<CreateContractFormProps> = ({ onSuccess, onCa
         >
           <select
             value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
+            onChange={(e) => {
+              setCurrency(e.target.value);
+              setErrors((prev) => prev.filter((err) => err.fieldId !== 'currency'));
+            }}
             className={inputClass}
           >
             {CURRENCY_OPTIONS.map((c) => (

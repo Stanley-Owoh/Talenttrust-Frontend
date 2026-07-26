@@ -1,18 +1,125 @@
 import React from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { axe } from 'jest-axe';
-import { SettingsPanel } from '../SettingsPanel';
+import { SettingsPanel, ThemeErrorBoundary } from '../SettingsPanel';
+import { reportError } from '@/lib/errorReporter';
+
+jest.mock('@/lib/errorReporter', () => ({
+  reportError: jest.fn(),
+}));
 import { PreferencesProvider } from '@/lib/preferences';
 import { resetCache } from '@/lib/safeStorage';
+import { ToastProvider } from '@/components/toast/toast-provider';
 
 
 const renderWithProvider = (ui: React.ReactElement) => {
   return render(
     <PreferencesProvider>
-      {ui}
+      <ToastProvider>
+        {ui}
+      </ToastProvider>
     </PreferencesProvider>
   );
 };
+
+describe('ThemeErrorBoundary', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('renders children when there is no error', () => {
+    render(
+      <ThemeErrorBoundary>
+        <div data-testid="child">Healthy Child</div>
+      </ThemeErrorBoundary>
+    );
+    expect(screen.getByTestId('child')).toBeInTheDocument();
+  });
+
+  it('renders fallback UI when a child throws an error and calls reportError', () => {
+    // Suppress React's default console.error for unhandled exceptions in tests
+    const originalError = console.error;
+    console.error = jest.fn();
+
+    const ProblemChild = () => {
+      throw new Error('Test Theme Error');
+    };
+
+    render(
+      <ThemeErrorBoundary>
+        <ProblemChild />
+      </ThemeErrorBoundary>
+    );
+
+    expect(screen.getByText('Theme section failed to load.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'ThemeErrorBoundary');
+
+    // Restore console.error
+    console.error = originalError;
+  });
+
+  it('recovers when Retry is clicked', () => {
+    const originalError = console.error;
+    console.error = jest.fn();
+
+    let shouldThrow = true;
+    const RecoverableChild = () => {
+      if (shouldThrow) {
+        throw new Error('Initial crash');
+      }
+      return <div>Recovered!</div>;
+    };
+
+    render(
+      <ThemeErrorBoundary>
+        <RecoverableChild />
+      </ThemeErrorBoundary>
+    );
+
+    expect(screen.getByText('Theme section failed to load.')).toBeInTheDocument();
+
+    // Change condition so it doesn't throw next time
+    shouldThrow = false;
+    
+    // Click retry
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    
+    expect(screen.getByText('Recovered!')).toBeInTheDocument();
+    expect(screen.queryByText('Theme section failed to load.')).not.toBeInTheDocument();
+
+    console.error = originalError;
+  });
+
+  it('keeps the rest of the settings panel visible when the theme section fails', () => {
+    const originalError = console.error;
+    console.error = jest.fn();
+
+    const ProblemChild = () => {
+      throw new Error('Theme section crash');
+    };
+
+    render(
+      <PreferencesProvider>
+        <div>
+          <ThemeErrorBoundary>
+            <ProblemChild />
+          </ThemeErrorBoundary>
+          <section aria-label="Currency Display">Currency Controls</section>
+          <section aria-label="Notifications">Notification Controls</section>
+        </div>
+      </PreferencesProvider>
+    );
+
+    expect(screen.getByText('Theme section failed to load.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.getByText('Currency Controls')).toBeInTheDocument();
+    expect(screen.getByText('Notification Controls')).toBeInTheDocument();
+
+    console.error = originalError;
+  });
+});
 
 describe('SettingsPanel', () => {
   beforeEach(() => {
@@ -24,7 +131,7 @@ describe('SettingsPanel', () => {
     const { container } = renderWithProvider(
       <SettingsPanel isOpen={false} onClose={() => {}} />
     );
-    expect(container.firstChild).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('renders correctly when open', () => {
@@ -49,7 +156,6 @@ describe('SettingsPanel', () => {
     const darkButton = screen.getByRole('radio', { name: /dark/i });
     fireEvent.click(darkButton);
     
-    // Check if it's active
     expect(darkButton.getAttribute('aria-checked')).toBe('true');
     expect(darkButton.className).toContain('bg-[var(--primary)]');
   });
@@ -66,8 +172,6 @@ describe('SettingsPanel', () => {
   it('updates toast density preference', () => {
     renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
 
-    // Scope to the Toast Density radiogroup to avoid collision with the
-    // "compact" option that also exists in the Currency Display group.
     const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
     const compactButton = within(densityGroup).getByRole('radio', { name: /compact/i });
     fireEvent.click(compactButton);
@@ -109,16 +213,40 @@ describe('SettingsPanel', () => {
     expect(saved.amountFormat).toBe('ngn');
   });
 
-  it('persists quietMode to localStorage when toggled', () => {
+  it('persists quietMode to localStorage when toggled', async () => {
     renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
 
     const quietSwitch = screen.getByRole('switch', { name: /Quiet Mode/i });
     fireEvent.click(quietSwitch);
 
-    const saved = JSON.parse(
+    // Should update optimistically immediately
+    const savedOptimistic = JSON.parse(
       localStorage.getItem('talenttrust-user-preferences') || '{}'
     );
-    expect(saved.quietMode).toBe(true);
+    expect(savedOptimistic.quietMode).toBe(true);
+  });
+
+  it('rolls back and shows error toast when setting update fails', async () => {
+    // Simulate server error
+    (window as any).__SIMULATE_SETTINGS_ERROR = true;
+    
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const darkButton = screen.getByRole('radio', { name: /dark/i });
+    fireEvent.click(darkButton);
+
+    // Optimistically updated
+    expect(darkButton.getAttribute('aria-checked')).toBe('true');
+
+    // Wait for the mock API to fail and rollback
+    const toasts = await screen.findAllByText(/Failed to update settings/i);
+    expect(toasts.length).toBeGreaterThan(0);
+
+    // Reverted back to initial state (system)
+    expect(darkButton.getAttribute('aria-checked')).toBe('false');
+
+    // Cleanup
+    delete (window as any).__SIMULATE_SETTINGS_ERROR;
   });
 
   it('persists toastDensity preference to localStorage when changed', () => {
@@ -134,27 +262,50 @@ describe('SettingsPanel', () => {
     expect(saved.toastDensity).toBe('compact');
   });
 
+  it('updates form density preference', () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const formDensityGroup = screen.getByRole('radiogroup', { name: /form density/i });
+    const compactButton = within(formDensityGroup).getByRole('radio', { name: /compact/i });
+    fireEvent.click(compactButton);
+
+    expect(compactButton.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('persists formDensity to localStorage when changed', () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const formDensityGroup = screen.getByRole('radiogroup', { name: /form density/i });
+    const compactButton = within(formDensityGroup).getByRole('radio', { name: /compact/i });
+    fireEvent.click(compactButton);
+
+    const saved = JSON.parse(
+      localStorage.getItem('talenttrust-user-preferences') || '{}'
+    );
+    expect(saved.formDensity).toBe('compact');
+  });
+
   it('restores preferences from localStorage on remount (simulated reload)', () => {
-    // Pre-seed localStorage as if a previous session saved dark + NGN
     localStorage.setItem(
       'talenttrust-user-preferences',
-      JSON.stringify({ theme: 'dark', amountFormat: 'ngn', toastDensity: 'compact', quietMode: true })
+      JSON.stringify({ theme: 'dark', amountFormat: 'ngn', toastDensity: 'compact', formDensity: 'compact', quietMode: true })
     );
 
     renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
 
-    // Theme: dark should be checked
     const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
     expect(within(themeGroup).getByRole('radio', { name: /dark/i }).getAttribute('aria-checked')).toBe('true');
     expect(within(themeGroup).getByRole('radio', { name: /light/i }).getAttribute('aria-checked')).toBe('false');
 
-    // Currency: ngn should be checked
     const currencyGroup = screen.getByRole('radiogroup', { name: /currency display/i });
     expect(within(currencyGroup).getByRole('radio', { name: /ngn/i }).getAttribute('aria-checked')).toBe('true');
 
-    // Toast density: compact should be checked
     const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
     expect(within(densityGroup).getByRole('radio', { name: /compact/i }).getAttribute('aria-checked')).toBe('true');
+
+    // Form density: compact should be checked
+    const formDensityGroup = screen.getByRole('radiogroup', { name: /form density/i });
+    expect(within(formDensityGroup).getByRole('radio', { name: /compact/i }).getAttribute('aria-checked')).toBe('true');
 
     // Quiet mode: on
     expect(screen.getByRole('switch', { name: /quiet mode/i }).getAttribute('aria-checked')).toBe('true');
@@ -166,7 +317,6 @@ describe('SettingsPanel', () => {
       <SettingsPanel isOpen={true} onClose={onClose} />
     );
 
-    // The backdrop is the first child of the outer wrapper
     const backdrop = container.querySelector('.absolute.inset-0');
     expect(backdrop).not.toBeNull();
     fireEvent.click(backdrop!);
@@ -226,11 +376,44 @@ describe('SettingsPanel', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  // --- Focus management ---
+
   it('sets initial focus on the close button when opened', () => {
     renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
     expect(document.activeElement).toBe(
       screen.getByRole('button', { name: /close settings/i })
     );
+  });
+
+  it('restores focus to the trigger after the dialog closes', async () => {
+    const TestHarness = () => {
+      const [isOpen, setIsOpen] = React.useState(false);
+
+      return (
+        <>
+          <button type="button" onClick={() => setIsOpen(true)}>
+            Open settings
+          </button>
+          <SettingsPanel isOpen={isOpen} onClose={() => setIsOpen(false)} />
+        </>
+      );
+    };
+
+    renderWithProvider(<TestHarness />);
+    const trigger = screen.getByRole('button', { name: /open settings/i });
+
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    const closeButton = await screen.findByRole('button', { name: /close settings/i });
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(trigger).toHaveFocus();
   });
 
   it('Tab on the last focusable element wraps focus to the first', () => {
@@ -259,6 +442,86 @@ describe('SettingsPanel', () => {
     first.focus();
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(focusable[focusable.length - 1]);
+  });
+
+  // --- Accessibility: radiogroup keyboard interactions ---
+
+  it('supports arrow key navigation in radiogroups', async () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
+    const themeOptions = within(themeGroup).getAllByRole('radio');
+
+    fireEvent.keyDown(themeGroup, { key: 'ArrowRight' });
+    await waitFor(() => {
+      expect(themeOptions[0]).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(themeOptions[0]);
+    });
+
+    fireEvent.keyDown(themeGroup, { key: 'ArrowLeft' });
+    await waitFor(() => {
+      expect(themeOptions[2]).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(themeOptions[2]);
+    });
+
+    const currencyGroup = screen.getByRole('radiogroup', { name: /currency display/i });
+    const currencyOptions = within(currencyGroup).getAllByRole('radio');
+    fireEvent.keyDown(currencyGroup, { key: 'ArrowDown' });
+    await waitFor(() => {
+      expect(currencyOptions[1]).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(currencyOptions[1]);
+    });
+
+    const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
+    const densityOptions = within(densityGroup).getAllByRole('radio');
+    fireEvent.keyDown(densityGroup, { key: 'ArrowUp' });
+    await waitFor(() => {
+      expect(densityOptions[1]).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(densityOptions[1]);
+    });
+  });
+
+  it('manages roving tabIndex for radiogroups', () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
+    const currencyGroup = screen.getByRole('radiogroup', { name: /currency display/i });
+    const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
+
+    const themeButtons = within(themeGroup).getAllByRole('radio');
+    const currencyButtons = within(currencyGroup).getAllByRole('radio');
+    const densityButtons = within(densityGroup).getAllByRole('radio');
+
+    expect(themeButtons[2]).toHaveAttribute('tabIndex', '0');
+    expect(themeButtons[0]).toHaveAttribute('tabIndex', '-1');
+    expect(themeButtons[1]).toHaveAttribute('tabIndex', '-1');
+
+    expect(currencyButtons[0]).toHaveAttribute('tabIndex', '0');
+    expect(currencyButtons[1]).toHaveAttribute('tabIndex', '-1');
+    expect(currencyButtons[2]).toHaveAttribute('tabIndex', '-1');
+
+    expect(densityButtons[0]).toHaveAttribute('tabIndex', '0');
+    expect(densityButtons[1]).toHaveAttribute('tabIndex', '-1');
+  });
+
+  it('activates radios with Enter and Space', async () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
+    const lightRadio = within(themeGroup).getByRole('radio', { name: /light/i });
+    const darkRadio = within(themeGroup).getByRole('radio', { name: /dark/i });
+
+    lightRadio.focus();
+    fireEvent.keyDown(lightRadio, { key: ' ' });
+    await waitFor(() => {
+      expect(lightRadio).toHaveAttribute('aria-checked', 'true');
+    });
+
+    darkRadio.focus();
+    fireEvent.keyDown(darkRadio, { key: 'Enter' });
+    await waitFor(() => {
+      expect(darkRadio).toHaveAttribute('aria-checked', 'true');
+    });
   });
 
   // --- Accessibility validation with jest-axe ---
@@ -317,6 +580,10 @@ describe('SettingsPanel', () => {
     // Toast density radiogroup
     const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
     expect(densityGroup).toBeInTheDocument();
+    
+    // Form density radiogroup
+    const formDensityGroup = screen.getByRole('radiogroup', { name: /form density/i });
+    expect(formDensityGroup).toBeInTheDocument();
     
     // Quiet mode switch
     const quietSwitch = screen.getByRole('switch', { name: /quiet mode/i });
