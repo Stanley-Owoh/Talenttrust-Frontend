@@ -235,6 +235,35 @@ function ToastAnnouncer({ toasts }: { toasts: ToastRecord[] }) {
   const latestSuccess = [...toasts].reverse().find((toast) => toast.variant === 'success');
   const latestError = [...toasts].reverse().find((toast) => toast.variant === 'error');
 
+  const [statusAnnouncement, setStatusAnnouncement] = useState('');
+  const isMounted = useRef(false);
+
+  useEffect(() => {
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const count = toasts.length;
+      if (count === 0) {
+        setStatusAnnouncement('0 notifications');
+        return;
+      }
+
+      const errors = toasts.filter((t) => t.variant === 'error').length;
+      const successes = toasts.filter((t) => t.variant === 'success').length;
+      
+      const parts = [];
+      if (errors > 0) parts.push(`${errors} error${errors === 1 ? '' : 's'}`);
+      if (successes > 0) parts.push(`${successes} success${successes === 1 ? '' : 'es'}`);
+      
+      setStatusAnnouncement(`${count} notification${count === 1 ? '' : 's'} (${parts.join(', ')})`);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [toasts]);
+
   return (
     <>
       <div aria-atomic="true" aria-live="polite" className="sr-only">
@@ -242,6 +271,9 @@ function ToastAnnouncer({ toasts }: { toasts: ToastRecord[] }) {
       </div>
       <div aria-atomic="true" aria-live="assertive" className="sr-only">
         {latestError ? `${latestError.title}${latestError.description ? `. ${latestError.description}` : ''}` : ''}
+      </div>
+      <div aria-atomic="true" aria-live="polite" className="sr-only">
+        {statusAnnouncement}
       </div>
     </>
   );
