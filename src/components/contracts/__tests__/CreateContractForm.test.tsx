@@ -60,6 +60,43 @@ describe('CreateContractForm', () => {
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
   });
 
+  it('matches the empty-state form structure', () => {
+    const { container } = renderForm();
+
+    expect(container.firstChild).toMatchSnapshot();
+  });
+
+  it('matches the populated-state form structure', () => {
+    const { container } = renderForm();
+
+    fireEvent.change(screen.getByLabelText(/contract name/i), {
+      target: { value: 'Design Sprint' },
+    });
+    fireEvent.change(screen.getByLabelText(/freelancer stellar address/i), {
+      target: { value: VALID_ADDRESS },
+    });
+    fireEvent.change(screen.getByLabelText(/total value/i), {
+      target: { value: '5000' },
+    });
+    fireEvent.change(screen.getByLabelText(/currency/i), {
+      target: { value: 'XLM' },
+    });
+
+    expect(container.firstChild).toMatchSnapshot();
+  });
+
+  it('matches the error-state form structure after validation failures', async () => {
+    const { container } = renderForm();
+
+    fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert', { name: /there is a problem/i })).toBeInTheDocument();
+    });
+
+    expect(container.firstChild).toMatchSnapshot();
+  });
+
   it('calls onCancel when the Cancel button is clicked', () => {
     renderForm();
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
