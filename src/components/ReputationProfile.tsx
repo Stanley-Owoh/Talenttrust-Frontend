@@ -1,4 +1,6 @@
-import { memo, useMemo } from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 
 export type ReputationEvent = {
   id: string;
@@ -14,6 +16,8 @@ export type ReputationProfileProps = {
   history?: ReputationEvent[];
   /** Maximum possible score value. Used for aria-valuemax on the meter role. */
   maxScore?: number;
+  /** Number of history items shown per page. Defaults to 5. */
+  pageSize?: number;
 };
 
 export type ReputationBand = {
@@ -56,71 +60,34 @@ export function resolveReputationLevel(score: number, maxScore: number): string 
 const reputationSummary =
   'Reputation represents verified trust signals and activity history, not sensitive personal metadata. Privacy-friendly defaults keep your profile safe.';
 
-const ReputationProfile = memo(function ReputationProfile({
+/** Default number of history items shown per page. */
+export const REPUTATION_PAGE_SIZE = 5;
+
+export default function ReputationProfile({
   name,
   score,
   level,
   history = [],
   maxScore = 5,
+  pageSize = REPUTATION_PAGE_SIZE,
 }: ReputationProfileProps) {
   const hasReputation = typeof score === 'number' && score >= 0;
   const showPartial = hasReputation && history.length === 0;
 
-  const resolvedLevel = useMemo(() => {
-    return level !== undefined
-      ? level
-      : (hasReputation ? resolveReputationLevel(score, maxScore) : 'Community Member');
-  }, [level, hasReputation, score, maxScore]);
+  // Pagination: tracks how many history items are currently visible.
+  // Resets to the first page whenever history or pageSize changes so
+  // a data reload (or prop swap) always starts from the beginning.
+  const [visibleCount, setVisibleCount] = useState(pageSize);
+  useEffect(() => {
+    setVisibleCount(pageSize);
+  }, [history, pageSize]);
 
-  const renderedBands = useMemo(() => {
-    return getReputationBands(maxScore).map((band) => {
-      // If score is undefined/null, let's treat it as not active for any band, 
-      // but if we need a safe check:
-      const currentScore = score ?? 0;
-      const isActive = hasReputation && currentScore >= band.min && (
-        band.max === maxScore ? currentScore <= band.max : currentScore < band.max
-      );
-      return (
-        <li
-          key={band.label}
-          className={`rounded-2xl border p-3 transition-colors ${
-            isActive
-              ? 'border-indigo-200 bg-indigo-50/50 text-indigo-900 font-semibold'
-              : 'border-slate-200 bg-slate-50/50 text-slate-600'
-          }`}
-        >
-          <p className="font-bold text-xs uppercase tracking-wider text-slate-400">
-            {band.min.toFixed(1)} - {band.max.toFixed(1)}
-          </p>
-          <p className="mt-1 text-sm">{band.label}</p>
-        </li>
-      );
-    });
-  }, [maxScore, score, hasReputation]);
+  const visibleHistory = history.slice(0, visibleCount);
+  const hasMore = visibleCount < history.length;
 
-  const renderedHistory = useMemo(() => {
-    return history.map((event) => {
-      // Determine whether the date string is a parseable ISO date.
-      // If it is, expose the ISO value via dateTime for machine readability.
-      const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
-      return (
-        <li key={event.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-500">{event.type}</p>
-              <p className="mt-1 text-base font-semibold text-slate-950">{event.summary}</p>
-            </div>
-            <time
-              className="text-sm text-slate-500"
-              {...(isValidDate ? { dateTime: event.date } : {})}
-            >
-              {event.date}
-            </time>
-          </div>
-        </li>
-      );
-    });
-  }, [history]);
+  const resolvedLevel = level !== undefined
+    ? level
+    : (hasReputation ? resolveReputationLevel(score, maxScore) : 'Community Member');
 
   return (
     <section className="w-full max-w-5xl mx-auto space-y-8 px-4 py-10 sm:px-6 lg:px-8" aria-labelledby="profile-heading">
@@ -266,29 +233,51 @@ const ReputationProfile = memo(function ReputationProfile({
             </p>
           </div>
         ) : (
-          <ol className="space-y-4">
-            {history.map((event) => {
-              // Determine whether the date string is a parseable ISO date.
-              // If it is, expose the ISO value via dateTime for machine readability.
-              const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
-              return (
-                <li key={event.id} className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5">
-                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                     <div>
-                       <p className="text-sm font-medium text-[var(--muted-foreground)]">{event.type}</p>
-                       <p className="mt-1 text-base font-semibold text-[var(--foreground)]">{event.summary}</p>
-                     </div>
-                     <time
-                       className="text-sm text-[var(--muted-foreground)]"
-                      {...(isValidDate ? { dateTime: event.date } : {})}
-                    >
-                      {event.date}
-                    </time>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+          <>
+            <ol className="space-y-4">
+              {visibleHistory.map((event) => {
+                // Determine whether the date string is a parseable ISO date.
+                // If it is, expose the ISO value via dateTime for machine readability.
+                const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
+                return (
+                  <li key={event.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-500">{event.type}</p>
+                        <p className="mt-1 text-base font-semibold text-slate-950">{event.summary}</p>
+                      </div>
+                      <time
+                        className="text-sm text-slate-500"
+                        {...(isValidDate ? { dateTime: event.date } : {})}
+                      >
+                        {event.date}
+                      </time>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+
+            {hasMore ? (
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  onClick={() => setVisibleCount((c) => c + pageSize)}
+                  aria-label={`Load more reputation history. Showing ${visibleCount} of ${history.length} events.`}
+                >
+                  Load more
+                </button>
+              </div>
+            ) : (
+              <p
+                className="mt-6 text-center text-sm text-slate-500"
+                data-testid="reputation-history-end"
+              >
+                All {history.length} events shown
+              </p>
+            )}
+          </>
         )}
       </div>
     </section>
