@@ -255,4 +255,85 @@ describe('MilestonesList', () => {
       expect(isDueSoon('not-a-date', today, 7)).toBe(false);
     });
   });
+
+  describe('pagination / load-more', () => {
+    const SEVEN_MILESTONES: Milestone[] = [
+      { id: 'a', title: 'Alpha',   status: 'Pending',   payout: 100, currency: 'USD', dueDate: 'May 10, 2026' },
+      { id: 'b', title: 'Bravo',   status: 'Active',    payout: 200, currency: 'USD', dueDate: 'May 11, 2026' },
+      { id: 'c', title: 'Charlie', status: 'Completed', payout: 300, currency: 'USD', dueDate: 'May 12, 2026' },
+      { id: 'd', title: 'Delta',   status: 'Pending',   payout: 400, currency: 'USD', dueDate: 'May 13, 2026' },
+      { id: 'e', title: 'Echo',    status: 'Paid',      payout: 500, currency: 'USD', dueDate: 'May 14, 2026' },
+      { id: 'f', title: 'Foxtrot', status: 'Pending',   payout: 600, currency: 'USD', dueDate: 'May 15, 2026' },
+      { id: 'g', title: 'Golf',    status: 'Disputed',  payout: 700, currency: 'USD', dueDate: 'May 16, 2026' },
+    ];
+
+    it('shows only the first page (pageSize items) on initial render', () => {
+      render(<MilestonesList milestones={SEVEN_MILESTONES} pageSize={3} />);
+
+      expect(screen.getByText('Alpha')).toBeInTheDocument();
+      expect(screen.getByText('Bravo')).toBeInTheDocument();
+      expect(screen.getByText('Charlie')).toBeInTheDocument();
+      expect(screen.queryByText('Delta')).not.toBeInTheDocument();
+      expect(screen.queryByText('Echo')).not.toBeInTheDocument();
+      expect(screen.queryByText('Foxtrot')).not.toBeInTheDocument();
+      expect(screen.queryByText('Golf')).not.toBeInTheDocument();
+      expect(screen.getByTestId('load-more-btn')).toBeInTheDocument();
+    });
+
+    it('load-more button displays the remaining count', () => {
+      render(<MilestonesList milestones={SEVEN_MILESTONES} pageSize={3} />);
+
+      const btn = screen.getByTestId('load-more-btn');
+      expect(btn).toHaveTextContent('Load More (4 remaining)');
+    });
+
+    it('clicking load-more appends the next page of milestones', () => {
+      render(<MilestonesList milestones={SEVEN_MILESTONES} pageSize={3} />);
+
+      fireEvent.click(screen.getByTestId('load-more-btn'));
+
+      expect(screen.getByText('Alpha')).toBeInTheDocument();
+      expect(screen.getByText('Bravo')).toBeInTheDocument();
+      expect(screen.getByText('Charlie')).toBeInTheDocument();
+      expect(screen.getByText('Delta')).toBeInTheDocument();
+      expect(screen.getByText('Echo')).toBeInTheDocument();
+      expect(screen.getByText('Foxtrot')).toBeInTheDocument();
+      expect(screen.queryByText('Golf')).not.toBeInTheDocument();
+      expect(screen.getByTestId('load-more-btn')).toHaveTextContent('Load More (1 remaining)');
+    });
+
+    it('load-more button disappears when all milestones are visible', () => {
+      render(<MilestonesList milestones={SEVEN_MILESTONES} pageSize={3} />);
+
+      fireEvent.click(screen.getByTestId('load-more-btn'));
+      fireEvent.click(screen.getByTestId('load-more-btn'));
+
+      expect(screen.getByText('Golf')).toBeInTheDocument();
+      expect(screen.queryByTestId('load-more-btn')).not.toBeInTheDocument();
+    });
+
+    it('no load-more button when total milestones equals or is less than pageSize', () => {
+      render(<MilestonesList milestones={SEVEN_MILESTONES.slice(0, 3)} pageSize={3} />);
+
+      expect(screen.queryByTestId('load-more-btn')).not.toBeInTheDocument();
+    });
+
+    it('resets pagination when milestones prop changes (filter change)', () => {
+      const { rerender } = render(<MilestonesList milestones={SEVEN_MILESTONES} pageSize={3} />);
+
+      expect(screen.queryByText('Delta')).not.toBeInTheDocument();
+      expect(screen.getByTestId('load-more-btn')).toBeInTheDocument();
+
+      rerender(<MilestonesList milestones={SEVEN_MILESTONES.slice(0, 4)} pageSize={3} />);
+
+      expect(screen.getByText('Alpha')).toBeInTheDocument();
+      expect(screen.queryByText('Delta')).not.toBeInTheDocument();
+      expect(screen.getByTestId('load-more-btn')).toHaveTextContent('Load More (1 remaining)');
+    });
+
+    it('passes axe accessibility checks with load-more button visible', async () => {
+      const { container } = render(<MilestonesList milestones={SEVEN_MILESTONES} pageSize={3} />);
+      expect(await axe(container)).toHaveNoViolations();
+    });
+  });
 });
