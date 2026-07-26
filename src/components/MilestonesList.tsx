@@ -5,8 +5,12 @@ import { usePreferences } from '@/lib/preferences';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useToast } from '@/components/toast/toast-provider';
 import { isDueSoon } from '@/lib/dueSoon';
-import { findCurrencyMismatches, normalizeCurrencyCode } from '@/lib/currencyMismatch';
+import {
+  findCurrencyMismatches,
+  normalizeCurrencyCode,
+} from '@/lib/currencyMismatch';
 import { milestoneStatusTally } from '@/lib/milestoneStatusTally';
+import { sanitizeUserText } from '@/lib/sanitizeUserText';
 
 export type Milestone = {
   id: string;
@@ -24,21 +28,18 @@ export const PAGE_SIZE_DEFAULT = 5;
 export type MilestonesListProps = {
   milestones: Milestone[];
   contractCurrency?: string;
-  /**
-   * Called whenever a milestone row is saved in inline edit mode. The parent
-   * is the single source of truth for milestones state and persistence —
-   * this component never mutates its `milestones` prop directly.
-   *
-   * Returning `false` from this callback surfaces the failure to the user as
-   * an in-line error inside the row. The default implementation in the
-   * parent (`page.tsx`) routes through `repository.updateMilestone`, which
-   * returns `false` when the milestone id cannot be found (e.g. removed by
-   * another tab).
-   */
-  onUpdateMilestone?: (id: string, patch: Partial<Milestone>) => boolean;
+  onUpdateMilestone?: (milestone: Milestone) => boolean;
 };
 
 export const REMINDER_WINDOW_DAYS = 7;
+const MAX_MILESTONE_TITLE_LENGTH = 200;
+const STATUS_OPTIONS: Milestone['status'][] = [
+  'Pending',
+  'Active',
+  'Completed',
+  'Paid',
+  'Disputed',
+];
 
 const MilestonesList = ({
   milestones,
@@ -108,6 +109,8 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
   const [announcementNonce, setAnnouncementNonce] = useState(0);
 
   const listContainerRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
 
   const isCompact = preferences.milestonesDensity === 'compact';
 
@@ -124,7 +127,11 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
   );
 
   const mismatchCurrencies = Array.from(
-    new Set(mismatchedMilestones.map((milestone) => normalizeCurrencyCode(milestone.currency))),
+    new Set(
+      mismatchedMilestones.map((milestone) =>
+        normalizeCurrencyCode(milestone.currency),
+      ),
+    ),
   ).sort();
 
   const normalizedContractCurrency = contractCurrency
@@ -188,9 +195,15 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
   }, []);
 
   return (
-    <section aria-labelledby="milestones-title" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section
+      aria-labelledby="milestones-title"
+      className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+    >
       <div className="flex items-center justify-between gap-4">
-        <h2 id="milestones-title" className="text-xl font-semibold text-slate-900">
+        <h2
+          id="milestones-title"
+          className="text-xl font-semibold text-slate-900"
+        >
           Milestones
         </h2>
         <div className="flex items-center gap-3">
@@ -264,13 +277,17 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
         >
           <p className="font-semibold">
             {mismatchedMilestones.length}{' '}
-            {mismatchedMilestones.length === 1 ? 'milestone uses' : 'milestones use'}{' '}
-            {mismatchCurrencies.join(', ')} instead of {normalizedContractCurrency}.
+            {mismatchedMilestones.length === 1
+              ? 'milestone uses'
+              : 'milestones use'}{' '}
+            {mismatchCurrencies.join(', ')} instead of{' '}
+            {normalizedContractCurrency}.
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {mismatchedMilestones.map((milestone) => (
               <li key={milestone.id}>
-                {milestone.title}: {formatAmount(milestone.payout, milestone.currency)}
+                {milestone.title}:{' '}
+                {formatAmount(milestone.payout, milestone.currency)}
               </li>
             ))}
           </ul>
@@ -284,12 +301,23 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
         >
           <div className="flex-1">
             <p className="font-semibold text-sm">
-              {dueSoonMilestones.length} {dueSoonMilestones.length === 1 ? 'milestone is' : 'milestones are'} due within {REMINDER_WINDOW_DAYS} days
+              {dueSoonMilestones.length}{' '}
+              {dueSoonMilestones.length === 1
+                ? 'milestone is'
+                : 'milestones are'}{' '}
+              due within {REMINDER_WINDOW_DAYS} days
             </p>
             <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-amber-800 dark:text-amber-300">
               {dueSoonMilestones.map((m, idx) => (
                 <li key={m.id} className="flex items-center gap-1.5">
-                  {idx > 0 && <span className="text-amber-400 select-none" aria-hidden="true">•</span>}
+                  {idx > 0 && (
+                    <span
+                      className="text-amber-400 select-none"
+                      aria-hidden="true"
+                    >
+                      •
+                    </span>
+                  )}
                   <a
                     href={`#milestone-${m.id}`}
                     className="font-medium underline hover:text-amber-950 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 rounded"
@@ -306,7 +334,9 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
             aria-label="Dismiss reminder"
             className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 hover:text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1 dark:text-amber-400 dark:hover:bg-amber-500/10 dark:hover:text-amber-200 transition-colors"
           >
-            <span aria-hidden="true" className="text-lg leading-none">&times;</span>
+            <span aria-hidden="true" className="text-lg leading-none">
+              &times;
+            </span>
           </button>
         </div>
       )}
@@ -344,7 +374,11 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
       <div
         ref={listContainerRef}
         role={milestones.length > 0 ? 'region' : undefined}
-        aria-labelledby={milestones.length > 0 ? 'milestones-title milestones-count' : undefined}
+        aria-labelledby={
+          milestones.length > 0
+            ? 'milestones-title milestones-count'
+            : undefined
+        }
         tabIndex={milestones.length > 0 ? 0 : undefined}
         className={`max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 ${isCompact ? 'mt-4 space-y-2' : 'mt-6 space-y-4'}`}
       >

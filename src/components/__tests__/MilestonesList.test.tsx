@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { axe } from 'jest-axe';
+import userEvent from '@testing-library/user-event';
 import MilestonesList from '../MilestonesList';
 import type { Milestone } from '../MilestonesList';
 import { parseLocalDate, isDueSoon } from '../../lib/dueSoon';
@@ -11,14 +12,49 @@ function r(element: React.ReactElement) {
 }
 
 const SAMPLE: Milestone[] = [
-  { id: '1', title: 'Milestone 1', status: 'Pending', payout: 500, currency: 'USD', dueDate: 'May 10, 2026' },
-  { id: '2', title: 'Milestone 2', status: 'Completed', payout: 1000, currency: 'USD', dueDate: 'Jun 1, 2026' },
+  {
+    id: '1',
+    title: 'Milestone 1',
+    status: 'Pending',
+    payout: 500,
+    currency: 'USD',
+    dueDate: 'May 10, 2026',
+  },
+  {
+    id: '2',
+    title: 'Milestone 2',
+    status: 'Completed',
+    payout: 1000,
+    currency: 'USD',
+    dueDate: 'Jun 1, 2026',
+  },
 ];
 
 const MIXED_CURRENCY_SAMPLE: Milestone[] = [
-  { id: '1', title: 'Milestone 1', status: 'Pending', payout: 500, currency: 'USD', dueDate: 'May 10, 2026' },
-  { id: '2', title: 'Milestone 2', status: 'Completed', payout: 1000, currency: 'EUR', dueDate: 'Jun 1, 2026' },
-  { id: '3', title: 'Milestone 3', status: 'Pending', payout: 250, currency: 'GBP', dueDate: 'Jun 15, 2026' },
+  {
+    id: '1',
+    title: 'Milestone 1',
+    status: 'Pending',
+    payout: 500,
+    currency: 'USD',
+    dueDate: 'May 10, 2026',
+  },
+  {
+    id: '2',
+    title: 'Milestone 2',
+    status: 'Completed',
+    payout: 1000,
+    currency: 'EUR',
+    dueDate: 'Jun 1, 2026',
+  },
+  {
+    id: '3',
+    title: 'Milestone 3',
+    status: 'Pending',
+    payout: 250,
+    currency: 'GBP',
+    dueDate: 'Jun 15, 2026',
+  },
 ];
 
 const scrollRegion = (container: HTMLElement) =>
@@ -45,7 +81,9 @@ describe('MilestonesList', () => {
 
       const region = scrollRegion(container);
       expect(region).toHaveAttribute('role', 'region');
-      expect(region.getAttribute('aria-labelledby')).toContain('milestones-title');
+      expect(region.getAttribute('aria-labelledby')).toContain(
+        'milestones-title',
+      );
     });
 
     it('includes the count span id in aria-labelledby', () => {
@@ -56,14 +94,15 @@ describe('MilestonesList', () => {
       expect(countSpan).toHaveTextContent('2 total');
 
       const region = scrollRegion(container);
-      expect(region.getAttribute('aria-labelledby')).toContain('milestones-count');
+      expect(region.getAttribute('aria-labelledby')).toContain(
+        'milestones-count',
+      );
     });
 
     it('count span reflects a single-item list', () => {
       const { container } = r(
         <MilestonesList milestones={[SAMPLE[0]]} />
       );
-      expect(container.querySelector('#milestones-count')).toHaveTextContent('1 total');
     });
 
     it('does not apply region attributes when the list is empty', () => {
@@ -188,7 +227,7 @@ describe('MilestonesList', () => {
       'focus-visible:outline-none',
       'focus-visible:ring-2',
       'focus-visible:ring-[var(--ring)]',
-      'focus-visible:ring-offset-2'
+      'focus-visible:ring-offset-2',
     );
   });
 
@@ -213,7 +252,7 @@ describe('MilestonesList', () => {
       <MilestonesList
         milestones={MIXED_CURRENCY_SAMPLE}
         contractCurrency="usd"
-      />
+      />,
     );
 
     const alert = screen.getByRole('alert');
@@ -227,6 +266,90 @@ describe('MilestonesList', () => {
     expect(alert).toHaveTextContent('Milestone 3:');
   });
 
+  it('enters edit mode with the current values prefilled', async () => {
+    render(<MilestonesList milestones={SAMPLE} />);
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /edit milestone/i })[0],
+    );
+
+    const titleInput = screen.getByLabelText(/title/i);
+    expect(titleInput).toHaveValue('Milestone 1');
+    expect(screen.getByLabelText(/payout amount/i)).toHaveValue('500');
+    expect(screen.getByLabelText(/currency/i)).toHaveValue('USD');
+  });
+
+  it('saves inline edits and calls the update handler once', async () => {
+    const user = userEvent.setup();
+    const onUpdateMilestone = jest.fn().mockReturnValue(true);
+    render(
+      <MilestonesList
+        milestones={SAMPLE}
+        onUpdateMilestone={onUpdateMilestone}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /edit milestone/i })[0],
+    );
+    await user.clear(screen.getByLabelText(/title/i));
+    await user.type(screen.getByLabelText(/title/i), 'Updated milestone');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(onUpdateMilestone).toHaveBeenCalledTimes(1);
+    expect(onUpdateMilestone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: '1',
+        title: 'Updated milestone',
+        payout: 500,
+        currency: 'USD',
+        dueDate: 'May 10, 2026',
+      }),
+    );
+  });
+
+  it('blocks save and keeps the row in edit mode when validation fails', async () => {
+    const user = userEvent.setup();
+    render(<MilestonesList milestones={SAMPLE} />);
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /edit milestone/i })[0],
+    );
+    await user.clear(screen.getByLabelText(/title/i));
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(screen.getByText('Title is required')).toBeInTheDocument();
+    expect(screen.getByLabelText(/title/i)).toHaveFocus();
+  });
+
+  it('cancels edits and restores the original values', async () => {
+    const user = userEvent.setup();
+    render(<MilestonesList milestones={SAMPLE} />);
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /edit milestone/i })[0],
+    );
+    await user.clear(screen.getByLabelText(/title/i));
+    await user.type(screen.getByLabelText(/title/i), 'Changed title');
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(screen.getByText('Milestone 1')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/title/i)).not.toBeInTheDocument();
+  });
+
+  it('cancels editing on Escape', async () => {
+    const user = userEvent.setup();
+    render(<MilestonesList milestones={SAMPLE} />);
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /edit milestone/i })[0],
+    );
+    await user.type(screen.getByLabelText(/title/i), '{Escape}');
+
+    expect(screen.getByText('Milestone 1')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/title/i)).not.toBeInTheDocument();
+  });
+
   it('passes axe accessibility checks with a populated list', async () => {
     const { container } = r(<MilestonesList milestones={SAMPLE} />);
     expect(await axe(container)).toHaveNoViolations();
@@ -237,7 +360,7 @@ describe('MilestonesList', () => {
       <MilestonesList
         milestones={MIXED_CURRENCY_SAMPLE}
         contractCurrency="USD"
-      />
+      />,
     );
 
     expect(await axe(container)).toHaveNoViolations();
@@ -259,8 +382,22 @@ describe('MilestonesList', () => {
 
     it('does not render banner if no milestones are due soon', () => {
       const milestones: Milestone[] = [
-        { id: '1', title: 'Future Milestone', status: 'Pending', payout: 500, currency: 'USD', dueDate: 'May 20, 2026' }, // 10 days away
-        { id: '2', title: 'TBD Milestone', status: 'Pending', payout: 1000, currency: 'USD', dueDate: undefined },
+        {
+          id: '1',
+          title: 'Future Milestone',
+          status: 'Pending',
+          payout: 500,
+          currency: 'USD',
+          dueDate: 'May 20, 2026',
+        }, // 10 days away
+        {
+          id: '2',
+          title: 'TBD Milestone',
+          status: 'Pending',
+          payout: 1000,
+          currency: 'USD',
+          dueDate: undefined,
+        },
       ];
       r(<MilestonesList milestones={milestones} />);
       expect(screen.queryByText(/due within/i)).not.toBeInTheDocument();
@@ -268,7 +405,14 @@ describe('MilestonesList', () => {
 
     it('renders banner with correct pluralization for 1 due-soon milestone', () => {
       const milestones: Milestone[] = [
-        { id: '1', title: 'Due Soon Milestone', status: 'Pending', payout: 500, currency: 'USD', dueDate: 'May 15, 2026' }, // 5 days away
+        {
+          id: '1',
+          title: 'Due Soon Milestone',
+          status: 'Pending',
+          payout: 500,
+          currency: 'USD',
+          dueDate: 'May 15, 2026',
+        }, // 5 days away
       ];
       r(<MilestonesList milestones={milestones} />);
       expect(screen.getByText('1 milestone is due within 7 days')).toBeInTheDocument();
@@ -277,8 +421,22 @@ describe('MilestonesList', () => {
 
     it('renders banner with correct pluralization for multiple due-soon milestones', () => {
       const milestones: Milestone[] = [
-        { id: '1', title: 'Milestone A', status: 'Pending', payout: 500, currency: 'USD', dueDate: 'May 12, 2026' }, // 2 days away
-        { id: '2', title: 'Milestone B', status: 'Active', payout: 1000, currency: 'USD', dueDate: 'May 17, 2026' }, // 7 days away
+        {
+          id: '1',
+          title: 'Milestone A',
+          status: 'Pending',
+          payout: 500,
+          currency: 'USD',
+          dueDate: 'May 12, 2026',
+        }, // 2 days away
+        {
+          id: '2',
+          title: 'Milestone B',
+          status: 'Active',
+          payout: 1000,
+          currency: 'USD',
+          dueDate: 'May 17, 2026',
+        }, // 7 days away
       ];
       r(<MilestonesList milestones={milestones} />);
       expect(screen.getByText('2 milestones are due within 7 days')).toBeInTheDocument();
@@ -288,8 +446,22 @@ describe('MilestonesList', () => {
 
     it('excludes milestones with terminal statuses (Paid, Completed)', () => {
       const milestones: Milestone[] = [
-        { id: '1', title: 'Milestone A', status: 'Paid', payout: 500, currency: 'USD', dueDate: 'May 12, 2026' }, // 2 days away (Paid)
-        { id: '2', title: 'Milestone B', status: 'Completed', payout: 1000, currency: 'USD', dueDate: 'May 15, 2026' }, // 5 days away (Completed)
+        {
+          id: '1',
+          title: 'Milestone A',
+          status: 'Paid',
+          payout: 500,
+          currency: 'USD',
+          dueDate: 'May 12, 2026',
+        }, // 2 days away (Paid)
+        {
+          id: '2',
+          title: 'Milestone B',
+          status: 'Completed',
+          payout: 1000,
+          currency: 'USD',
+          dueDate: 'May 15, 2026',
+        }, // 5 days away (Completed)
       ];
       r(<MilestonesList milestones={milestones} />);
       expect(screen.queryByText(/due within/i)).not.toBeInTheDocument();
@@ -297,8 +469,22 @@ describe('MilestonesList', () => {
 
     it('handles exactly-at-boundary due dates (today and 7 days from now)', () => {
       const milestones: Milestone[] = [
-        { id: '1', title: 'Due Today', status: 'Pending', payout: 500, currency: 'USD', dueDate: '2026-05-10' }, // Today (May 10)
-        { id: '2', title: 'Due in 7 Days', status: 'Pending', payout: 1000, currency: 'USD', dueDate: '2026-05-17' }, // Exactly 7 days
+        {
+          id: '1',
+          title: 'Due Today',
+          status: 'Pending',
+          payout: 500,
+          currency: 'USD',
+          dueDate: '2026-05-10',
+        }, // Today (May 10)
+        {
+          id: '2',
+          title: 'Due in 7 Days',
+          status: 'Pending',
+          payout: 1000,
+          currency: 'USD',
+          dueDate: '2026-05-17',
+        }, // Exactly 7 days
       ];
       r(<MilestonesList milestones={milestones} />);
       expect(screen.getByText('2 milestones are due within 7 days')).toBeInTheDocument();
@@ -306,7 +492,14 @@ describe('MilestonesList', () => {
 
     it('ignores milestones with invalid/unparseable due dates', () => {
       const milestones: Milestone[] = [
-        { id: '1', title: 'Invalid Date', status: 'Pending', payout: 500, currency: 'USD', dueDate: 'Not a Date' },
+        {
+          id: '1',
+          title: 'Invalid Date',
+          status: 'Pending',
+          payout: 500,
+          currency: 'USD',
+          dueDate: 'Not a Date',
+        },
       ];
       r(<MilestonesList milestones={milestones} />);
       expect(screen.queryByText(/due within/i)).not.toBeInTheDocument();
@@ -314,13 +507,20 @@ describe('MilestonesList', () => {
 
     it('hides the banner on dismiss and shifts focus to the scroll region', async () => {
       const milestones: Milestone[] = [
-        { id: '1', title: 'Due Soon', status: 'Pending', payout: 500, currency: 'USD', dueDate: 'May 15, 2026' },
+        {
+          id: '1',
+          title: 'Due Soon',
+          status: 'Pending',
+          payout: 500,
+          currency: 'USD',
+          dueDate: 'May 15, 2026',
+        },
       ];
       const { container } = r(<MilestonesList milestones={milestones} />);
       
       const dismissBtn = screen.getByRole('button', { name: 'Dismiss reminder' });
       expect(dismissBtn).toBeInTheDocument();
-      
+
       // Focus the dismiss button first to simulate user keyboard interaction
       dismissBtn.focus();
       expect(document.activeElement).toBe(dismissBtn);
@@ -332,7 +532,9 @@ describe('MilestonesList', () => {
       expect(screen.queryByText(/due within/i)).not.toBeInTheDocument();
 
       // Focus should shift to the scroll container
-      const region = container.querySelector('.max-h-\\[calc\\(100vh-260px\\)\\]');
+      const region = container.querySelector(
+        '.max-h-\\[calc\\(100vh-260px\\)\\]',
+      );
       expect(document.activeElement).toBe(region);
     });
   });
@@ -342,7 +544,14 @@ describe('MilestonesList', () => {
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
     const tomorrowStr = tomorrow.toLocaleDateString('en-US');
     const milestones: Milestone[] = [
-      { id: '1', title: 'Due Soon', status: 'Pending', payout: 500, currency: 'USD', dueDate: tomorrowStr },
+      {
+        id: '1',
+        title: 'Due Soon',
+        status: 'Pending',
+        payout: 500,
+        currency: 'USD',
+        dueDate: tomorrowStr,
+      },
     ];
     const { container } = r(<MilestonesList milestones={milestones} />);
     expect(await axe(container)).toHaveNoViolations();

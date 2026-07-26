@@ -1,10 +1,19 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  Suspense,
+} from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import EmptyState from '../../components/EmptyState';
 import MilestonesList from '../../components/MilestonesList';
-import MilestoneFilter, { type MilestoneStatusFilter } from '../../components/milestones/MilestoneFilter';
+import MilestoneFilter, {
+  type MilestoneStatusFilter,
+} from '../../components/milestones/MilestoneFilter';
 import { MilestoneCreationForm } from '../../components/milestones/MilestoneCreationForm';
 import { listMilestones, saveMilestone, updateMilestone } from '@/lib/repository';
 import { getItem, setItem } from '@/lib/safeStorage';
@@ -56,9 +65,13 @@ export const SAMPLE_MILESTONES: Milestone[] = [
   },
 ];
 
-const VALID_STATUSES: MilestoneStatusFilter[] = ['All', 'Pending', 'Completed', 'Paid', 'Disputed'];
-type MilestoneSortOption = 'newest' | 'oldest';
-const VALID_SORT_OPTIONS: MilestoneSortOption[] = ['newest', 'oldest'];
+const VALID_STATUSES: MilestoneStatusFilter[] = [
+  'All',
+  'Pending',
+  'Completed',
+  'Paid',
+  'Disputed',
+];
 
 function getValidStatus(param: string | null): MilestoneStatusFilter {
   return param && (VALID_STATUSES as string[]).includes(param)
@@ -81,9 +94,8 @@ const MilestonesContent: React.FC = () => {
   const hasAppliedUrlStateRef = useRef(false);
 
   const initialStatus = getValidStatus(searchParams.get('status'));
-  const initialSort = getValidSortOption(searchParams.get('sort'));
-  const [statusFilter, setStatusFilter] = useState<MilestoneStatusFilter>(initialStatus);
-  const [sortOrder, setSortOrder] = useState<MilestoneSortOption>(initialSort);
+  const [statusFilter, setStatusFilter] =
+    useState<MilestoneStatusFilter>(initialStatus);
   const [showForm, setShowForm] = useState(false);
   const { showError } = useToast();
 
@@ -95,18 +107,14 @@ const MilestonesContent: React.FC = () => {
 
   // Sync filter/sort state changes to the URL without adding browser history entries.
   useEffect(() => {
-    if (!hasAppliedUrlStateRef.current) {
-      hasAppliedUrlStateRef.current = true;
-      return;
-    }
-
-    const currentStatusParam = searchParams.get('status');
-    const currentSortParam = searchParams.get('sort');
-    const nextStatusParam = statusFilter === 'All' ? null : statusFilter;
-    const nextSortParam = sortOrder === 'newest' ? null : sortOrder;
-
-    if (currentStatusParam === nextStatusParam && currentSortParam === nextSortParam) {
-      return;
+    const currentUrlStatus = searchParams.get('status');
+    if (
+      currentUrlStatus !== statusFilter &&
+      !(currentUrlStatus === null && statusFilter === 'All')
+    ) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('status', statusFilter);
+      router.replace(`?${params.toString()}`);
     }
 
     const timeoutId = window.setTimeout(() => {
@@ -218,6 +226,18 @@ const MilestonesContent: React.FC = () => {
     setShowForm(false);
   }, []);
 
+  const handleUpdateMilestone = useCallback((milestone: Milestone) => {
+    const persisted = updateMilestone(milestone.id, milestone);
+
+    if (!persisted) {
+      return false;
+    }
+
+    setMilestones((current) =>
+      current.map((item) => (item.id === milestone.id ? milestone : item)),
+    );
+    return true;
+  }, []);
   /**
    * Inline-edit save handler.
    *

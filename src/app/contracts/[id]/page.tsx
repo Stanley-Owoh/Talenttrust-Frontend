@@ -14,7 +14,11 @@ import ContractStatusAnnouncer from '@/components/ContractStatusAnnouncer';
 import SafeBoundary from '@/components/SafeBoundary';
 import { resolveContractData, ContractData } from '@/lib/contractResolver';
 import { useToast } from '@/components/toast/toast-provider';
-import { upsertContract, listMilestonesByContract } from '@/lib/repository';
+import {
+  upsertContract,
+  listMilestonesByContract,
+  updateMilestone,
+} from '@/lib/repository';
 import { isValidContractId } from '@/lib/validateContractId';
 import type { Contract, Milestone } from '@/types/domain';
 
@@ -29,10 +33,15 @@ import type { Contract, Milestone } from '@/types/domain';
  * @param contractId - The contract id to filter persisted milestones by.
  * @returns The merged, de-duplicated milestone list for this contract.
  */
-function mergeContractMilestones(baseMilestones: Milestone[], contractId: string): Milestone[] {
+function mergeContractMilestones(
+  baseMilestones: Milestone[],
+  contractId: string,
+): Milestone[] {
   const merged = new Map<string, Milestone>();
   baseMilestones.forEach((milestone) => merged.set(milestone.id, milestone));
-  listMilestonesByContract(contractId).forEach((milestone) => merged.set(milestone.id, milestone));
+  listMilestonesByContract(contractId).forEach((milestone) =>
+    merged.set(milestone.id, milestone),
+  );
   return Array.from(merged.values());
 }
 
@@ -90,7 +99,8 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       successDescription: string,
     ) => {
       if (!contractData) {
-        const message = 'Contract details are unavailable, so the status could not be updated.';
+        const message =
+          'Contract details are unavailable, so the status could not be updated.';
         setErrorMessage(message);
         showError({
           title: 'Unable to update contract',
@@ -102,10 +112,13 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       setIsPersistingStatus(true);
       setErrorMessage(null);
 
-      const persisted = upsertContract(buildPersistedContract(contractData, nextStatus));
+      const persisted = upsertContract(
+        buildPersistedContract(contractData, nextStatus),
+      );
 
       if (!persisted) {
-        const message = 'The contract status could not be persisted. Please try again.';
+        const message =
+          'The contract status could not be persisted. Please try again.';
         setErrorMessage(message);
         showError({
           title: 'Unable to update contract',
@@ -143,7 +156,9 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       } catch (error) {
         if (isMountedRef.current) {
           setErrorMessage(
-            error instanceof Error ? error.message : 'Failed to load contract. Please try again.'
+            error instanceof Error
+              ? error.message
+              : 'Failed to load contract. Please try again.',
           );
         }
       } finally {
@@ -192,6 +207,19 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
   const handleViewSummary = () => {
     // Replace with summary navigation.
   };
+
+  const handleUpdateMilestone = useCallback((milestone: Milestone) => {
+    const persisted = updateMilestone(milestone.id, milestone);
+
+    if (!persisted) {
+      return false;
+    }
+
+    setMilestones((current) =>
+      current.map((item) => (item.id === milestone.id ? milestone : item)),
+    );
+    return true;
+  }, []);
 
   const status = contractData?.status || 'Active';
 
