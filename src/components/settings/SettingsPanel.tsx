@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { usePreferences } from '@/lib/preferences';
+import { reportError } from '@/lib/errorReporter';
 
 const FOCUSABLE_SELECTORS =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -70,6 +71,38 @@ function RadioGroup<T extends string>({
       ))}
     </div>
   );
+}
+
+export class ThemeErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    reportError(error, 'ThemeErrorBoundary');
+  }
+
+  reset = () => this.setState({ hasError: false });
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div role="alert" className="p-4 border border-[var(--destructive)] rounded-md bg-[var(--destructive)]/10 text-sm space-y-3 my-4">
+          <p className="text-[var(--destructive)] font-medium">Theme section failed to load.</p>
+          <button 
+            onClick={this.reset}
+            className="px-3 py-1.5 bg-[var(--surface)] border border-[var(--destructive)] text-[var(--destructive)] rounded-md hover:opacity-80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--destructive)] focus-visible:ring-offset-2 font-medium"
+            aria-label="Retry loading theme section"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 interface SettingsPanelProps {
@@ -171,18 +204,20 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             <h3 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Appearance</h3>
             
             <div className="space-y-4">
-              <div>
-                <label id="theme-label" className="block text-sm font-medium mb-2 text-[var(--foreground)]">Theme</label>
-                <RadioGroup
-                  options={['light', 'dark', 'system'] as const}
-                  value={preferences.theme}
-                  onChange={(val) => updatePreference('theme', val)}
-                  labelId="theme-label"
-                  ariaLabel="Theme"
-                  containerClassName="grid grid-cols-3 gap-2"
-                  textClassName="capitalize"
-                />
-              </div>
+              <ThemeErrorBoundary>
+                <div>
+                  <label id="theme-label" className="block text-sm font-medium mb-2 text-[var(--foreground)]">Theme</label>
+                  <RadioGroup
+                    options={['light', 'dark', 'system'] as const}
+                    value={preferences.theme}
+                    onChange={(val) => updatePreference('theme', val)}
+                    labelId="theme-label"
+                    ariaLabel="Theme"
+                    containerClassName="grid grid-cols-3 gap-2"
+                    textClassName="capitalize"
+                  />
+                </div>
+              </ThemeErrorBoundary>
 
               <div>
                 <label id="currency-label" className="block text-sm font-medium mb-2 text-[var(--foreground)]">Currency Display</label>
