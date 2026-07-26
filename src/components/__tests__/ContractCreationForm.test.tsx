@@ -510,4 +510,52 @@ describe('ContractCreationForm', () => {
       });
     });
   });
+  describe('Focus Management', () => {
+    it('moves focus to the first input on open and restores it to the trigger on close', async () => {
+      const Wrapper = () => {
+        const [isOpen, setIsOpen] = React.useState(false);
+        return (
+          <div>
+            <button onClick={() => setIsOpen(true)}>Open Dialog</button>
+            {isOpen && <ContractCreationForm onSubmit={mockOnSubmit} onCancel={() => setIsOpen(false)} />}
+          </div>
+        );
+      };
+      
+      const user = userEvent.setup();
+      render(<Wrapper />);
+      
+      const trigger = screen.getByRole('button', { name: 'Open Dialog' });
+      trigger.focus();
+      await user.click(trigger);
+      
+      await waitFor(() => {
+        expect(screen.getByLabelText(/contract name/i)).toHaveFocus();
+      });
+      
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+      
+      await waitFor(() => {
+        expect(trigger).toHaveFocus();
+      });
+    });
+
+    it('traps focus within the dialog', async () => {
+      const user = userEvent.setup();
+      render(<ContractCreationForm {...defaultProps} />);
+
+      const firstInput = screen.getByLabelText(/contract name/i);
+      
+      // Shift+Tab from the first input should wrap to the last focusable element
+      firstInput.focus();
+      await user.tab({ shift: true });
+      
+      // The "Create Contract" button is the last focusable element
+      expect(screen.getByRole('button', { name: /create contract/i })).toHaveFocus();
+      
+      // Tab from the last focusable element should wrap back to the first
+      await user.tab();
+      expect(firstInput).toHaveFocus();
+    });
+  });
 });

@@ -108,4 +108,30 @@ describe('Navbar', () => {
 
     expect(results).toHaveNoViolations();
   });
+
+  describe('rendered structure snapshots', () => {
+    it('matches the loaded navigation structure with an active route', () => {
+      mockUsePathname.mockReturnValue('/contracts');
+
+      const { container } = render(<Navbar />);
+
+      expect(container.firstChild).toMatchSnapshot();
+    });
+
+    it('matches the empty default navigation structure without an active route', () => {
+      mockUsePathname.mockReturnValue('/');
+
+      const { container } = render(<Navbar />);
+
+      expect(container.firstChild).toMatchSnapshot();
+    });
+
+    it('matches the fallback navigation structure for an unknown route', () => {
+      mockUsePathname.mockReturnValue('/not-found');
+
+      const { container } = render(<Navbar />);
+
+      expect(container.firstChild).toMatchSnapshot();
+    });
+  });
 });

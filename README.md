@@ -38,8 +38,12 @@ Open [http://localhost:3000](http://localhost:3000).
 This repository keeps user-facing and implementation notes inside the `docs/` folder. Key documentation includes:
 
 - `docs/components/Accessibility.md` — Accessibility testing, a11y helpers, and issue #383 notes
+- `docs/components/Forms.md` — Consolidated Forms API reference (props, types, minimal usage for `FormField`, `ErrorSummary`, `ContractCreationForm`, `CreateContractForm`, `MilestoneCreationForm`, `WalletAddressInput`, `ConfirmDialog`) — closes #859
 - `docs/components/ReputationPage.md` — Reputation page implementation and rendering states
+- `docs/components/Toast.md` — Toast usage guide: provider setup, `useToast` hook, props, common patterns, and accessibility
+- `docs/components/Wallet.md` — Wallet API reference: `WalletProvider`, `useWallet` hook, `WalletConnectButton`, and `WalletAddressInput` props and usage examples
 - `docs/data-model.md` — Data model and persistence guide
+- `docs/forms-data-flow.md` — Forms data-flow diagram (fetch -> transform -> render) and implementation notes
 - `docs/persistence.md` — Persistence API and local storage patterns
 - `docs/preferences.md` — Preferences provider and currency/locale helpers
 - `docs/contexts/wallet-session.md` — Wallet session lifecycle and idle disconnect guidance
@@ -91,6 +95,7 @@ The app includes a global accessible toast system for transient feedback:
 - Success messages announce through a polite `aria-live` region.
 - Error messages announce through an assertive `aria-live` region.
 - **Viewport overflow protection**: at most **4 toasts** are visible at once (`MAX_VISIBLE_TOASTS = 4`). When a new toast would exceed this cap, the oldest visible toast is evicted and its auto-dismiss timer is cancelled before the new toast is appended. The live-region announcer always reflects the newest toast.
+- **Optional action buttons**: pass `action: { label, onClick }` to render an inline button (e.g. "Retry" or "Undo"). Clicking it fires the callback and immediately dismisses the toast. The label is rendered as plain text (XSS-safe). Omitting `action` keeps existing behavior unchanged.
 
 ## Session safety
 

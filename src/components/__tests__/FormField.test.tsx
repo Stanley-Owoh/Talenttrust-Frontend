@@ -1,3 +1,6 @@
+/**
+ * Isolated unit tests for FormField accessibility prop cloning
+ */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { FormField } from '../FormField';

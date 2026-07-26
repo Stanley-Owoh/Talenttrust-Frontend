@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfirmDialog } from '../ConfirmDialog';
 
@@ -208,5 +208,39 @@ describe('ConfirmDialog', () => {
     await user.tab({ shift: true });
 
     expect(buttons[1]).toHaveFocus();
+  });
+  it('moves focus to the cancel button on open and restores it to the trigger on close', async () => {
+    const Wrapper = () => {
+      const [isOpen, setIsOpen] = React.useState(false);
+      return (
+        <div>
+          <button onClick={() => setIsOpen(true)}>Open Confirm</button>
+          <ConfirmDialog
+            isOpen={isOpen}
+            title="Wrap focus"
+            description="Keep focus inside the dialog"
+            onConfirm={jest.fn()}
+            onCancel={() => setIsOpen(false)}
+          />
+        </div>
+      );
+    };
+
+    const user = userEvent.setup();
+    render(<Wrapper />);
+    
+    const trigger = screen.getByRole('button', { name: 'Open Confirm' });
+    trigger.focus();
+    await user.click(trigger);
+    
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    });
+    
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    
+    await waitFor(() => {
+      expect(trigger).toHaveFocus();
+    });
   });
 });

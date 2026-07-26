@@ -1,16 +1,31 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import EmptyState from '../../components/EmptyState';
 import { ContractCreationForm } from '../../components/ContractCreationForm';
+import { ContractsSkeleton } from '../../components/contracts/ContractsSkeleton';
 import { listContracts, saveContract } from '@/lib/repository';
 import type { Contract } from '@/types/domain';
 
 const ContractsPage: React.FC = () => {
-  // Initialise from localStorage on first render; subsequent saves trigger
-  // a state update so the list reflects newly added items immediately.
-  const [contracts, setContracts] = useState<Contract[]>(() => listContracts());
+  /**
+   * `loading` is true while the initial contract list has not yet been read.
+   * Using a one-tick deferred load (useEffect) ensures:
+   *   1. The skeleton is always rendered on the first paint (no layout shift).
+   *   2. The component remains compatible with SSR/hydration because
+   *      localStorage is only accessed on the client after mount.
+   */
+  const [loading, setLoading] = useState(true);
+  const [contracts, setContracts] = useState<Contract[]>([]);
   const [showForm, setShowForm] = useState(false);
+
+  // Load contracts from localStorage after the component mounts so the
+  // skeleton is guaranteed to appear on the first paint.
+  useEffect(() => {
+    const stored = listContracts();
+    setContracts(stored);
+    setLoading(false);
+  }, []);
 
   /**
    * Opens the contract creation form modal.
@@ -37,10 +52,27 @@ const ContractsPage: React.FC = () => {
   }, []);
 
   return (
-    <main className="min-h-screen p-8">
+    <main className="min-h-screen p-8" aria-busy={loading ? 'true' : undefined}>
+      {/* Accessible announcement for loading state */}
+      {loading && (
+        <span
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="sr-only"
+        >
+          Loading contracts…
+        </span>
+      )}
+
+      {/* Page heading – always visible to anchor the layout */}
       <h1 className="text-2xl font-bold mb-6">Contracts</h1>
 
-      {!showForm && contracts.length === 0 && (
+      {/* ── Loading state ─────────────────────────────────────────────── */}
+      {loading && <ContractsSkeleton count={3} />}
+
+      {/* ── Settled state ─────────────────────────────────────────────── */}
+      {!loading && !showForm && contracts.length === 0 && (
         <EmptyState
           illustration="contracts"
           title="No contracts found"
@@ -50,7 +82,7 @@ const ContractsPage: React.FC = () => {
         />
       )}
 
-      {!showForm && contracts.length > 0 && (
+      {!loading && !showForm && contracts.length > 0 && (
         <>
           <div className="mb-4 flex justify-end">
             <button
@@ -78,7 +110,7 @@ const ContractsPage: React.FC = () => {
         </>
       )}
 
-      {showForm && (
+      {!loading && showForm && (
         <ContractCreationForm
           onSubmit={handleSubmitContract}
           onCancel={handleCancelForm}
@@ -89,4 +121,3 @@ const ContractsPage: React.FC = () => {
 };
 
 export default ContractsPage;
-

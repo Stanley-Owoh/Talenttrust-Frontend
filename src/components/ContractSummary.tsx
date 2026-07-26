@@ -42,6 +42,11 @@ export type ContractSummaryProps = {
   status: StatusType;
   createdAt: string;
   milestoneCount: number;
+  /**
+   * Monotonically incrementing version used by the persistence layer to guard
+   * against stale overwrites. Consumers should treat this as opaque.
+   */
+  version?: number;
 };
 
 const ContractSummary = ({

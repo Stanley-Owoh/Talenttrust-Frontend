@@ -94,12 +94,10 @@ export function WalletAddressInput({
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      // Clear the internal error as the user types so the error
-      // doesn't persist while they are correcting the input.
       if (internalError) {
         setInternalError(null);
-        onValidation?.(id, null);
       }
+      onValidation?.(id, null);
       onChange(e.target.value);
     },
     [onChange, internalError, onValidation, id]

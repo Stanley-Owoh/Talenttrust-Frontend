@@ -14,7 +14,8 @@ import ContractStatusAnnouncer from '@/components/ContractStatusAnnouncer';
 import SafeBoundary from '@/components/SafeBoundary';
 import { resolveContractData, ContractData } from '@/lib/contractResolver';
 import { useToast } from '@/components/toast/toast-provider';
-import { upsertContract, listMilestonesByContract } from '@/lib/repository';
+import { listMilestonesByContract } from '@/lib/repository';
+import { useOptimisticContractStatus } from '@/hooks/useOptimisticContractStatus';
 import { isValidContractId } from '@/lib/validateContractId';
 import type { Contract, Milestone } from '@/types/domain';
 
@@ -45,7 +46,6 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isPersistingStatus, setIsPersistingStatus] = useState(false);
   const isMountedRef = useRef(true);
   const { showError, showSuccess } = useToast();
 
@@ -54,13 +54,16 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
    *
    * The repository stores summary-friendly contract records, so the detail page
    * narrows `ContractData` into the fields that persistence already expects.
+   * The `version` parameter is passed by the optimistic hook so the stale-
+   * overwrite guard in `upsertContract` can verify the write is still current.
    *
    * @param data - The loaded detail-page contract data.
    * @param status - The next status to persist for that contract.
+   * @param version - The current persistence version for stale-overwrite detection.
    * @returns A repository-ready `Contract` record.
    */
   const buildPersistedContract = useCallback(
-    (data: ContractData, status: Contract['status']): Contract => ({
+    (data: ContractData, status: Contract['status'], version: number): Contract => ({
       contractName: data.name,
       parties: data.parties,
       totalValue: data.totalValue,
@@ -68,62 +71,15 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       status,
       createdAt: data.createdAt,
       milestoneCount: data.milestones.length,
+      version,
     }),
     [],
   );
 
-  /**
-   * Persists a contract status transition and mirrors the result into page state.
-   *
-   * The write is intentionally client-side because repository persistence is
-   * backed by `localStorage`. Success and failure are surfaced through toasts so
-   * the confirmed ActionPanel flows provide immediate feedback.
-   *
-   * @param nextStatus - The status to persist to the repository.
-   * @param successTitle - The toast title shown after a successful write.
-   * @param successDescription - The toast description shown after success.
-   */
-  const persistContractStatus = useCallback(
-    (
-      nextStatus: ContractData['status'],
-      successTitle: string,
-      successDescription: string,
-    ) => {
-      if (!contractData) {
-        const message = 'Contract details are unavailable, so the status could not be updated.';
-        setErrorMessage(message);
-        showError({
-          title: 'Unable to update contract',
-          description: message,
-        });
-        return;
-      }
-
-      setIsPersistingStatus(true);
-      setErrorMessage(null);
-
-      const persisted = upsertContract(buildPersistedContract(contractData, nextStatus));
-
-      if (!persisted) {
-        const message = 'The contract status could not be persisted. Please try again.';
-        setErrorMessage(message);
-        showError({
-          title: 'Unable to update contract',
-          description: message,
-        });
-        setIsPersistingStatus(false);
-        return;
-      }
-
-      const updatedContract = { ...contractData, status: nextStatus };
-      setContractData(updatedContract);
-      showSuccess({
-        title: successTitle,
-        description: successDescription,
-      });
-      setIsPersistingStatus(false);
-    },
-    [buildPersistedContract, contractData, showError, showSuccess],
+  const persistStatus = useOptimisticContractStatus(
+    contractData,
+    setContractData,
+    buildPersistedContract,
   );
 
   useEffect(() => {
@@ -168,25 +124,47 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
 
   /**
    * Persists the confirmed release-funds action as a completed contract.
+   * The UI is updated optimistically — on failure the status rolls back and an
+   * error is shown.
    */
   const handleReleaseFunds = useCallback(() => {
-    persistContractStatus(
-      'Completed',
-      'Funds released',
-      'The contract was marked as Completed and the change was saved.',
-    );
-  }, [persistContractStatus]);
+    setErrorMessage(null);
+    const result = persistStatus('Completed');
+    if (result.ok) {
+      showSuccess({
+        title: 'Funds released',
+        description: 'The contract was marked as Completed and the change was saved.',
+      });
+    } else {
+      setErrorMessage(result.error);
+      showError({
+        title: 'Unable to update contract',
+        description: result.error,
+      });
+    }
+  }, [persistStatus, showSuccess, showError]);
 
   /**
    * Persists the confirmed dispute action as a disputed contract.
+   * The UI is updated optimistically — on failure the status rolls back and an
+   * error is shown.
    */
   const handleDispute = useCallback(() => {
-    persistContractStatus(
-      'Disputed',
-      'Dispute opened',
-      'The contract was marked as Disputed and the change was saved.',
-    );
-  }, [persistContractStatus]);
+    setErrorMessage(null);
+    const result = persistStatus('Disputed');
+    if (result.ok) {
+      showSuccess({
+        title: 'Dispute opened',
+        description: 'The contract was marked as Disputed and the change was saved.',
+      });
+    } else {
+      setErrorMessage(result.error);
+      showError({
+        title: 'Unable to update contract',
+        description: result.error,
+      });
+    }
+  }, [persistStatus, showSuccess, showError]);
 
   const handleViewSummary = () => {
     // Replace with summary navigation.
@@ -259,7 +237,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
               onReleaseFunds={handleReleaseFunds}
               onDispute={handleDispute}
               onViewSummary={handleViewSummary}
-              isLoading={isLoading || isPersistingStatus}
+              isLoading={isLoading}
               errorMessage={errorMessage || undefined}
               disputeFlow="confirm"
             />

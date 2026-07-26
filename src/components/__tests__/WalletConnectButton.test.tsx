@@ -6,6 +6,7 @@ import { WalletConnectButton } from '../WalletConnectButton';
 import { WalletContextType, useWallet } from '@/contexts/WalletContext';
 import * as truncateAddressModule from '@/lib/truncateAddress';
 import { testA11y } from '@/test-utils/a11y';
+import { PreferencesProvider } from '@/lib/preferences';
 
 jest.mock('@/contexts/WalletContext', () => ({
   useWallet: jest.fn(),
@@ -49,6 +50,7 @@ function getButtonIconPath(button: HTMLElement) {
 
 describe('WalletConnectButton', () => {
   beforeEach(() => {
+    localStorage.clear();
     jest.clearAllMocks();
     jest.useFakeTimers();
   });
@@ -383,5 +385,84 @@ describe('WalletConnectButton', () => {
     await testA11y(<WalletConnectButton />);
 
     jest.useFakeTimers();
+  });
+
+  describe('density toggle', () => {
+    function renderConnected(address = '0x71C7656EC7ab88b098defB751B7401B5f6d8976F') {
+      mockUseWallet.mockReturnValue(createWalletState({ address }));
+      const writeText = jest.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText },
+      });
+      return render(<WalletConnectButton />, { wrapper: PreferencesProvider });
+    }
+
+    it('shows density toggle button in the connected state with default comfortable label', () => {
+      renderConnected();
+
+      const densityBtn = screen.getByTestId('wallet-density-btn');
+      expect(densityBtn).toBeInTheDocument();
+      expect(densityBtn).toHaveAttribute('aria-label', 'Switch to compact view');
+    });
+
+    it('toggles density and persists across re-renders', () => {
+      const { rerender } = renderConnected();
+
+      const btn = screen.getByTestId('wallet-density-btn');
+      act(() => { btn.click(); });
+      expect(screen.getByTestId('wallet-density-btn')).toHaveAttribute('aria-label', 'Switch to comfortable view');
+
+      act(() => { screen.getByTestId('wallet-density-btn').click(); });
+      expect(screen.getByTestId('wallet-density-btn')).toHaveAttribute('aria-label', 'Switch to compact view');
+
+      rerender(<WalletConnectButton />);
+      expect(screen.getByTestId('wallet-density-btn')).toHaveAttribute('aria-label', 'Switch to compact view');
+    });
+
+    it('falls back to comfortable when an invalid stored value is loaded', () => {
+      localStorage.setItem(
+        'talenttrust-user-preferences',
+        JSON.stringify({ walletDensity: 'ultra-compact' }),
+      );
+      renderConnected();
+
+      expect(screen.getByTestId('wallet-density-btn')).toHaveAttribute('aria-label', 'Switch to compact view');
+    });
+
+    it('density button is not rendered in disconnected state', () => {
+      mockUseWallet.mockReturnValue(createWalletState({ address: null }));
+      render(<WalletConnectButton />, { wrapper: PreferencesProvider });
+
+      expect(screen.queryByTestId('wallet-density-btn')).not.toBeInTheDocument();
+    });
+
+    it('density button is not rendered in error state', () => {
+      mockUseWallet.mockReturnValue(createWalletState({ error: 'Something went wrong' }));
+      render(<WalletConnectButton />, { wrapper: PreferencesProvider });
+
+      expect(screen.queryByTestId('wallet-density-btn')).not.toBeInTheDocument();
+    });
+
+    it('density button is not rendered in connecting state', () => {
+      mockUseWallet.mockReturnValue(createWalletState({ isConnecting: true }));
+      render(<WalletConnectButton />, { wrapper: PreferencesProvider });
+
+      expect(screen.queryByTestId('wallet-density-btn')).not.toBeInTheDocument();
+    });
+
+    it('has no accessibility violations with density toggle present', async () => {
+      jest.useRealTimers();
+      mockUseWallet.mockReturnValue(createWalletState({
+        address: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
+      }));
+      const writeText = jest.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText },
+      });
+      await testA11y(<WalletConnectButton />, { wrapper: PreferencesProvider });
+      jest.useFakeTimers();
+    });
   });
 });
