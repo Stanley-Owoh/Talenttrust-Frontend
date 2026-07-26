@@ -180,7 +180,7 @@ const MilestonesContent: React.FC = () => {
               type="button"
               onClick={handleDismissSampleBanner}
               aria-label="Dismiss sample data notice"
-              className="text-blue-500 hover:text-blue-700"
+              className="rounded-sm text-blue-500 hover:text-blue-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
             >
               ×
             </button>
