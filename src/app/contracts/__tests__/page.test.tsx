@@ -149,9 +149,12 @@ describe('ContractsPage', () => {
 
       render(<ContractsPage />);
 
-      expect(screen.getByTestId('contracts-list')).toBeInTheDocument();
-      expect(screen.getByText('Contract 1')).toBeInTheDocument();
-      expect(screen.getByText('Contract 2')).toBeInTheDocument();
+      expect(screen.getByText('Website Redesign')).toBeInTheDocument();
+      expect(screen.getByText('Mobile App Development')).toBeInTheDocument();
+      expect(screen.getByText(/^Active ·/)).toBeInTheDocument();
+      expect(screen.getByText(/^Pending ·/)).toBeInTheDocument();
+      expect(screen.getByTitle('Jan 15, 2025')).toBeInTheDocument();
+      expect(screen.getByTitle('Feb 1, 2025')).toBeInTheDocument();
     });
 
     it('displays create button when contracts exist', () => {
@@ -538,7 +541,8 @@ describe('ContractsPage', () => {
     render(<ContractsPage />);
 
     expect(screen.getByText('Existing Contract')).toBeInTheDocument();
-    expect(screen.getByText(/Active · Created Apr 20, 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Active · Created/)).toBeInTheDocument();
+    expect(screen.getByTitle('Apr 20, 2026')).toBeInTheDocument();
   });
 
   it('calls saveContract and refreshes contracts on form submission', async () => {

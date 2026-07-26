@@ -12,7 +12,7 @@ import EmptyState from '../../components/EmptyState';
 import ContractsList from '../../components/contracts/ContractsList';
 import { ContractCreationForm } from '../../components/ContractCreationForm';
 import { listContracts, saveContract } from '@/lib/repository';
-import { downloadContractsCsv, downloadContractsJson } from '@/lib/exportContracts';
+import { getRelativeTime } from '@/lib/relativeTime';
 import type { Contract } from '@/types/domain';
 
 const ContractsPage: React.FC = () => {
@@ -195,16 +195,16 @@ const ContractsPage: React.FC = () => {
             {contracts.map((contract, idx) => (
               <ContractRowItem
                 key={`${contract.contractName}-${idx}`}
-                contractName={contract.contractName}
-                parties={contract.parties}
-                totalValue={contract.totalValue}
-                currency={contract.currency}
-                status={contract.status}
-                createdAt={contract.createdAt}
-                milestoneCount={contract.milestoneCount}
-                isSelected={selectedIds.has(getContractId(contract, idx))}
-                onSelect={(selected) => handleSelectContract(idx, selected)}
-              />
+                className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+              >
+                <p className="font-semibold text-slate-900">{contract.contractName}</p>
+                <p className="text-sm text-slate-500">
+                  {contract.status} · Created{' '}
+                  <span title={contract.createdAt}>
+                    {getRelativeTime(contract.createdAt)}
+                  </span>
+                </p>
+              </li>
             ))}
           </ul>
         </>
@@ -230,11 +230,5 @@ const ContractsPage: React.FC = () => {
     </main>
   );
 };
-
-const ContractsPage: React.FC = () => (
-  <Suspense fallback={null}>
-    <ContractsContent />
-  </Suspense>
-);
 
 export default ContractsPage;
