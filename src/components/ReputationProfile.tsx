@@ -154,10 +154,10 @@ const ReputationProfile = memo(function ReputationProfile({
           * When score is absent or null, the "No reputation yet" text is shown
           * without a meter role.
           */}
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-           <div className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5">
-             <p className="text-sm font-medium text-[var(--muted-foreground)]" id="reputation-score-label">Reputation score</p>
-             <p className="mt-3 text-3xl font-semibold text-[var(--foreground)]" aria-labelledby="reputation-score-label">
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+            <p className="text-sm font-medium text-slate-500" id="reputation-score-label">Reputation score</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-950" aria-labelledby="reputation-score-label">
               {hasReputation ? (
                 <>
                   <span
@@ -207,11 +207,10 @@ const ReputationProfile = memo(function ReputationProfile({
                 return (
                   <li
                     key={band.label}
-                    className={`rounded-2xl border p-3 transition-colors ${
-                      isActive
-                        ? 'border-[var(--legend-active-border)] bg-[var(--legend-active-bg)] text-[var(--legend-active-foreground)] font-semibold'
-                        : 'border-[var(--border)] bg-[var(--surface)]/50 text-[var(--muted-foreground)]'
-                    }`}
+                    className={`rounded-2xl border p-3 transition-colors ${isActive
+                        ? 'border-indigo-200 bg-indigo-50/50 text-indigo-900 font-semibold'
+                        : 'border-slate-200 bg-slate-50/50 text-slate-600'
+                      }`}
                   >
                     <p className="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
                       {band.min.toFixed(1)} - {band.max.toFixed(1)}
