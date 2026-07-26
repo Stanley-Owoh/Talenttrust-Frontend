@@ -25,7 +25,7 @@
  *   given prefix; iterates a frozen key snapshot to avoid index-shift bugs.
  */
 
-import type { Contract } from '@/types/domain';
+import type { Contract, WalletItem } from '@/types/domain';
 import type { Milestone } from '@/components/MilestonesList';
 import { reportError } from './errorReporter';
 
@@ -39,9 +39,10 @@ export const STORAGE_KEY = 'talenttrust_app_data';
 interface AppData {
   contracts: Contract[];
   milestones: Milestone[];
+  walletItems: WalletItem[];
 }
 
-const EMPTY_DATA: AppData = { contracts: [], milestones: [] };
+const EMPTY_DATA: AppData = { contracts: [], milestones: [], walletItems: [] };
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -82,6 +83,7 @@ function readStore(): AppData {
     return {
       contracts: Array.isArray(parsed.contracts) ? parsed.contracts : [],
       milestones: Array.isArray(parsed.milestones) ? parsed.milestones : [],
+      walletItems: Array.isArray(parsed.walletItems) ? parsed.walletItems : [],
     };
   } catch (err) {
     reportError(err, '[repository] Failed to read from localStorage. Falling back to empty state.');
@@ -361,6 +363,43 @@ export function updateMilestone(id: string, patch: Partial<Milestone>): boolean 
 
   return writeStore({ ...store, milestones: updatedMilestones });
 }
+
+// ---------------------------------------------------------------------------
+// Public API — Wallet Items
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns all persisted wallet items.
+ *
+ * @returns A new array of `WalletItem` objects.
+ */
+export function listWalletItems(): WalletItem[] {
+  return readStore().walletItems;
+}
+
+/**
+ * Appends a wallet item to the persisted list.
+ *
+ * @param item - The `WalletItem` record to persist.
+ */
+export function saveWalletItem(item: WalletItem): void {
+  const store = readStore();
+  writeStore({ ...store, walletItems: [...store.walletItems, item] });
+}
+
+/**
+ * Deletes wallet items matching the given array of IDs.
+ *
+ * @param ids - Array of wallet item IDs to remove.
+ * @returns `true` when the operation succeeds; otherwise `false`.
+ */
+export function deleteWalletItems(ids: string[]): boolean {
+  const store = readStore();
+  const idSet = new Set(ids);
+  const updatedWalletItems = store.walletItems.filter((item) => !idSet.has(item.id));
+  return writeStore({ ...store, walletItems: updatedWalletItems });
+}
+
 
 // ---------------------------------------------------------------------------
 // Public API — Maintenance helpers
