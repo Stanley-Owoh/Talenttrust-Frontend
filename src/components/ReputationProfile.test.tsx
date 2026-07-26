@@ -772,3 +772,50 @@ describe('ReputationProfile – reputation score meter (issue #245)', () => {
       await assertNoA11yViolations(container);
     });
   });
+
+// ---------------------------------------------------------------------------
+// 12. Density Toggle
+// ---------------------------------------------------------------------------
+
+describe('ReputationProfile – density toggle', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('renders comfortable view by default', () => {
+    renderProfile({ name: 'Density User', history: HISTORY_EVENTS });
+    expect(screen.getByRole('button', { name: /Switch to compact density/i })).toBeInTheDocument();
+    expect(screen.getByText('Compact View')).toBeInTheDocument();
+  });
+
+  it('toggles density and persists to localStorage', () => {
+    renderProfile({ name: 'Density User', history: HISTORY_EVENTS });
+    const toggleButton = screen.getByRole('button', { name: /Switch to compact density/i });
+    
+    toggleButton.click();
+    
+    // Now it should be compact view, showing 'Comfortable View' button
+    expect(screen.getByRole('button', { name: /Switch to comfortable density/i })).toBeInTheDocument();
+    expect(screen.getByText('Comfortable View')).toBeInTheDocument();
+    
+    expect(localStorage.getItem('talenttrust:reputation-density')).toBe('compact');
+  });
+
+  it('restores density from localStorage on mount', () => {
+    localStorage.setItem('talenttrust:reputation-density', 'compact');
+    renderProfile({ name: 'Density User', history: HISTORY_EVENTS });
+    
+    // Should render compact view directly
+    expect(screen.getByRole('button', { name: /Switch to comfortable density/i })).toBeInTheDocument();
+    expect(screen.getByText('Comfortable View')).toBeInTheDocument();
+  });
+
+  it('falls back safely on invalid stored value', () => {
+    localStorage.setItem('talenttrust:reputation-density', 'invalid_density');
+    renderProfile({ name: 'Density User', history: HISTORY_EVENTS });
+    
+    // Should fallback to default comfortable view
+    expect(screen.getByRole('button', { name: /Switch to compact density/i })).toBeInTheDocument();
+  });
+});
+

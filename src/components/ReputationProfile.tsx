@@ -100,7 +100,7 @@ export default function ReputationProfile({
           * When score is absent or null, the "No reputation yet" text is shown
           * without a meter role.
           */}
-         <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
             <p className="text-sm font-medium text-slate-500" id="reputation-score-label">Reputation score</p>
             <p className="mt-3 text-3xl font-semibold text-slate-950" aria-labelledby="reputation-score-label">
@@ -153,11 +153,10 @@ export default function ReputationProfile({
                 return (
                   <li
                     key={band.label}
-                    className={`rounded-2xl border p-3 transition-colors ${
-                      isActive
+                    className={`rounded-2xl border p-3 transition-colors ${isActive
                         ? 'border-indigo-200 bg-indigo-50/50 text-indigo-900 font-semibold'
                         : 'border-slate-200 bg-slate-50/50 text-slate-600'
-                    }`}
+                      }`}
                   >
                     <p className="font-bold text-xs uppercase tracking-wider text-slate-400">
                       {band.min.toFixed(1)} - {band.max.toFixed(1)}
