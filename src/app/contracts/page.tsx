@@ -11,10 +11,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import EmptyState from '../../components/EmptyState';
 import ContractsList from '../../components/contracts/ContractsList';
 import { ContractCreationForm } from '../../components/ContractCreationForm';
-import { ContractRowItem } from '../../components/contracts/ContractRowItem';
-import { BulkActionToolbar } from '../../components/contracts/BulkActionToolbar';
-import { listContracts, saveContract, deleteContract } from '@/lib/repository';
-import { useToast } from '@/components/toast/toast-provider';
+import { listContracts, saveContract } from '@/lib/repository';
+import { downloadContractsCsv, downloadContractsJson } from '@/lib/exportContracts';
 import type { Contract } from '@/types/domain';
 
 const ContractsPage: React.FC = () => {
@@ -161,7 +159,28 @@ const ContractsPage: React.FC = () => {
 
       {!showForm && contracts.length > 0 && (
         <>
-          <div className="mb-4 flex justify-end">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500">
+                {contracts.length} {contracts.length === 1 ? 'contract' : 'contracts'}
+              </span>
+              <button
+                type="button"
+                onClick={() => downloadContractsCsv(contracts)}
+                className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                aria-label="Export contracts as CSV"
+              >
+                CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadContractsJson(contracts)}
+                className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                aria-label="Export contracts as JSON"
+              >
+                JSON
+              </button>
+            </div>
             <button
               type="button"
               onClick={handleCreateContract}

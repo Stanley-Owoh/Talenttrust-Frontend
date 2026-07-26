@@ -3,12 +3,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ContractsPage from '../page';
 import * as repository from '@/lib/repository';
-import { useRouter, useSearchParams } from 'next/navigation';
+import * as stellarAddress from '@/lib/stellarAddress';
 
-// Mock the repository module
-jest.mock('@/lib/repository');
-
-const mockShowError = jest.fn();
+// Prevent actual download calls during tests
+jest.mock('@/lib/exportContracts', () => ({
+  ...jest.requireActual('@/lib/exportContracts'),
+  downloadContractsCsv: jest.fn(),
+  downloadContractsJson: jest.fn(),
+}));
 
 jest.mock('@/components/contracts/ContractsList', () => ({
   __esModule: true,
@@ -76,6 +78,9 @@ const mockIsValidStellarAddress = stellarAddress.isValidStellarAddress as jest.M
 const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>;
 const mockUseSearchParams = useSearchParams as jest.MockedFunction<typeof useSearchParams>;
 const mockPush = jest.fn();
+
+const mockDownloadCsv = jest.requireMock('@/lib/exportContracts').downloadContractsCsv as jest.Mock;
+const mockDownloadJson = jest.requireMock('@/lib/exportContracts').downloadContractsJson as jest.Mock;
 
 const VALID_ADDRESS = 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H';
 
@@ -533,462 +538,172 @@ describe('ContractsPage', () => {
     expect(mockListContracts).toHaveBeenCalled();
   });
 
-  describe('Bulk Selection', () => {
-    const mockContracts = [
-      {
-        contractName: 'Contract 1',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Freelancer', address: VALID_ADDRESS },
-        ],
-        totalValue: 5000,
-        currency: 'USD',
-        status: 'Active' as const,
-        createdAt: 'Jan 15, 2025',
-        milestoneCount: 3,
-      },
-      {
-        contractName: 'Contract 2',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Developer', address: VALID_ADDRESS },
-        ],
-        totalValue: 10000,
-        currency: 'EUR',
-        status: 'Pending' as const,
-        createdAt: 'Feb 1, 2025',
-        milestoneCount: 5,
-      },
-      {
-        contractName: 'Contract 3',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Designer', address: VALID_ADDRESS },
-        ],
-        totalValue: 7500,
-        currency: 'USD',
-        status: 'Completed' as const,
-        createdAt: 'Mar 1, 2025',
-        milestoneCount: 2,
-      },
-    ];
-
+  describe('Export Buttons', () => {
     beforeEach(() => {
-      mockListContracts.mockReturnValue(mockContracts);
+      mockDownloadCsv.mockClear();
+      mockDownloadJson.mockClear();
     });
 
-    it('selects a single contract when checkbox is clicked', () => {
+    it('renders CSV and JSON export buttons when contracts exist', () => {
+      const contracts = [
+        {
+          contractName: 'Test Contract',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 1000,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Jan 1, 2025',
+          milestoneCount: 1,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
       render(<ContractsPage />);
 
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      fireEvent.change(checkboxes[0], { target: { checked: true } });
-
-      expect(checkboxes[0]).toBeChecked();
+      expect(screen.getByRole('button', { name: /export contracts as csv/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /export contracts as json/i })).toBeInTheDocument();
     });
 
-    it('displays bulk action toolbar when contracts are selected', async () => {
+    it('does not render export buttons when no contracts exist', () => {
+      mockListContracts.mockReturnValue([]);
       render(<ContractsPage />);
 
-      expect(screen.queryByRole('region', { name: /bulk actions/i })).not.toBeInTheDocument();
-
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      await userEvent.click(checkboxes[0]);
-
-      await waitFor(() => {
-        expect(screen.getByRole('region', { name: /bulk actions/i })).toBeInTheDocument();
-      });
+      expect(screen.queryByRole('button', { name: /export contracts as csv/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /export contracts as json/i })).not.toBeInTheDocument();
     });
 
-    it('hides bulk action toolbar when no contracts are selected', async () => {
+    it('calls downloadContractsCsv when CSV button is clicked', () => {
+      const contracts = [
+        {
+          contractName: 'Test Contract',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 1000,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Jan 1, 2025',
+          milestoneCount: 1,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
       render(<ContractsPage />);
 
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      await userEvent.click(checkboxes[0]);
-
-      await waitFor(() => {
-        expect(screen.getByRole('region', { name: /bulk actions/i })).toBeInTheDocument();
-      });
-
-      await userEvent.click(checkboxes[0]);
-
-      await waitFor(() => {
-        expect(screen.queryByRole('region', { name: /bulk actions/i })).not.toBeInTheDocument();
-      });
+      fireEvent.click(screen.getByRole('button', { name: /export contracts as csv/i }));
+      expect(mockDownloadCsv).toHaveBeenCalledTimes(1);
+      expect(mockDownloadCsv).toHaveBeenCalledWith(contracts);
     });
 
-    it('shows correct count of selected contracts', async () => {
+    it('calls downloadContractsJson when JSON button is clicked', () => {
+      const contracts = [
+        {
+          contractName: 'Test Contract',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 1000,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Jan 1, 2025',
+          milestoneCount: 1,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
       render(<ContractsPage />);
 
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      await userEvent.click(checkboxes[0]);
-      await userEvent.click(checkboxes[1]);
-
-      await waitFor(() => {
-        expect(screen.getByText('2 of 3 selected')).toBeInTheDocument();
-        expect(screen.getByText('1 remaining')).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Bulk Actions - Select All', () => {
-    const mockContracts = [
-      {
-        contractName: 'Contract 1',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Freelancer', address: VALID_ADDRESS },
-        ],
-        totalValue: 5000,
-        currency: 'USD',
-        status: 'Active' as const,
-        createdAt: 'Jan 15, 2025',
-        milestoneCount: 3,
-      },
-      {
-        contractName: 'Contract 2',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Developer', address: VALID_ADDRESS },
-        ],
-        totalValue: 10000,
-        currency: 'EUR',
-        status: 'Pending' as const,
-        createdAt: 'Feb 1, 2025',
-        milestoneCount: 5,
-      },
-    ];
-
-    beforeEach(() => {
-      mockListContracts.mockReturnValue(mockContracts);
+      fireEvent.click(screen.getByRole('button', { name: /export contracts as json/i }));
+      expect(mockDownloadJson).toHaveBeenCalledTimes(1);
+      expect(mockDownloadJson).toHaveBeenCalledWith(contracts);
     });
 
-    it('selects all contracts when Select All button is clicked', async () => {
+    it('passes correct contracts data to export functions', () => {
+      const contracts = [
+        {
+          contractName: 'Alpha',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 500,
+          currency: 'USD',
+          status: 'Pending' as const,
+          createdAt: 'Mar 1, 2025',
+          milestoneCount: 2,
+        },
+        {
+          contractName: 'Beta',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 1500,
+          currency: 'EUR',
+          status: 'Active' as const,
+          createdAt: 'Apr 10, 2025',
+          milestoneCount: 4,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
       render(<ContractsPage />);
 
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      await userEvent.click(checkboxes[0]);
+      fireEvent.click(screen.getByRole('button', { name: /export contracts as csv/i }));
+      expect(mockDownloadCsv).toHaveBeenCalledWith(contracts);
 
-      fireEvent.click(screen.getByRole('button', { name: /select all/i }));
-
-      await waitFor(() => {
-        const updatedCheckboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-        updatedCheckboxes.forEach((checkbox) => {
-          expect(checkbox).toBeChecked();
-        });
-      });
-
-      expect(screen.getByText('2 of 2 selected')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /export contracts as json/i }));
+      expect(mockDownloadJson).toHaveBeenCalledWith(contracts);
     });
 
-    it('shows all contracts selected in toolbar', () => {
+    it('shows contract count text when contracts exist', () => {
+      const contracts = [
+        {
+          contractName: 'Alpha',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 500,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Mar 1, 2025',
+          milestoneCount: 2,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
       render(<ContractsPage />);
 
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      fireEvent.change(checkboxes[0], { target: { checked: true } });
-
-      fireEvent.click(screen.getByRole('button', { name: /select all/i }));
-
-      expect(screen.getByText('2 of 2 selected')).toBeInTheDocument();
-      expect(screen.getByText('0 remaining')).toBeInTheDocument();
-    });
-  });
-
-  describe('Bulk Actions - Clear Selection', () => {
-    const mockContracts = [
-      {
-        contractName: 'Contract 1',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Freelancer', address: VALID_ADDRESS },
-        ],
-        totalValue: 5000,
-        currency: 'USD',
-        status: 'Active' as const,
-        createdAt: 'Jan 15, 2025',
-        milestoneCount: 3,
-      },
-      {
-        contractName: 'Contract 2',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Developer', address: VALID_ADDRESS },
-        ],
-        totalValue: 10000,
-        currency: 'EUR',
-        status: 'Pending' as const,
-        createdAt: 'Feb 1, 2025',
-        milestoneCount: 5,
-      },
-    ];
-
-    beforeEach(() => {
-      mockListContracts.mockReturnValue(mockContracts);
+      expect(screen.getByText('1 contract')).toBeInTheDocument();
     });
 
-    it('clears all selections when Clear button is clicked', () => {
+    it('shows plural contract count when multiple contracts exist', () => {
+      const contracts = [
+        {
+          contractName: 'Alpha',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 500,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Mar 1, 2025',
+          milestoneCount: 2,
+        },
+        {
+          contractName: 'Beta',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 1500,
+          currency: 'EUR',
+          status: 'Active' as const,
+          createdAt: 'Apr 10, 2025',
+          milestoneCount: 4,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
       render(<ContractsPage />);
 
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      fireEvent.change(checkboxes[0], { target: { checked: true } });
-      fireEvent.change(checkboxes[1], { target: { checked: true } });
-
-      expect(screen.getByText('2 of 2 selected')).toBeInTheDocument();
-
-      fireEvent.click(screen.getByRole('button', { name: /clear/i }));
-
-      const updatedCheckboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      updatedCheckboxes.forEach((checkbox) => {
-        expect(checkbox).not.toBeChecked();
-      });
-
-      expect(screen.queryByRole('region', { name: /bulk actions/i })).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Bulk Actions - Delete', () => {
-    const mockContracts = [
-      {
-        contractName: 'Contract 1',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Freelancer', address: VALID_ADDRESS },
-        ],
-        totalValue: 5000,
-        currency: 'USD',
-        status: 'Active' as const,
-        createdAt: 'Jan 15, 2025',
-        milestoneCount: 3,
-      },
-      {
-        contractName: 'Contract 2',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Developer', address: VALID_ADDRESS },
-        ],
-        totalValue: 10000,
-        currency: 'EUR',
-        status: 'Pending' as const,
-        createdAt: 'Feb 1, 2025',
-        milestoneCount: 5,
-      },
-    ];
-
-    beforeEach(() => {
-      mockListContracts.mockReturnValue(mockContracts);
-      mockDeleteContract.mockReturnValue(true);
+      expect(screen.getByText('2 contracts')).toBeInTheDocument();
     });
 
-    it('shows confirmation dialog before deleting', () => {
-      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+    it('buttons have accessible labels', () => {
+      const contracts = [
+        {
+          contractName: 'Test',
+          parties: [{ label: 'Client', address: VALID_ADDRESS }],
+          totalValue: 100,
+          currency: 'USD',
+          status: 'Active' as const,
+          createdAt: 'Jan 1, 2025',
+          milestoneCount: 1,
+        },
+      ];
+      mockListContracts.mockReturnValue(contracts);
       render(<ContractsPage />);
 
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      fireEvent.change(checkboxes[0], { target: { checked: true } });
-
-      fireEvent.click(screen.getByRole('button', { name: /delete 1/i }));
-
-      expect(confirmSpy).toHaveBeenCalledWith('Delete 1 contract?');
-      confirmSpy.mockRestore();
-    });
-
-    it('deletes selected contract when user confirms', () => {
-      jest.spyOn(window, 'confirm').mockReturnValue(true);
-      mockListContracts.mockReturnValue([mockContracts[1]]);
-
-      render(<ContractsPage />);
-
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      fireEvent.change(checkboxes[0], { target: { checked: true } });
-
-      fireEvent.click(screen.getByRole('button', { name: /delete 1/i }));
-
-      expect(mockDeleteContract).toHaveBeenCalledWith('Contract 1');
-    });
-
-    it('does not delete when user cancels', () => {
-      jest.spyOn(window, 'confirm').mockReturnValue(false);
-      render(<ContractsPage />);
-
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      fireEvent.change(checkboxes[0], { target: { checked: true } });
-
-      fireEvent.click(screen.getByRole('button', { name: /delete 1/i }));
-
-      expect(mockDeleteContract).not.toHaveBeenCalled();
-    });
-
-    it('refreshes contract list after deletion', async () => {
-      jest.spyOn(window, 'confirm').mockReturnValue(true);
-      mockListContracts.mockReturnValue([mockContracts[1]]);
-
-      render(<ContractsPage />);
-
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      fireEvent.change(checkboxes[0], { target: { checked: true } });
-
-      fireEvent.click(screen.getByRole('button', { name: /delete 1/i }));
-
-      await waitFor(() => {
-        expect(mockListContracts).toHaveBeenCalled();
-      });
-
-      expect(screen.getByText('Contract 2')).toBeInTheDocument();
-      expect(screen.queryByText('Contract 1')).not.toBeInTheDocument();
-    });
-
-    it('clears selection after deletion', () => {
-      jest.spyOn(window, 'confirm').mockReturnValue(true);
-      mockListContracts.mockReturnValue([mockContracts[1]]);
-
-      render(<ContractsPage />);
-
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      fireEvent.change(checkboxes[0], { target: { checked: true } });
-
-      fireEvent.click(screen.getByRole('button', { name: /delete 1/i }));
-
-      expect(screen.queryByRole('region', { name: /bulk actions/i })).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Bulk Actions - Export', () => {
-    const mockContracts = [
-      {
-        contractName: 'Contract 1',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Freelancer', address: VALID_ADDRESS },
-        ],
-        totalValue: 5000,
-        currency: 'USD',
-        status: 'Active' as const,
-        createdAt: 'Jan 15, 2025',
-        milestoneCount: 3,
-      },
-      {
-        contractName: 'Contract 2',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Developer', address: VALID_ADDRESS },
-        ],
-        totalValue: 10000,
-        currency: 'EUR',
-        status: 'Pending' as const,
-        createdAt: 'Feb 1, 2025',
-        milestoneCount: 5,
-      },
-    ];
-
-    beforeEach(() => {
-      mockListContracts.mockReturnValue(mockContracts);
-      // Mock URL and download functionality
-      URL.createObjectURL = jest.fn(() => 'blob:mock-url');
-      URL.revokeObjectURL = jest.fn();
-    });
-
-    it('exports selected contracts as JSON', () => {
-      render(<ContractsPage />);
-
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      fireEvent.change(checkboxes[0], { target: { checked: true } });
-      fireEvent.change(checkboxes[1], { target: { checked: true } });
-
-      fireEvent.click(screen.getByRole('button', { name: /export 2/i }));
-
-      expect(URL.createObjectURL).toHaveBeenCalled();
-    });
-
-    it('exports only selected contracts', () => {
-      render(<ContractsPage />);
-
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      fireEvent.change(checkboxes[0], { target: { checked: true } });
-
-      fireEvent.click(screen.getByRole('button', { name: /export 1/i }));
-
-      expect(URL.createObjectURL).toHaveBeenCalled();
-    });
-  });
-
-  describe('Bulk Actions - Partial Select', () => {
-    const mockContracts = [
-      {
-        contractName: 'Contract 1',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Freelancer', address: VALID_ADDRESS },
-        ],
-        totalValue: 5000,
-        currency: 'USD',
-        status: 'Active' as const,
-        createdAt: 'Jan 15, 2025',
-        milestoneCount: 3,
-      },
-      {
-        contractName: 'Contract 2',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Developer', address: VALID_ADDRESS },
-        ],
-        totalValue: 10000,
-        currency: 'EUR',
-        status: 'Pending' as const,
-        createdAt: 'Feb 1, 2025',
-        milestoneCount: 5,
-      },
-      {
-        contractName: 'Contract 3',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Designer', address: VALID_ADDRESS },
-        ],
-        totalValue: 7500,
-        currency: 'USD',
-        status: 'Completed' as const,
-        createdAt: 'Mar 1, 2025',
-        milestoneCount: 2,
-      },
-    ];
-
-    beforeEach(() => {
-      mockListContracts.mockReturnValue(mockContracts);
-    });
-
-    it('allows partial selection of contracts', () => {
-      render(<ContractsPage />);
-
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      fireEvent.change(checkboxes[0], { target: { checked: true } });
-      fireEvent.change(checkboxes[2], { target: { checked: true } });
-
-      expect(checkboxes[0]).toBeChecked();
-      expect(checkboxes[1]).not.toBeChecked();
-      expect(checkboxes[2]).toBeChecked();
-
-      expect(screen.getByText('2 of 3 selected')).toBeInTheDocument();
-    });
-
-    it('allows toggling individual selections', () => {
-      render(<ContractsPage />);
-
-      const checkboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-
-      // Select all
-      fireEvent.change(checkboxes[0], { target: { checked: true } });
-      fireEvent.change(checkboxes[1], { target: { checked: true } });
-      fireEvent.change(checkboxes[2], { target: { checked: true } });
-
-      expect(screen.getByText('3 of 3 selected')).toBeInTheDocument();
-
-      // Deselect one
-      fireEvent.change(checkboxes[1], { target: { checked: false } });
-
-      const updatedCheckboxes = screen.getAllByRole('checkbox', { name: /select contract/i });
-      expect(updatedCheckboxes[0]).toBeChecked();
-      expect(updatedCheckboxes[1]).not.toBeChecked();
-      expect(updatedCheckboxes[2]).toBeChecked();
-
-      expect(screen.getByText('2 of 3 selected')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Export contracts as CSV' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Export contracts as JSON' })).toBeInTheDocument();
     });
   });
 });
