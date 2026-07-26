@@ -1,5 +1,10 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent, waitFor } from '@testing-library/react';
+import { ToastProvider } from '@/components/toast/toast-provider';
+
+function render(ui: React.ReactElement, options = {}) {
+  return rtlRender(ui, { wrapper: ToastProvider, ...options });
+}
 import ContractsPage from '../page';
 import * as repository from '@/lib/repository';
 
@@ -17,6 +22,13 @@ jest.mock('@/lib/repository', () => {
   };
 });
 jest.mock('@/lib/stellarAddress');
+
+jest.mock('@/components/toast/toast-provider', () => ({
+  useToast: () => ({
+    showSuccess: jest.fn(),
+    showError: jest.fn(),
+  }),
+}));
 
 const mockListContracts = repository.listContracts as jest.MockedFunction<
   typeof repository.listContracts
