@@ -4,9 +4,6 @@ import React, { useRef } from 'react';
 import { usePreferences, Theme, AmountFormat, ToastDensity } from '@/lib/preferences';
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 
-const FOCUSABLE_SELECTORS =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -14,13 +11,12 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const { preferences, updatePreference } = usePreferences();
-  const panelRef = useRef<HTMLDivElement>(null);
-
+  const dialogRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
 
   useDialogFocusTrap({
     isOpen,
-    dialogRef: panelRef,
+    dialogRef,
     initialFocusRef: closeBtnRef,
     onEscape: onClose,
     restoreFocus: true,
@@ -38,7 +34,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
       {/* Drawer */}
       <div
-        ref={panelRef}
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-panel-title"

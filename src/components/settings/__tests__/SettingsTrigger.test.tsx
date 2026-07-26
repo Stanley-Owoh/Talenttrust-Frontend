@@ -11,17 +11,6 @@ const renderWithProvider = (ui: React.ReactElement) =>
   render(<PreferencesProvider>{ui}</PreferencesProvider>);
 
 describe('SettingsTrigger', () => {
-  beforeAll(() => {
-    jest.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
-      cb(0);
-      return 0;
-    });
-  });
-
-  afterAll(() => {
-    jest.restoreAllMocks();
-  });
-
   beforeEach(() => {
     localStorage.clear();
   });
@@ -81,5 +70,118 @@ describe('SettingsTrigger', () => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
     expect(document.activeElement).toBe(triggerButton);
+  });
+
+  it('closes the panel when the Done button is clicked and restores focus to the trigger', async () => {
+    renderWithProvider(<SettingsTrigger />);
+    const triggerButton = screen.getByRole('button', { name: /open settings/i });
+
+    await userEvent.click(triggerButton);
+    await screen.findByRole('dialog');
+
+    await userEvent.click(screen.getByRole('button', { name: /done/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(document.activeElement).toBe(triggerButton);
+  });
+
+  it('closes the panel when the backdrop is clicked and restores focus to the trigger', async () => {
+    const { container } = renderWithProvider(<SettingsTrigger />);
+    const triggerButton = screen.getByRole('button', { name: /open settings/i });
+
+    await userEvent.click(triggerButton);
+    await screen.findByRole('dialog');
+
+    const backdrop = container.querySelector('.absolute.inset-0');
+    expect(backdrop).not.toBeNull();
+    fireEvent.click(backdrop!);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(document.activeElement).toBe(triggerButton);
+  });
+
+  it('focus moves into the dialog when opened via trigger click', async () => {
+    renderWithProvider(<SettingsTrigger />);
+    const triggerButton = screen.getByRole('button', { name: /open settings/i });
+
+    await userEvent.click(triggerButton);
+    await screen.findByRole('dialog');
+
+    const closeBtn = screen.getByRole('button', { name: /close settings/i });
+    expect(document.activeElement).toBe(closeBtn);
+  });
+
+  it('focus is trapped within the dialog when tabbing forward', async () => {
+    renderWithProvider(<SettingsTrigger />);
+
+    await userEvent.click(screen.getByRole('button', { name: /open settings/i }));
+    await screen.findByRole('dialog');
+
+    const dialog = screen.getByRole('dialog');
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+
+    const last = focusable[focusable.length - 1];
+    last.focus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: false });
+    expect(document.activeElement).toBe(focusable[0]);
+  });
+
+  it('focus is trapped within the dialog when tabbing backward', async () => {
+    renderWithProvider(<SettingsTrigger />);
+
+    await userEvent.click(screen.getByRole('button', { name: /open settings/i }));
+    await screen.findByRole('dialog');
+
+    const dialog = screen.getByRole('dialog');
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+
+    const first = focusable[0];
+    first.focus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(focusable[focusable.length - 1]);
+  });
+
+  it('opening the panel does not leak focus outside the dialog', async () => {
+    renderWithProvider(<SettingsTrigger />);
+    const triggerButton = screen.getByRole('button', { name: /open settings/i });
+
+    await userEvent.click(triggerButton);
+    await screen.findByRole('dialog');
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it('re-opening the panel moves focus back into the dialog', async () => {
+    renderWithProvider(<SettingsTrigger />);
+    const triggerButton = screen.getByRole('button', { name: /open settings/i });
+
+    await userEvent.click(triggerButton);
+    await screen.findByRole('dialog');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    expect(document.activeElement).toBe(triggerButton);
+
+    await userEvent.click(triggerButton);
+    await screen.findByRole('dialog');
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.contains(document.activeElement)).toBe(true);
   });
 });
