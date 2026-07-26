@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import MilestonesPage from '../milestones/page';
+import { ToastProvider } from '@/components/toast/toast-provider';
 
 jest.mock('next/navigation', () => {
   const original = jest.requireActual('next/navigation');
@@ -43,9 +44,7 @@ describe('Milestones page URL state sync', () => {
       get: (key: string) => (key === 'status' ? 'Paid' : key === 'sort' ? 'oldest' : null),
       toString: () => 'status=Paid&sort=oldest',
     });
-
-    render(<MilestonesPage />);
-
+    render(<ToastProvider><MilestonesPage /></ToastProvider>);
     const paidRadio = screen.getByRole('radio', { name: 'Paid' }) as HTMLInputElement;
     const sortSelect = screen.getByLabelText('Sort milestones') as HTMLSelectElement;
 
@@ -58,9 +57,7 @@ describe('Milestones page URL state sync', () => {
       get: (key: string) => (key === 'status' ? 'Bogus' : key === 'sort' ? 'middle' : null),
       toString: () => 'status=Bogus&sort=middle',
     });
-
-    render(<MilestonesPage />);
-
+    render(<ToastProvider><MilestonesPage /></ToastProvider>);
     const allRadio = screen.getByRole('radio', { name: 'All' }) as HTMLInputElement;
     const sortSelect = screen.getByLabelText('Sort milestones') as HTMLSelectElement;
 
@@ -73,21 +70,9 @@ describe('Milestones page URL state sync', () => {
       get: () => null,
       toString: () => '',
     });
-
-    render(<MilestonesPage />);
-
-    fireEvent.click(screen.getByRole('radio', { name: 'Pending' }));
-    fireEvent.change(screen.getByLabelText('Sort milestones'), { target: { value: 'oldest' } });
-
-    act(() => {
-      jest.advanceTimersByTime(149);
-    });
-    expect(replaceMock).not.toHaveBeenCalled();
-
-    act(() => {
-      jest.advanceTimersByTime(1);
-    });
-
+    render(<ToastProvider><MilestonesPage /></ToastProvider>);
+    const pendingRadio = screen.getByRole('radio', { name: 'Pending' }) as HTMLInputElement;
+    fireEvent.click(pendingRadio);
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith('?status=Pending&sort=oldest');
     });

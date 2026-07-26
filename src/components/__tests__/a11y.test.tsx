@@ -15,62 +15,62 @@ import HeaderActions from '@/components/HeaderActions';
 
 describe('a11y: MilestonesList', () => {
   it('empty list has no violations', async () => {
-    await testA11y(<MilestonesList milestones={[]} />);
+    await testA11y(<ToastProvider><MilestonesList milestones={[]} /></ToastProvider>);
   });
 
   it('single milestone has no violations', async () => {
     await testA11y(
-      <MilestonesList
+      <ToastProvider><MilestonesList
         milestones={[
           { id: '1', title: 'Research phase', status: 'Pending', payout: 500, currency: 'USD', dueDate: 'May 10, 2026' },
         ]}
-      />
+      /></ToastProvider>
     );
   });
 
   it('multiple milestones with all status types has no violations', async () => {
     await testA11y(
-      <MilestonesList
+      <ToastProvider><MilestonesList
         milestones={[
           { id: '1', title: 'Research phase', status: 'Pending', payout: 500, currency: 'USD', dueDate: 'May 10, 2026' },
           { id: '2', title: 'Development phase', status: 'Completed', payout: 1500, currency: 'USD', dueDate: 'Jun 1, 2026' },
           { id: '3', title: 'Deployment', status: 'Paid', payout: 2000, currency: 'USD', dueDate: 'Jul 15, 2026' },
           { id: '4', title: 'Legacy migration', status: 'Disputed', payout: 750, currency: 'USD' },
         ]}
-      />
+      /></ToastProvider>
     );
   });
 
   it('milestone without dueDate has no violations', async () => {
     await testA11y(
-      <MilestonesList
+      <ToastProvider><MilestonesList
         milestones={[
           { id: '1', title: 'Ongoing work', status: 'Pending', payout: 300, currency: 'USD' },
         ]}
-      />
+      /></ToastProvider>
     );
   });
 
   it('currency mismatch warning has no violations', async () => {
     await testA11y(
-      <MilestonesList
+      <ToastProvider><MilestonesList
         milestones={[
           { id: '1', title: 'Research phase', status: 'Pending', payout: 500, currency: 'USD', dueDate: 'May 10, 2026' },
           { id: '2', title: 'Development phase', status: 'Completed', payout: 1500, currency: 'EUR', dueDate: 'Jun 1, 2026' },
         ]}
         contractCurrency="USD"
-      />
+      /></ToastProvider>
     );
   });
 
   it('single mismatched milestone warning has no violations', async () => {
     await testA11y(
-      <MilestonesList
+      <ToastProvider><MilestonesList
         milestones={[
           { id: '1', title: 'Payment', status: 'Pending', payout: 1000, currency: 'GBP' },
         ]}
         contractCurrency="USD"
-      />
+      /></ToastProvider>
     );
   });
 });
