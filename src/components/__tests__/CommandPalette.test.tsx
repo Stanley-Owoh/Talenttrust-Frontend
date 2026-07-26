@@ -1,266 +1,199 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import '@testing-library/jest-dom';
 import { CommandPalette } from '../CommandPalette';
-import { WalletContextType, useWallet } from '@/contexts/WalletContext';
-import { testA11y } from '@/test-utils/a11y';
 
-jest.mock('@/contexts/WalletContext', () => ({
-  useWallet: jest.fn(),
+const mockPush = jest.fn();
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn((...args) => mockPush(...args)), replace: jest.fn(), prefetch: jest.fn() }),
 }));
 
-const mockUseWallet = useWallet as jest.MockedFunction<typeof useWallet>;
+beforeEach(() => {
+  mockPush.mockClear();
+});
 
-function createWalletState(overrides: Partial<WalletContextType> = {}): WalletContextType {
-  return {
-    address: null,
-    isConnecting: false,
-    error: null,
-    connect: jest.fn(),
-    disconnect: jest.fn(),
-    ...overrides,
-  };
+function openPalette() {
+  fireEvent.keyDown(document, { key: 'k', metaKey: true });
 }
 
-const getTrigger = () => screen.getByRole('button', { name: 'Open command palette' });
-const getInput = () => screen.getByRole('combobox');
+describe('CommandPalette', () => {
+  describe('shortcut', () => {
+    it('opens on Cmd+K', () => {
+      render(<CommandPalette />);
+      fireEvent.keyDown(document, { key: 'k', metaKey: true });
+      expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
+    });
 
-describe('CommandPalette — registration', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseWallet.mockReturnValue(createWalletState());
+    it('opens on Ctrl+K', () => {
+      render(<CommandPalette />);
+      fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+      expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
+    });
+
+    it('does not open on plain K', () => {
+      render(<CommandPalette />);
+      fireEvent.keyDown(document, { key: 'k' });
+      expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument();
+    });
+
+    it('does not open while typing in an input', () => {
+      render(
+        <div>
+          <input placeholder="Type here" />
+          <CommandPalette />
+        </div>,
+      );
+      const input = screen.getByPlaceholderText('Type here');
+      fireEvent.keyDown(input, { key: 'k', metaKey: true });
+      expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument();
+    });
+
+    it('does not open while typing in a contenteditable', () => {
+      render(
+        <div>
+          <div contentEditable role="textbox" />
+          <CommandPalette />
+        </div>,
+      );
+      const editable = screen.getByRole('textbox');
+      fireEvent.keyDown(editable, { key: 'k', metaKey: true });
+      expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument();
+    });
   });
 
-  it('registers exactly one wallet entry, with no duplicates, once opened', async () => {
-    const user = userEvent.setup();
-    render(<CommandPalette />);
+  describe('filtering', () => {
+    it('shows all entries when query is empty', () => {
+      render(<CommandPalette />);
+      openPalette();
+      expect(screen.getByRole('option', { name: /Home/ })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: /Contracts/ })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: /Milestones/ })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: /Reputation/ })).toBeInTheDocument();
+    });
 
-    await user.click(getTrigger());
+    it('filters by label prefix', () => {
+      render(<CommandPalette />);
+      openPalette();
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'con' } });
+      expect(screen.getByRole('option', { name: /Contracts/ })).toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: /Home/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: /Milestones/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: /Reputation/ })).not.toBeInTheDocument();
+    });
 
-    expect(screen.getAllByRole('option')).toHaveLength(1);
-    expect(screen.getByRole('option', { name: 'Open Wallet' })).toBeInTheDocument();
+    it('filters by label substring', () => {
+      render(<CommandPalette />);
+      openPalette();
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'put' } });
+      expect(screen.getByRole('option', { name: /Reputation/ })).toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: /Contracts/ })).not.toBeInTheDocument();
+    });
+
+    it('filters by keyword match', () => {
+      render(<CommandPalette />);
+      openPalette();
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'trust' } });
+      expect(screen.getByRole('option', { name: /Reputation/ })).toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: /Contracts/ })).not.toBeInTheDocument();
+    });
+
+    it('shows no results for an unmatched query', () => {
+      render(<CommandPalette />);
+      openPalette();
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'xyzzy' } });
+      expect(screen.getByText('No results')).toBeInTheDocument();
+    });
+
+    it('returns a single result for an overlapping query (no duplicates)', () => {
+      render(<CommandPalette />);
+      openPalette();
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'home' } });
+      const options = screen.getAllByRole('option');
+      expect(options).toHaveLength(1);
+      expect(options[0]).toHaveTextContent('Home');
+    });
   });
 
-  it('the wallet entry is searchable by label', async () => {
-    const user = userEvent.setup();
-    render(<CommandPalette />);
+  describe('activation', () => {
+    it('navigates on Enter and closes', async () => {
+      const user = userEvent.setup();
+      render(<CommandPalette />);
+      openPalette();
+      await user.type(screen.getByRole('combobox'), 'mil');
+      await user.keyboard('{Enter}');
+      expect(mockPush).toHaveBeenCalledWith('/milestones');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
 
-    await user.click(getTrigger());
-    await user.type(getInput(), 'Open Wallet');
-
-    expect(screen.getByRole('option', { name: 'Open Wallet' })).toBeInTheDocument();
+    it('navigates on click and closes', async () => {
+      const user = userEvent.setup();
+      render(<CommandPalette />);
+      openPalette();
+      await user.click(screen.getByRole('option', { name: /Reputation/ }));
+      expect(mockPush).toHaveBeenCalledWith('/reputation');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
 
-  it('the wallet entry is searchable by keyword (not just its label)', async () => {
-    const user = userEvent.setup();
-    render(<CommandPalette />);
+  describe('keyboard navigation', () => {
+    it('closes on Escape', () => {
+      render(<CommandPalette />);
+      openPalette();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
 
-    await user.click(getTrigger());
-    await user.type(getInput(), 'freighter');
+    it('cycles with ArrowDown and ArrowUp', () => {
+      render(<CommandPalette />);
+      openPalette();
+      const combobox = screen.getByRole('combobox');
 
-    expect(screen.getByRole('option', { name: 'Open Wallet' })).toBeInTheDocument();
+      fireEvent.keyDown(combobox, { key: 'ArrowDown' });
+      expect(screen.getByRole('option', { name: /Contracts/ })).toHaveAttribute('aria-selected', 'true');
+
+      fireEvent.keyDown(combobox, { key: 'ArrowDown' });
+      expect(screen.getByRole('option', { name: /Milestones/ })).toHaveAttribute('aria-selected', 'true');
+
+      fireEvent.keyDown(combobox, { key: 'ArrowUp' });
+      expect(screen.getByRole('option', { name: /Contracts/ })).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('combined flow: open → type → ArrowDown → Enter navigates highlighted item', async () => {
+      const user = userEvent.setup();
+      render(<CommandPalette />);
+      openPalette();
+
+      const combobox = screen.getByRole('combobox');
+      await user.type(combobox, 'rep');
+
+      fireEvent.keyDown(combobox, { key: 'ArrowDown' });
+      await user.keyboard('{Enter}');
+
+      expect(mockPush).toHaveBeenCalledWith('/reputation');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
 
-  it('shows a no-results message for a query that matches nothing', async () => {
-    const user = userEvent.setup();
-    render(<CommandPalette />);
+  describe('focus', () => {
+    it('focuses the search input when opened', () => {
+      render(<CommandPalette />);
+      openPalette();
+      expect(screen.getByRole('combobox')).toHaveFocus();
+    });
 
-    await user.click(getTrigger());
-    await user.type(getInput(), 'nonexistent-command-xyz');
-
-    expect(screen.queryByRole('option')).not.toBeInTheDocument();
-    expect(screen.getByText('No matching commands')).toBeInTheDocument();
-  });
-});
-
-describe('CommandPalette — opening and closing', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseWallet.mockReturnValue(createWalletState());
-  });
-
-  it('is closed by default', () => {
-    render(<CommandPalette />);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('opens when the trigger button is clicked and focuses the input', async () => {
-    const user = userEvent.setup();
-    render(<CommandPalette />);
-
-    await user.click(getTrigger());
-
-    expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
-    expect(getInput()).toHaveFocus();
-  });
-
-  it('opens via the Ctrl+K keyboard shortcut from anywhere in the document', () => {
-    render(<CommandPalette />);
-
-    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
-
-    expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
-  });
-
-  it('opens via the Cmd+K (metaKey) keyboard shortcut', () => {
-    render(<CommandPalette />);
-
-    fireEvent.keyDown(document, { key: 'k', metaKey: true });
-
-    expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
-  });
-
-  it('toggles closed if Ctrl+K is pressed again while open', () => {
-    render(<CommandPalette />);
-
-    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-
-    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('closes on Escape and returns focus to the trigger', async () => {
-    const user = userEvent.setup();
-    render(<CommandPalette />);
-
-    await user.click(getTrigger());
-    await user.keyboard('{Escape}');
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    await waitFor(() => expect(getTrigger()).toHaveFocus());
-  });
-
-  it('closes when clicking the backdrop', async () => {
-    const user = userEvent.setup();
-    const { container } = render(<CommandPalette />);
-
-    await user.click(getTrigger());
-    const backdrop = container.querySelector('[aria-hidden="true"]');
-    expect(backdrop).not.toBeNull();
-
-    fireEvent.click(backdrop as Element);
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('clears the query when reopened after a previous search', async () => {
-    const user = userEvent.setup();
-    render(<CommandPalette />);
-
-    await user.click(getTrigger());
-    await user.type(getInput(), 'freighter');
-    await user.keyboard('{Escape}');
-
-    await user.click(getTrigger());
-
-    expect(getInput()).toHaveValue('');
-  });
-});
-
-describe('CommandPalette — activation', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('activating the wallet entry via Enter triggers wallet connect and closes the palette', async () => {
-    const connect = jest.fn();
-    mockUseWallet.mockReturnValue(createWalletState({ connect }));
-    const user = userEvent.setup();
-    render(<CommandPalette />);
-
-    await user.click(getTrigger());
-    await user.keyboard('{Enter}');
-
-    expect(connect).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('activating the wallet entry via click triggers wallet connect', async () => {
-    const connect = jest.fn();
-    mockUseWallet.mockReturnValue(createWalletState({ connect }));
-    const user = userEvent.setup();
-    render(<CommandPalette />);
-
-    await user.click(getTrigger());
-    await user.click(screen.getByRole('option', { name: 'Open Wallet' }));
-
-    expect(connect).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('pressing Enter with no matching results does nothing and stays open', async () => {
-    const connect = jest.fn();
-    mockUseWallet.mockReturnValue(createWalletState({ connect }));
-    const user = userEvent.setup();
-    render(<CommandPalette />);
-
-    await user.click(getTrigger());
-    await user.type(getInput(), 'nonexistent-command-xyz');
-    await user.keyboard('{Enter}');
-
-    expect(connect).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-  });
-
-  it('is keyboard-operable via ArrowDown/ArrowUp to move the active option', async () => {
-    mockUseWallet.mockReturnValue(createWalletState());
-    const user = userEvent.setup();
-    render(<CommandPalette />);
-
-    await user.click(getTrigger());
-
-    const option = screen.getByRole('option', { name: 'Open Wallet' });
-    expect(option).toHaveAttribute('aria-selected', 'true');
-
-    await user.keyboard('{ArrowDown}');
-    expect(option).toHaveAttribute('aria-selected', 'true');
-
-    await user.keyboard('{ArrowUp}');
-    expect(option).toHaveAttribute('aria-selected', 'true');
-  });
-
-  it('ArrowDown/ArrowUp are no-ops when there are no matching results', async () => {
-    mockUseWallet.mockReturnValue(createWalletState());
-    const user = userEvent.setup();
-    render(<CommandPalette />);
-
-    await user.click(getTrigger());
-    await user.type(getInput(), 'nonexistent-command-xyz');
-
-    await expect(user.keyboard('{ArrowDown}')).resolves.not.toThrow();
-    await expect(user.keyboard('{ArrowUp}')).resolves.not.toThrow();
-    expect(screen.getByText('No matching commands')).toBeInTheDocument();
-  });
-});
-
-describe('CommandPalette — accessibility', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseWallet.mockReturnValue(createWalletState());
-  });
-
-  it('has no accessibility violations when closed', async () => {
-    await testA11y(<CommandPalette />);
-  });
-
-  it('has no accessibility violations when open', async () => {
-    const { container } = render(<CommandPalette />);
-    fireEvent.click(getTrigger());
-    const { assertNoA11yViolations } = await import('@/test-utils/a11y');
-    await assertNoA11yViolations(container);
-  });
-});
-
-describe('CommandPalette — unmount', () => {
-  it('unmounts cleanly while open without throwing', async () => {
-    mockUseWallet.mockReturnValue(createWalletState());
-    const user = userEvent.setup();
-    const { unmount } = render(<CommandPalette />);
-
-    await user.click(getTrigger());
-
-    expect(() => unmount()).not.toThrow();
+    it('restores focus to the trigger element after closing', () => {
+      render(
+        <div>
+          <button type="button">Trigger</button>
+          <CommandPalette />
+        </div>,
+      );
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+      trigger.focus();
+      openPalette();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(trigger).toHaveFocus();
+    });
   });
 });

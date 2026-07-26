@@ -51,6 +51,7 @@ import { SettingsTrigger } from '@/components/settings/SettingsTrigger';
 import { CommandPalette } from '@/components/CommandPalette';
 import { WalletProvider } from '@/contexts/WalletContext';
 import RouteAnnouncer from '@/components/RouteAnnouncer';
+import { CommandPalette } from '@/components/CommandPalette';
 import Navbar from '@/components/Navbar';
 import HeaderActions from '@/components/HeaderActions';
 import CommandPalette from '@/components/CommandPalette';
@@ -89,6 +90,7 @@ export default function RootLayout({
                   {children}
                 </main>
               </div>
+              <CommandPalette />
               <SettingsTrigger />
               <CommandPalette />
             </WalletProvider>
