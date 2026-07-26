@@ -1,7 +1,7 @@
 'use client';
 
-import React, { FormEvent, useCallback, useRef, useState } from 'react';
-import { KbdHint } from '@/components/KbdHint';
+import React, { FormEvent, useRef, useState } from 'react';
+import { Skeleton, SkeletonContainer } from '@/components/Skeleton';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -9,24 +9,23 @@ import { KbdHint } from '@/components/KbdHint';
 
 /** Shape of a new payment stream as filled in by the form. */
 export interface StreamFormValues {
-  /** Human-readable stream title / description. */
   title: string;
-  /** Recipient Stellar address (G…). */
   recipient: string;
-  /** Flow rate in the chosen currency per second. */
   ratePerSecond: string;
-  /** Currency ticker (e.g. "XLM", "USDC"). */
   currency: string;
 }
 
 export interface CreateStreamFormProps {
-  /**
-   * Called with the validated form values when the user submits.
-   * The host component is responsible for the actual blockchain call.
-   */
+  /** Called with validated form values on submit. */
   onSubmit: (values: StreamFormValues) => void;
   /** Called when the user cancels without submitting. */
   onCancel?: () => void;
+  /**
+   * When `true` the form is replaced by a themed loading skeleton.
+   * Use while initial data is being fetched to avoid layout shift.
+   * @default false
+   */
+  isLoading?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,13 +68,58 @@ function validateStreamForm(values: StreamFormValues): FormErrors {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Skeleton layout
 // ---------------------------------------------------------------------------
 
 /**
- * Returns the platform-aware modifier key label.
- * Prefers "⌘" on macOS, "Ctrl" elsewhere.
+ * CreateStreamFormSkeleton — themed shimmer that mirrors the form's visual
+ * structure so there is no layout shift when real content loads.
+ *
+ * Exported separately for use in Next.js `loading.tsx` files or Suspense
+ * boundaries if needed.
  */
+export const CreateStreamFormSkeleton: React.FC = () => (
+  <SkeletonContainer
+    label="Loading payment stream form"
+    className="w-full max-w-lg rounded-2xl border border-[var(--border,theme(colors.slate.200))] bg-[var(--card,white)] p-6 shadow-sm"
+  >
+    {/* Heading row */}
+    <Skeleton width="w-48" height="h-6" rounded="rounded-lg" className="mb-2" />
+    {/* Sub-heading */}
+    <Skeleton width="w-72" height="h-3" rounded="rounded-md" className="mb-6" />
+
+    {/* Title field label + input */}
+    <Skeleton width="w-24" height="h-3" rounded="rounded-md" className="mb-1" />
+    <Skeleton width="w-full" height="h-9" rounded="rounded-lg" className="mb-4" />
+
+    {/* Recipient field label + input */}
+    <Skeleton width="w-36" height="h-3" rounded="rounded-md" className="mb-1" />
+    <Skeleton width="w-full" height="h-9" rounded="rounded-lg" className="mb-4" />
+
+    {/* Rate + Currency row */}
+    <div className="grid grid-cols-2 gap-4 mb-6">
+      <div>
+        <Skeleton width="w-24" height="h-3" rounded="rounded-md" className="mb-1" />
+        <Skeleton width="w-full" height="h-9" rounded="rounded-lg" />
+      </div>
+      <div>
+        <Skeleton width="w-20" height="h-3" rounded="rounded-md" className="mb-1" />
+        <Skeleton width="w-full" height="h-9" rounded="rounded-lg" />
+      </div>
+    </div>
+
+    {/* Action row */}
+    <div className="flex justify-end gap-3">
+      <Skeleton width="w-20" height="h-9" rounded="rounded-lg" />
+      <Skeleton width="w-28" height="h-9" rounded="rounded-lg" />
+    </div>
+  </SkeletonContainer>
+);
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function modKey(): string {
   if (typeof navigator !== 'undefined' && /mac/i.test(navigator.platform)) {
     return '⌘';
@@ -90,35 +134,29 @@ function modKey(): string {
 /**
  * CreateStreamForm — accessible form for initiating a Stellar payment stream.
  *
+ * Loading state:
+ *   Pass `isLoading={true}` to render `CreateStreamFormSkeleton` while data is
+ *   fetching. The skeleton mirrors the form layout to avoid layout shift.
+ *
  * Keyboard shortcuts:
  *   `Ctrl/⌘ + Enter` — submit the form from any field.
  *   `Escape`          — invoke `onCancel`.
  *
  * Accessibility:
- *   - Each field has an associated `<label>` and error message linked via
- *     `aria-describedby` + `aria-invalid`.
- *   - Keyboard shortcut hints are rendered using the `KbdHint` component,
- *     which uses `role="img"` with a synthesised `aria-label` so screen
- *     readers hear the shortcut as a single meaningful unit.
- *   - The form itself is labelled by the visible heading.
- *   - Required fields carry `aria-required="true"`.
- *   - Error messages use `role="alert"` so they are announced immediately.
+ *   - Each field has an associated `<label>` linked by `id`.
+ *   - Error messages use `role="alert"` and are linked via `aria-describedby`.
+ *   - Required fields carry `aria-required="true"` and `aria-invalid` on error.
+ *   - The loading skeleton uses `role="status"` + `aria-busy="true"`.
+ *   - Keyboard shortcut hint is `aria-hidden` — decorative for sighted users.
  *
  * Design tokens:
- *   - Uses `--border`, `--card`, `--muted-foreground` CSS variables so the
- *     form adapts automatically to light and dark themes.
- *
- * @example
- * ```tsx
- * <CreateStreamForm
- *   onSubmit={(values) => initiateStream(values)}
- *   onCancel={() => setShowForm(false)}
- * />
- * ```
+ *   Uses `--border`, `--card`, `--muted`, `--muted-foreground` CSS variables
+ *   so both form and skeleton adapt to light and dark themes automatically.
  */
 export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
   onSubmit,
   onCancel,
+  isLoading = false,
 }) => {
   const [values, setValues] = useState<StreamFormValues>({
     title: '',
@@ -130,61 +168,59 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
   const firstErrorRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
   const mod = modKey();
 
-  const set = useCallback(
+  // ── Loading state ────────────────────────────────────────────────────────
+  if (isLoading) {
+    return <CreateStreamFormSkeleton />;
+  }
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
+
+  const set =
     (field: keyof StreamFormValues) =>
-      (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setValues((prev) => ({ ...prev, [field]: e.target.value }));
-        // Clear the per-field error as the user corrects their input
-        if (errors[field]) {
-          setErrors((prev) => ({ ...prev, [field]: undefined }));
-        }
-      },
-    [errors],
-  );
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      setValues((prev) => ({ ...prev, [field]: e.target.value }));
+      if (errors[field]) {
+        setErrors((prev) => ({ ...prev, [field]: undefined }));
+      }
+    };
 
-  const handleSubmit = useCallback(
-    (e: FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    firstErrorRef.current = null;
+    const errs = validateStreamForm(values);
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      firstErrorRef.current?.focus();
+      return;
+    }
+    onSubmit({
+      title: values.title.trim(),
+      recipient: values.recipient.trim().toUpperCase(),
+      ratePerSecond: values.ratePerSecond.trim(),
+      currency: values.currency,
+    });
+  };
+
+  /** Global keyboard shortcuts scoped to the section. */
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
-      const errs = validateStreamForm(values);
-      setErrors(errs);
+      handleSubmit(e as unknown as FormEvent);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      onCancel?.();
+    }
+  };
 
-      if (Object.keys(errs).length > 0) {
-        // Move focus to the first invalid field for screen reader users
-        firstErrorRef.current?.focus();
-        return;
-      }
-
-      onSubmit({
-        title: values.title.trim(),
-        recipient: values.recipient.trim().toUpperCase(),
-        ratePerSecond: values.ratePerSecond.trim(),
-        currency: values.currency,
-      });
-    },
-    [values, onSubmit],
-  );
-
-  /** Keyboard shortcut: Ctrl/⌘+Enter submits; Escape cancels. */
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handleSubmit(e as unknown as FormEvent);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        onCancel?.();
-      }
-    },
-    [handleSubmit, onCancel],
-  );
-
-  // Helper: collect ref for the first erring field after submit
-  const errorRef = (field: keyof StreamFormValues) =>
-    errors[field] && !firstErrorRef.current
+  /** Capture a ref to the first field that has an error for focus management. */
+  const captureFirstError = (field: keyof StreamFormValues) =>
+    errors[field]
       ? (el: HTMLInputElement | HTMLSelectElement | null) => {
-          firstErrorRef.current = el;
+          if (el && !firstErrorRef.current) firstErrorRef.current = el;
         }
       : undefined;
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <section
@@ -192,7 +228,6 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
       className="w-full max-w-lg rounded-2xl border border-[var(--border,theme(colors.slate.200))] bg-[var(--card,white)] p-6 shadow-sm"
       onKeyDown={handleKeyDown}
     >
-      {/* Heading */}
       <h2
         id="create-stream-heading"
         className="text-xl font-semibold text-[var(--foreground,theme(colors.slate.900))] mb-1"
@@ -205,7 +240,7 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
 
       <form onSubmit={handleSubmit} noValidate aria-label="Create payment stream">
 
-        {/* Title */}
+        {/* ── Stream title ── */}
         <div className="mb-4">
           <label
             htmlFor="stream-title"
@@ -221,7 +256,7 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
             aria-required="true"
             aria-invalid={!!errors.title}
             aria-describedby={errors.title ? 'stream-title-error' : undefined}
-            ref={errorRef('title') as React.RefCallback<HTMLInputElement>}
+            ref={captureFirstError('title') as React.RefCallback<HTMLInputElement>}
             placeholder="e.g., Weekly design retainer"
             className={[
               'w-full rounded-lg border px-3 py-2 text-sm',
@@ -238,7 +273,7 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
           )}
         </div>
 
-        {/* Recipient */}
+        {/* ── Recipient address ── */}
         <div className="mb-4">
           <label
             htmlFor="stream-recipient"
@@ -254,7 +289,7 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
             aria-required="true"
             aria-invalid={!!errors.recipient}
             aria-describedby={errors.recipient ? 'stream-recipient-error' : undefined}
-            ref={errorRef('recipient') as React.RefCallback<HTMLInputElement>}
+            ref={captureFirstError('recipient') as React.RefCallback<HTMLInputElement>}
             placeholder="GABC…"
             className={[
               'w-full rounded-lg border px-3 py-2 text-sm font-mono',
@@ -271,7 +306,7 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
           )}
         </div>
 
-        {/* Rate + Currency */}
+        {/* ── Rate + Currency ── */}
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <label
@@ -289,7 +324,7 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
               aria-required="true"
               aria-invalid={!!errors.ratePerSecond}
               aria-describedby={errors.ratePerSecond ? 'stream-rate-error' : undefined}
-              ref={errorRef('ratePerSecond') as React.RefCallback<HTMLInputElement>}
+              ref={captureFirstError('ratePerSecond') as React.RefCallback<HTMLInputElement>}
               placeholder="e.g., 0.001"
               className={[
                 'w-full rounded-lg border px-3 py-2 text-sm',
@@ -320,7 +355,7 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
               aria-required="true"
               aria-invalid={!!errors.currency}
               aria-describedby={errors.currency ? 'stream-currency-error' : undefined}
-              ref={errorRef('currency') as React.RefCallback<HTMLSelectElement>}
+              ref={captureFirstError('currency') as React.RefCallback<HTMLSelectElement>}
               className={[
                 'w-full rounded-lg border px-3 py-2 text-sm',
                 'focus:outline-none focus:ring-2 focus:ring-blue-500',
@@ -330,9 +365,7 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
               ].join(' ')}
             >
               {CURRENCIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
+                <option key={c} value={c}>{c}</option>
               ))}
             </select>
             {errors.currency && (
@@ -343,22 +376,22 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
           </div>
         </div>
 
-        {/* Action row */}
+        {/* ── Action row ── */}
         <div className="flex items-center justify-between mt-6 gap-3">
-          {/* Keyboard hint — visible on md+ screens */}
-          <div className="hidden sm:flex items-center gap-3" aria-hidden="true">
-            <KbdHint keys={[mod, 'Enter']} label="to submit" />
-            {onCancel && (
-              <KbdHint keys={['Esc']} label="to cancel" />
-            )}
-          </div>
-
-          {/* Screen-reader-only hint (announced, not displayed) */}
-          <KbdHint
-            keys={[mod === '⌘' ? 'Command' : 'Control', 'Enter']}
-            label="to submit the form"
-            srOnly
-          />
+          {/* Keyboard shortcut hint — decorative, hidden from AT */}
+          <p
+            className="hidden sm:block text-xs text-[var(--muted-foreground,theme(colors.slate.500))]"
+            aria-hidden="true"
+          >
+            <kbd className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1 rounded border border-[var(--border,theme(colors.slate.200))] bg-[var(--card,white)] font-mono text-[0.65rem] shadow-[0_1px_0_var(--border,theme(colors.slate.200))]">
+              {mod}
+            </kbd>
+            {' + '}
+            <kbd className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1 rounded border border-[var(--border,theme(colors.slate.200))] bg-[var(--card,white)] font-mono text-[0.65rem] shadow-[0_1px_0_var(--border,theme(colors.slate.200))]">
+              Enter
+            </kbd>
+            {' to submit'}
+          </p>
 
           <div className="flex gap-3 ml-auto">
             {onCancel && (
@@ -378,6 +411,7 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
             </button>
           </div>
         </div>
+
       </form>
     </section>
   );
