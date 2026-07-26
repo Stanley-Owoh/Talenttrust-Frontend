@@ -1,3 +1,5 @@
+ 'use client';
+
 export type ReputationEvent = {
   id: string;
   type: string;
@@ -54,6 +56,10 @@ export function resolveReputationLevel(score: number, maxScore: number): string 
 const reputationSummary =
   'Reputation represents verified trust signals and activity history, not sensitive personal metadata. Privacy-friendly defaults keep your profile safe.';
 
+import React, { useMemo, useState } from 'react';
+import { ConfirmDialog } from './ConfirmDialog';
+import { useToast } from './toast/toast-provider';
+
 export default function ReputationProfile({
   name,
   score,
@@ -61,12 +67,83 @@ export default function ReputationProfile({
   history = [],
   maxScore = 5,
 }: ReputationProfileProps) {
+  let showSuccess: ReturnType<typeof useToast>['showSuccess'] | null = null;
+  try {
+    ({ showSuccess } = useToast());
+  } catch {
+    showSuccess = null;
+  }
   const hasReputation = typeof score === 'number' && score >= 0;
   const showPartial = hasReputation && history.length === 0;
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [events, setEvents] = useState(history);
+  const [announcement, setAnnouncement] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const selectedCount = selectedIds.length;
+  const allSelected = events.length > 0 && selectedCount === events.length;
+  const hasPartialSelection = selectedCount > 0 && selectedCount < events.length;
+
+  const selectedEvents = useMemo(
+    () => events.filter((event) => selectedIds.includes(event.id)),
+    [events, selectedIds],
+  );
 
   const resolvedLevel = level !== undefined
     ? level
     : (hasReputation ? resolveReputationLevel(score, maxScore) : 'Community Member');
+
+  const announce = (message: string) => {
+    setAnnouncement(message);
+  };
+
+  const clearSelection = () => {
+    setSelectedIds([]);
+    announce('Selection cleared.');
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((current) => (
+      current.includes(id)
+        ? current.filter((selectedId) => selectedId !== id)
+        : [...current, id]
+    ));
+  };
+
+  const toggleAll = () => {
+    setSelectedIds((current) => (
+      current.length === events.length ? [] : events.map((event) => event.id)
+    ));
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedEvents.length === 0) return;
+    setConfirmOpen(true);
+  };
+
+  const confirmDeleteSelected = () => {
+    const count = selectedEvents.length;
+    setEvents((current) => current.filter((event) => !selectedIds.includes(event.id)));
+    setSelectedIds([]);
+    setConfirmOpen(false);
+    announce(`Deleted ${count} reputation ${count === 1 ? 'item' : 'items'}.`);
+    showSuccess?.({
+      title: 'Bulk delete complete',
+      description: `Deleted ${count} reputation ${count === 1 ? 'item' : 'items'}.`,
+      duration: 3000,
+    });
+  };
+
+  const handleExportSelected = () => {
+    if (selectedEvents.length === 0) return;
+    const payload = selectedEvents.map((event) => ({
+      id: event.id,
+      type: event.type,
+      summary: event.summary,
+      date: event.date,
+    }));
+    void payload;
+    announce(`Exported ${selectedEvents.length} reputation ${selectedEvents.length === 1 ? 'item' : 'items'}.`);
+  };
 
   return (
     <section className="w-full max-w-5xl mx-auto space-y-8 px-4 py-10 sm:px-6 lg:px-8" aria-labelledby="profile-heading">
@@ -205,7 +282,11 @@ export default function ReputationProfile({
           </span>
         </div>
 
-        {history.length === 0 ? (
+        <p aria-live="polite" aria-atomic="true" className="sr-only">
+          {announcement}
+        </p>
+
+        {events.length === 0 ? (
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-slate-700">
             <p className="font-semibold text-slate-900">No reputation history available yet.</p>
             <p className="mt-2 text-sm leading-6">
@@ -213,31 +294,95 @@ export default function ReputationProfile({
             </p>
           </div>
         ) : (
-          <ol className="space-y-4">
-            {history.map((event) => {
-              // Determine whether the date string is a parseable ISO date.
-              // If it is, expose the ISO value via dateTime for machine readability.
-              const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
-              return (
-                <li key={event.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-500">{event.type}</p>
-                      <p className="mt-1 text-base font-semibold text-slate-950">{event.summary}</p>
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-slate-800">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(node) => {
+                    if (node) {
+                      node.indeterminate = hasPartialSelection;
+                    }
+                  }}
+                  onChange={toggleAll}
+                  aria-label="Select all reputation items"
+                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                />
+                Select all
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportSelected}
+                  disabled={selectedCount === 0}
+                  className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Export selected
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteSelected}
+                  disabled={selectedCount === 0}
+                  className="rounded-2xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Delete selected
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  disabled={selectedCount === 0}
+                  className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Clear selection
+                </button>
+              </div>
+            </div>
+            <ol className="space-y-4">
+              {events.map((event) => {
+                const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
+                const isSelected = selectedIds.includes(event.id);
+                return (
+                  <li key={event.id} className={`rounded-3xl border p-5 ${isSelected ? 'border-slate-900 bg-slate-100' : 'border-slate-200 bg-slate-50'}`}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <label className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelection(event.id)}
+                          aria-label={`Select reputation item ${event.type}: ${event.summary}`}
+                          className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                        />
+                        <span>
+                          <span className="block text-sm font-medium text-slate-500">{event.type}</span>
+                          <span className="mt-1 block text-base font-semibold text-slate-950">{event.summary}</span>
+                        </span>
+                      </label>
+                      <time
+                        className="text-sm text-slate-500 sm:text-right"
+                        {...(isValidDate ? { dateTime: event.date } : {})}
+                      >
+                        {event.date}
+                      </time>
                     </div>
-                    <time
-                      className="text-sm text-slate-500"
-                      {...(isValidDate ? { dateTime: event.date } : {})}
-                    >
-                      {event.date}
-                    </time>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        tone="destructive"
+        title="Delete selected reputation items?"
+        description={`This will permanently delete ${selectedCount} selected reputation ${selectedCount === 1 ? 'item' : 'items'}. This action cannot be undone.`}
+        confirmLabel="Delete selected"
+        cancelLabel="Cancel"
+        onConfirm={confirmDeleteSelected}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </section>
   );
 }

@@ -26,12 +26,21 @@
  */
 
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import ReputationProfile, {
   ReputationEvent,
   ReputationProfileProps,
 } from './ReputationProfile';
 import { assertNoA11yViolations } from '@/test-utils/a11y';
+
+jest.mock('./toast/toast-provider', () => ({
+  useToast: () => ({
+    showSuccess: jest.fn(),
+    showError: jest.fn(),
+    dismissToast: jest.fn(),
+    toasts: [],
+  }),
+}));
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
@@ -279,6 +288,71 @@ describe('ReputationProfile – full reputation (score + history)', () => {
     HISTORY_EVENTS.forEach((ev, idx) => {
       expect(within(items[idx]).getByText(ev.summary)).toBeInTheDocument();
     });
+  });
+
+  it('selects all reputation items from the bulk toolbar', () => {
+    fireEvent.click(screen.getByRole('checkbox', { name: /select all reputation items/i }));
+
+    HISTORY_EVENTS.forEach((event) => {
+      expect(
+        screen.getByRole('checkbox', {
+          name: `Select reputation item ${event.type}: ${event.summary}`,
+        }),
+      ).toBeChecked();
+    });
+  });
+
+  it('supports partial selection and bulk clear', () => {
+    fireEvent.click(screen.getByRole('checkbox', {
+      name: `Select reputation item ${HISTORY_EVENTS[0].type}: ${HISTORY_EVENTS[0].summary}`,
+    }));
+
+    expect(
+      screen.getByRole('checkbox', {
+        name: `Select reputation item ${HISTORY_EVENTS[0].type}: ${HISTORY_EVENTS[0].summary}`,
+      }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /select all reputation items/i }),
+    ).not.toBeChecked();
+
+    fireEvent.click(screen.getByRole('button', { name: /clear selection/i }));
+
+    expect(
+      screen.getByRole('checkbox', {
+        name: `Select reputation item ${HISTORY_EVENTS[0].type}: ${HISTORY_EVENTS[0].summary}`,
+      }),
+    ).not.toBeChecked();
+  });
+
+  it('confirms destructive bulk delete and clears the selected rows', async () => {
+    fireEvent.click(screen.getByRole('checkbox', {
+      name: /select all reputation items/i,
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: /delete selected/i }));
+
+    expect(
+      screen.getByRole('alertdialog', { name: /delete selected reputation items\?/i }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(screen.getByRole('alertdialog', { name: /delete selected reputation items\?/i })).getByRole('button', { name: /delete selected/i }));
+
+    expect(await screen.findByText(/Deleted 3 reputation items\./i)).toBeInTheDocument();
+    expect(screen.getByText(/No reputation history available yet\./i)).toBeInTheDocument();
+    expect(screen.queryAllByRole('checkbox', { name: /select reputation item/i })).toHaveLength(0);
+  });
+
+  it('announces export results for a partial bulk selection', () => {
+    fireEvent.click(screen.getByRole('checkbox', {
+      name: `Select reputation item ${HISTORY_EVENTS[0].type}: ${HISTORY_EVENTS[0].summary}`,
+    }));
+    fireEvent.click(screen.getByRole('checkbox', {
+      name: `Select reputation item ${HISTORY_EVENTS[1].type}: ${HISTORY_EVENTS[1].summary}`,
+    }));
+    fireEvent.click(screen.getByRole('button', { name: /export selected/i }));
+
+    expect(screen.getByText(/Exported 2 reputation items\./i)).toBeInTheDocument();
   });
 });
 
