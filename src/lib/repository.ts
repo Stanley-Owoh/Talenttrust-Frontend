@@ -261,6 +261,34 @@ export function getContractVersion(contractName: string): number {
   return existing?.version ?? 0;
 }
 
+/**
+ * Replaces the contract currently stored under `originalName` with `updated`.
+ *
+ * Unlike {@link upsertContract} (which keys on the *new* name), this locates
+ * the existing row by its original name first, so an inline edit that also
+ * renames the contract updates in place instead of creating a duplicate.
+ *
+ * @returns `true` on a successful write; `false` when no contract matches
+ *   `originalName` or when running without `localStorage`.
+ */
+export function updateContract(originalName: string, updated: Contract): boolean {
+  const store = readStore();
+  const index = store.contracts.findIndex(
+    (existingContract) => existingContract.contractName === originalName,
+  );
+
+  if (index === -1) {
+    console.warn(`[repository] updateContract: No contract found with name '${originalName}'.`);
+    return false;
+  }
+
+  const contracts = store.contracts.map((existingContract, i) =>
+    i === index ? updated : existingContract,
+  );
+
+  return writeStore({ ...store, contracts });
+}
+
 // ---------------------------------------------------------------------------
 // Public API — Milestones
 // ---------------------------------------------------------------------------

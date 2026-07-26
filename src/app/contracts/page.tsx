@@ -11,11 +11,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import EmptyState from '../../components/EmptyState';
 import ContractsList from '../../components/contracts/ContractsList';
 import { ContractCreationForm } from '../../components/ContractCreationForm';
-import { useToast } from '@/components/toast/toast-provider';
-import { listContracts, saveContract } from '@/lib/repository';
-import type { Contract, StatusType } from '@/types/domain';
-
-type OptimisticContract = Contract & { __optimisticId?: string };
+import EditableContractRow from '../../components/EditableContractRow';
+import { listContracts, saveContract, updateContract } from '@/lib/repository';
+import type { Contract } from '@/types/domain';
 
 const ContractsPage: React.FC = () => {
   // Initialise from localStorage on first render; subsequent saves trigger
@@ -59,7 +57,14 @@ const ContractsPage: React.FC = () => {
     setShowForm(false);
   }, []);
 
-  const resultCountText = `Showing ${filteredContracts.length} of ${contracts.length} contract${contracts.length === 1 ? '' : 's'}`;
+  /**
+   * Persists an inline row edit (keyed by the row's original name so renames
+   * update in place) and refreshes the list from storage.
+   */
+  const handleInlineSave = useCallback((originalName: string, updated: Contract) => {
+    updateContract(originalName, updated);
+    setContracts(listContracts());
+  }, []);
 
   return (
     <main className="min-h-screen p-8">
@@ -86,12 +91,12 @@ const ContractsPage: React.FC = () => {
               Create Contract
             </button>
           </div>
-          {/* TODO: Replace with a proper ContractSummary list component. */}
           <ul className="space-y-4">
             {contracts.map((contract, idx) => (
-              <ContractRow
-                key={contract.id || `${contract.contractName}-${idx}`}
+              <EditableContractRow
+                key={`${contract.contractName}-${idx}`}
                 contract={contract}
+                onSave={handleInlineSave}
               />
             ))}
           </ul>
