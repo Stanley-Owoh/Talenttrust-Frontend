@@ -186,12 +186,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
           <h2 id="settings-panel-title" className="text-xl font-bold text-[var(--foreground)]">Settings</h2>
           <button 
+            type="button"
             ref={closeButtonRef}
             onClick={onClose}
             className="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
             aria-label="Close settings"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg aria-hidden="true" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
