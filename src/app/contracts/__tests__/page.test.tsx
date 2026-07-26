@@ -1,5 +1,10 @@
 import React from 'react';
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent, waitFor } from '@testing-library/react';
+import { ToastProvider } from '@/components/toast/toast-provider';
+
+function render(ui: React.ReactElement, options = {}) {
+  return rtlRender(ui, { wrapper: ToastProvider, ...options });
+}
 import ContractsPage from '../page';
 import * as repository from '@/lib/repository';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -68,14 +73,12 @@ function makeContract(overrides: Partial<Contract> = {}): Contract {
 });
 jest.mock('@/lib/stellarAddress');
 
-jest.mock('next/navigation', () => {
-  const original = jest.requireActual('next/navigation');
-  return {
-    ...original,
-    useRouter: jest.fn(),
-    useSearchParams: jest.fn(),
-  };
-});
+jest.mock('@/components/toast/toast-provider', () => ({
+  useToast: () => ({
+    showSuccess: jest.fn(),
+    showError: jest.fn(),
+  }),
+}));
 
 const mockListContracts = repository.listContracts as jest.MockedFunction<
   typeof repository.listContracts

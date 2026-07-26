@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import EmptyState from '../../components/EmptyState';
 import ContractsList from '../../components/contracts/ContractsList';
 import { ContractCreationForm } from '../../components/ContractCreationForm';
+import { ContractRow } from '../../components/contracts/ContractRow';
 import { listContracts, saveContract } from '@/lib/repository';
 import type { Contract, StatusType } from '@/types/domain';
 
@@ -311,108 +312,24 @@ const ContractsContent: React.FC = () => {
 
       {!showForm && contracts.length > 0 && (
         <>
-          <div className="mb-4 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div className="grid flex-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)]">
-                <div>
-                  <label htmlFor="contracts-search" className="text-sm font-semibold text-slate-700">
-                    Search contracts
-                  </label>
-                  <input
-                    id="contracts-search"
-                    type="search"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search by contract, party, or address"
-                    className="mt-2 w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="contracts-sort" className="text-sm font-semibold text-slate-700">
-                    Sort contracts
-                  </label>
-                  <select
-                    id="contracts-sort"
-                    value={sortOption}
-                    onChange={(event) => setSortOption(event.target.value as ContractSortOption)}
-                    className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {CONTRACT_SORT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCreateContract}
-                className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-              >
-                Create Contract
-              </button>
-            </div>
-
-            <fieldset>
-              <legend className="text-sm font-semibold text-slate-700">
-                Filter contracts by status
-              </legend>
-              <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Filter contracts by status">
-                {CONTRACT_STATUS_FILTERS.map((status) => (
-                  <label
-                    key={status}
-                    className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
-                      statusFilter === status
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="contract-status-filter"
-                      value={status}
-                      checked={statusFilter === status}
-                      onChange={() => setStatusFilter(status)}
-                      className="h-4 w-4 accent-blue-600"
-                    />
-                    {status}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <p className="text-sm text-slate-600" role="status" aria-live="polite">
-              {resultCountText}
-            </p>
+          <div className="mb-4 flex justify-end">
+            <button
+              type="button"
+              onClick={handleCreateContract}
+              className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+            >
+              Create Contract
+            </button>
           </div>
-
-          {filteredContracts.length === 0 ? (
-            <EmptyState
-              illustration="contracts"
-              title="No contracts match your filters"
-              description="Try adjusting the search query or status filter, or create a new contract if you're looking for something else."
-              actionLabel="Create Contract"
-              onAction={handleCreateContract}
-            />
-          ) : (
-            <ul className="space-y-4">
-              {filteredContracts.map((contract, idx) => (
-                <li
-                  key={`${contract.contractName}-${idx}`}
-                  className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
-                >
-                  <p className="font-semibold text-slate-900">{contract.contractName}</p>
-                  <p className="text-sm text-slate-500">
-                    {contract.status} · Created {contract.createdAt} · {contract.currency}{' '}
-                    {contract.totalValue.toLocaleString()}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* TODO: Replace with a proper ContractSummary list component. */}
+          <ul className="space-y-4">
+            {contracts.map((contract, idx) => (
+              <ContractRow
+                key={contract.id || `${contract.contractName}-${idx}`}
+                contract={contract}
+              />
+            ))}
+          </ul>
         </>
       )}
 

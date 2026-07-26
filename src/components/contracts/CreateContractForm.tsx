@@ -91,6 +91,7 @@ const CreateContractForm: React.FC<CreateContractFormProps> = ({ onSuccess, onCa
     setErrors([]);
 
     const contract: Contract = {
+      id: crypto.randomUUID(),
       contractName: contractName.trim(),
       parties: [
         { label: 'Client', address: 'TalentTrust Client' },
