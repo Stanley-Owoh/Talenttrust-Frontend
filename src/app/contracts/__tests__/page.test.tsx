@@ -1,7 +1,8 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import React from 'react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ContractsPage from '../page';
 import * as repository from '@/lib/repository';
-import type { Contract } from '@/types/domain';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 // Mock the repository module
 jest.mock('@/lib/repository');
@@ -64,11 +65,49 @@ function makeContract(overrides: Partial<Contract> = {}): Contract {
     milestoneCount: 3,
     ...overrides,
   };
-}
+});
+jest.mock('@/lib/stellarAddress');
+
+jest.mock('next/navigation', () => {
+  const original = jest.requireActual('next/navigation');
+  return {
+    ...original,
+    useRouter: jest.fn(),
+    useSearchParams: jest.fn(),
+  };
+});
+
+const mockListContracts = repository.listContracts as jest.MockedFunction<
+  typeof repository.listContracts
+>;
+const mockSaveContract = repository.saveContract as jest.MockedFunction<
+  typeof repository.saveContract
+>;
+const mockIsValidStellarAddress = stellarAddress.isValidStellarAddress as jest.MockedFunction<
+  typeof stellarAddress.isValidStellarAddress
+>;
+const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>;
+const mockUseSearchParams = useSearchParams as jest.MockedFunction<typeof useSearchParams>;
+const mockPush = jest.fn();
+
+const VALID_ADDRESS = 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H';
+
+const createSearchParams = (query = '') => {
+  const params = new URLSearchParams(query);
+  return {
+    get: (name: string) => params.get(name),
+    toString: () => params.toString(),
+  } as ReturnType<typeof useSearchParams>;
+};
 
 describe('ContractsPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    localStorage.clear();
+    mockListContracts.mockReturnValue([]);
+    mockUseRouter.mockReturnValue({ push: mockPush } as unknown as ReturnType<typeof useRouter>);
+    mockUseSearchParams.mockReturnValue(createSearchParams());
+    mockIsValidStellarAddress.mockImplementation((addr: string | null | undefined) => addr === VALID_ADDRESS);
   });
 
   describe('empty state', () => {
@@ -338,6 +377,244 @@ describe('ContractsPage', () => {
       });
 
       expect(screen.getByText('New Contract')).toBeInTheDocument();
+    });
+  });
+
+  describe('Form Requirements', () => {
+    it('requires at least two parties', async () => {
+      mockListContracts.mockReturnValue([]);
+      render(<ContractsPage />);
+
+      fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
+
+      // Fill only one party
+      fireEvent.change(screen.getByLabelText(/contract name/i), {
+        target: { value: 'Test' },
+      });
+      fireEvent.change(screen.getByLabelText(/total value/i), {
+        target: { value: '1000' },
+      });
+
+      const partyLabels = screen.getAllByPlaceholderText(/e\.g\., client, freelancer/i);
+      const partyAddresses = screen.getAllByPlaceholderText(/GXXXXXXXXXX/i);
+
+      fireEvent.change(partyLabels[0], { target: { value: 'Client' } });
+      fireEvent.change(partyAddresses[0], { target: { value: VALID_ADDRESS } });
+
+      fireEvent.click(screen.getByRole('button', { name: /create contract/i, hidden: false }));
+
+      await waitFor(() => {
+        expect(screen.getAllByText(/at least two parties are required/i)[0]).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Page Structure', () => {
+    it('renders page heading', () => {
+      mockListContracts.mockReturnValue([]);
+      render(<ContractsPage />);
+
+      expect(screen.getByRole('heading', { name: 'Contracts', level: 1 })).toBeInTheDocument();
+    });
+
+    it('renders main landmark', () => {
+      mockListContracts.mockReturnValue([]);
+      render(<ContractsPage />);
+
+      expect(screen.getByRole('main')).toBeInTheDocument();
+    });
+  });
+
+  it('renders persisted contracts when storage already contains data', () => {
+    const existingContracts = [
+      {
+        contractName: 'Existing Contract',
+        parties: [],
+        totalValue: 1000,
+        currency: 'USD',
+        status: 'Active' as const,
+        createdAt: 'Apr 20, 2026',
+        milestoneCount: 1,
+      },
+    ];
+    mockListContracts.mockReturnValue(existingContracts);
+
+    render(<ContractsPage />);
+
+    expect(screen.getByText('Existing Contract')).toBeInTheDocument();
+    expect(screen.getByText(/Active · Created Apr 20, 2026/)).toBeInTheDocument();
+  });
+
+  it('calls saveContract and refreshes contracts on form submission', async () => {
+    mockListContracts.mockReturnValue([]);
+    render(<ContractsPage />);
+
+    // Open the form
+    fireEvent.click(screen.getByRole('button', { name: 'Create Contract' }));
+
+    // Fill in the form
+    fireEvent.change(screen.getByLabelText(/contract name/i), {
+      target: { value: 'My New Contract' },
+    });
+    fireEvent.change(screen.getByLabelText(/total value/i), {
+      target: { value: '1000' },
+    });
+    const partyLabels = screen.getAllByPlaceholderText(/e\.g\., client, freelancer/i);
+    const partyAddresses = screen.getAllByPlaceholderText(/GXXXXXXXXXX/i);
+    fireEvent.change(partyLabels[0], { target: { value: 'Client' } });
+    fireEvent.change(partyAddresses[0], { target: { value: VALID_ADDRESS } });
+    fireEvent.change(partyLabels[1], { target: { value: 'Freelancer' } });
+    fireEvent.change(partyAddresses[1], { target: { value: VALID_ADDRESS } });
+
+    const newContract = {
+      contractName: 'My New Contract',
+      parties: [
+        { label: 'Client', address: VALID_ADDRESS },
+        { label: 'Freelancer', address: VALID_ADDRESS },
+      ],
+      totalValue: 1000,
+      currency: 'USD',
+      status: 'Pending' as const,
+      createdAt: 'Jan 1, 2025',
+      milestoneCount: 0,
+    };
+    mockListContracts.mockReturnValue([newContract]);
+
+    // Submit the form
+    fireEvent.click(screen.getByRole('button', { name: /create contract/i, hidden: false }));
+
+    await waitFor(() => {
+      expect(mockSaveContract).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockListContracts).toHaveBeenCalled();
+  });
+
+  describe('URL-persisted filter and sort state', () => {
+    const alphaContract = {
+      contractName: 'Alpha Website',
+      parties: [
+        { label: 'Acme Corp', address: VALID_ADDRESS },
+        { label: 'Designer', address: VALID_ADDRESS },
+      ],
+      totalValue: 5000,
+      currency: 'USD',
+      status: 'Active' as const,
+      createdAt: 'Jan 1, 2025',
+      milestoneCount: 2,
+    };
+
+    const betaContract = {
+      contractName: 'Beta Mobile App',
+      parties: [
+        { label: 'Beta LLC', address: VALID_ADDRESS },
+        { label: 'Developer', address: VALID_ADDRESS },
+      ],
+      totalValue: 12000,
+      currency: 'USD',
+      status: 'Pending' as const,
+      createdAt: 'Mar 1, 2025',
+      milestoneCount: 4,
+    };
+
+    const gammaContract = {
+      contractName: 'Gamma Audit',
+      parties: [
+        { label: 'Gamma Foundation', address: VALID_ADDRESS },
+        { label: 'Auditor', address: VALID_ADDRESS },
+      ],
+      totalValue: 2500,
+      currency: 'USD',
+      status: 'Completed' as const,
+      createdAt: 'Feb 1, 2025',
+      milestoneCount: 1,
+    };
+
+    it('restores search, status, and sort from valid URL query params on load', () => {
+      mockUseSearchParams.mockReturnValue(createSearchParams('q=beta&status=Pending&sort=value-asc'));
+      mockListContracts.mockReturnValue([alphaContract, betaContract, gammaContract]);
+
+      render(<ContractsPage />);
+
+      expect(screen.getByRole('searchbox', { name: /search contracts/i })).toHaveValue('beta');
+      expect(screen.getByRole('radio', { name: 'Pending' })).toBeChecked();
+      expect(screen.getByLabelText(/sort contracts/i)).toHaveValue('value-asc');
+      expect(screen.getByText('Beta Mobile App')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Website')).not.toBeInTheDocument();
+      expect(screen.getByText('Showing 1 of 3 contracts')).toBeInTheDocument();
+    });
+
+    it('ignores invalid status and sort query params and keeps safe defaults', () => {
+      jest.useFakeTimers();
+      mockUseSearchParams.mockReturnValue(createSearchParams('status=Closed&sort=drop-table'));
+      mockListContracts.mockReturnValue([alphaContract, betaContract, gammaContract]);
+
+      render(<ContractsPage />);
+
+      expect(screen.getByRole('radio', { name: 'All' })).toBeChecked();
+      expect(screen.getByLabelText(/sort contracts/i)).toHaveValue('created-desc');
+      expect(screen.getByText('Alpha Website')).toBeInTheDocument();
+      expect(screen.getByText('Beta Mobile App')).toBeInTheDocument();
+      expect(screen.getByText('Gamma Audit')).toBeInTheDocument();
+
+      act(() => {
+        jest.advanceTimersByTime(300);
+      });
+
+      expect(mockPush).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+
+    it('debounces search URL updates and produces a shareable link', () => {
+      jest.useFakeTimers();
+      mockListContracts.mockReturnValue([alphaContract, betaContract, gammaContract]);
+      render(<ContractsPage />);
+
+      fireEvent.change(screen.getByRole('searchbox', { name: /search contracts/i }), {
+        target: { value: 'acme' },
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(299);
+      });
+      expect(mockPush).not.toHaveBeenCalled();
+
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(mockPush).toHaveBeenCalledWith('/contracts?q=acme');
+      jest.useRealTimers();
+    });
+
+    it('round-trips status and sort changes through the URL for browser history', () => {
+      jest.useFakeTimers();
+      mockListContracts.mockReturnValue([alphaContract, betaContract, gammaContract]);
+      render(<ContractsPage />);
+
+      fireEvent.click(screen.getByRole('radio', { name: 'Active' }));
+      fireEvent.change(screen.getByLabelText(/sort contracts/i), {
+        target: { value: 'value-desc' },
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(300);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith('/contracts?status=Active&sort=value-desc');
+      expect(screen.getByText('Alpha Website')).toBeInTheDocument();
+      expect(screen.queryByText('Beta Mobile App')).not.toBeInTheDocument();
+      jest.useRealTimers();
+    });
+
+    it('shows a no-match empty state when URL-restored filters exclude every contract', () => {
+      mockUseSearchParams.mockReturnValue(createSearchParams('q=nonexistent&status=Disputed'));
+      mockListContracts.mockReturnValue([alphaContract, betaContract, gammaContract]);
+
+      render(<ContractsPage />);
+
+      expect(screen.getByText('No contracts match your filters')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Website')).not.toBeInTheDocument();
+      expect(screen.getByText('Showing 0 of 3 contracts')).toBeInTheDocument();
     });
   });
 });
