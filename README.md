@@ -40,8 +40,7 @@ This repository keeps user-facing and implementation notes inside the `docs/` fo
 - `docs/components/Accessibility.md` — Accessibility testing, a11y helpers, and issue #383 notes
 - `docs/components/Forms.md` — Consolidated Forms API reference (props, types, minimal usage for `FormField`, `ErrorSummary`, `ContractCreationForm`, `CreateContractForm`, `MilestoneCreationForm`, `WalletAddressInput`, `ConfirmDialog`) — closes #859
 - `docs/components/ReputationPage.md` — Reputation page implementation and rendering states
-- `docs/components/Toast.md` — Toast usage guide: provider setup, `useToast` hook, props, common patterns, and accessibility
-- `docs/components/Wallet.md` — Wallet API reference: `WalletProvider`, `useWallet` hook, `WalletConnectButton`, and `WalletAddressInput` props and usage examples
+- `docs/components/SettingsPanel.md` — Settings drawer, trigger, and preferences examples
 - `docs/data-model.md` — Data model and persistence guide
 - `docs/forms-data-flow.md` — Forms data-flow diagram (fetch -> transform -> render) and implementation notes
 - `docs/persistence.md` — Persistence API and local storage patterns
