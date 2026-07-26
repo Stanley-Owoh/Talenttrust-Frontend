@@ -61,6 +61,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
    */
   const buildPersistedContract = useCallback(
     (data: ContractData, status: Contract['status']): Contract => ({
+      id,
       contractName: data.name,
       parties: data.parties,
       totalValue: data.totalValue,
@@ -69,7 +70,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       createdAt: data.createdAt,
       milestoneCount: data.milestones.length,
     }),
-    [],
+    [id],
   );
 
   /**

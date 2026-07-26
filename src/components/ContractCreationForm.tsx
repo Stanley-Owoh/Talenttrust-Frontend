@@ -164,6 +164,7 @@ export const ContractCreationForm: React.FC<ContractCreationFormProps> = ({
         }));
       
       const contract: Contract = {
+        id: crypto.randomUUID(),
         contractName: sanitizeUserText(contractName, MAX_CONTRACT_NAME_LENGTH),
         parties: validParties,
         totalValue: parseFloat(totalValue),
