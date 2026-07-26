@@ -3,7 +3,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { PreferencesProvider } from '@/lib/preferences';
-import { ToastProvider, useToast } from './toast-provider';
+import { ToastProvider, useToast, ToastErrorBoundary } from './toast-provider';
+import * as errorReporter from '@/lib/errorReporter';
 
 function ToastHarness() {
   const { showError, showSuccess } = useToast();
@@ -1372,5 +1373,68 @@ describe('toastDuration preference', () => {
     // Advance time — none should auto-dismiss (all persistent).
     act(() => { jest.advanceTimersByTime(60000); });
     expect(screen.getAllByRole('status')).toHaveLength(4);
+  });
+});
+
+describe('ToastErrorBoundary', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(errorReporter, 'reportError').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('renders children seamlessly when no error occurs', () => {
+    render(
+      <ToastErrorBoundary>
+        <div>Normal Content</div>
+      </ToastErrorBoundary>
+    );
+    expect(screen.getByText('Normal Content')).toBeInTheDocument();
+  });
+
+  it('catches render errors in toast viewport, logs them, and renders fallback', () => {
+    const ThrowingComponent = () => {
+      throw new Error('Toast render error');
+    };
+
+    render(
+      <ToastErrorBoundary>
+        <ThrowingComponent />
+      </ToastErrorBoundary>
+    );
+
+    expect(screen.getByText('Notifications failed to load')).toBeInTheDocument();
+    expect(errorReporter.reportError).toHaveBeenCalledWith(
+      expect.any(Error),
+      'ToastErrorBoundary',
+      'error',
+      expect.any(Object)
+    );
+  });
+
+  it('recovers when retry button is clicked', () => {
+    let shouldThrow = true;
+    const RecoverableComponent = () => {
+      if (shouldThrow) {
+        throw new Error('Temporary error');
+      }
+      return <div>Recovered!</div>;
+    };
+
+    render(
+      <ToastErrorBoundary>
+        <RecoverableComponent />
+      </ToastErrorBoundary>
+    );
+
+    expect(screen.getByText('Notifications failed to load')).toBeInTheDocument();
+
+    shouldThrow = false;
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    expect(screen.getByText('Recovered!')).toBeInTheDocument();
   });
 });
