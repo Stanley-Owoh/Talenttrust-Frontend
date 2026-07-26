@@ -482,4 +482,94 @@ describe('ContractsPage', () => {
 
     expect(mockListContracts).toHaveBeenCalled();
   });
+
+  describe('Pagination and Filtering', () => {
+    it('renders first page of contracts and hides the rest', () => {
+      const mockContracts = Array.from({ length: 12 }).map((_, i) => ({
+        contractName: `Contract ${i}`,
+        parties: [],
+        totalValue: 1000,
+        currency: 'USD',
+        status: 'Active' as const,
+        createdAt: 'Jan 1, 2025',
+        milestoneCount: 0,
+      }));
+      mockListContracts.mockReturnValue(mockContracts);
+      render(<ContractsPage />);
+      
+      expect(screen.getByText('Contract 0')).toBeInTheDocument();
+      expect(screen.getByText('Contract 9')).toBeInTheDocument();
+      expect(screen.queryByText('Contract 10')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /load more/i })).toBeInTheDocument();
+    });
+
+    it('load-more append behavior', () => {
+      const mockContracts = Array.from({ length: 12 }).map((_, i) => ({
+        contractName: `Contract ${i}`,
+        parties: [],
+        totalValue: 1000,
+        currency: 'USD',
+        status: 'Active' as const,
+        createdAt: 'Jan 1, 2025',
+        milestoneCount: 0,
+      }));
+      mockListContracts.mockReturnValue(mockContracts);
+      render(<ContractsPage />);
+      
+      fireEvent.click(screen.getByRole('button', { name: /load more/i }));
+      
+      expect(screen.getByText('Contract 0')).toBeInTheDocument();
+      expect(screen.getByText('Contract 11')).toBeInTheDocument();
+    });
+
+    it('end-of-list behavior', () => {
+      const mockContracts = Array.from({ length: 12 }).map((_, i) => ({
+        contractName: `Contract ${i}`,
+        parties: [],
+        totalValue: 1000,
+        currency: 'USD',
+        status: 'Active' as const,
+        createdAt: 'Jan 1, 2025',
+        milestoneCount: 0,
+      }));
+      mockListContracts.mockReturnValue(mockContracts);
+      render(<ContractsPage />);
+      
+      fireEvent.click(screen.getByRole('button', { name: /load more/i }));
+      
+      // We are on page 2, 20 items loaded, but only 12 exist, so load more should hide
+      expect(screen.queryByRole('button', { name: /load more/i })).not.toBeInTheDocument();
+    });
+
+    it('reset-on-filter behavior', () => {
+      const mockContracts = Array.from({ length: 12 }).map((_, i) => ({
+        contractName: `Contract ${i}`,
+        parties: [],
+        totalValue: 1000,
+        currency: 'USD',
+        status: i % 2 === 0 ? ('Active' as const) : ('Pending' as const),
+        createdAt: 'Jan 1, 2025',
+        milestoneCount: 0,
+      }));
+      mockListContracts.mockReturnValue(mockContracts);
+      render(<ContractsPage />);
+      
+      // Click load more
+      fireEvent.click(screen.getByRole('button', { name: /load more/i }));
+      expect(screen.getByText('Contract 11')).toBeInTheDocument(); // A pending contract on page 2
+
+      // Change filter
+      fireEvent.change(screen.getByLabelText(/filter by status/i), {
+        target: { value: 'Active' },
+      });
+
+      // Filter should reset page to 1
+      // There are 6 Active contracts, page size is 10, so they should all be visible
+      // and load more button should be hidden
+      expect(screen.getByText('Contract 0')).toBeInTheDocument();
+      expect(screen.getByText('Contract 10')).toBeInTheDocument();
+      expect(screen.queryByText('Contract 1')).not.toBeInTheDocument(); // Filtered out
+      expect(screen.queryByRole('button', { name: /load more/i })).not.toBeInTheDocument();
+    });
+  });
 });
