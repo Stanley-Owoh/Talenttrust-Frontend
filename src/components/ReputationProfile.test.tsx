@@ -26,7 +26,7 @@
  */
 
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import ReputationProfile, {
   ReputationEvent,
   ReputationProfileProps,
@@ -913,48 +913,356 @@ describe('reputation level legend and derived level', () => {
   });
 
 // ---------------------------------------------------------------------------
-// 12. Density Toggle
+// 12. Inline edit mode for reputation rows
 // ---------------------------------------------------------------------------
 
-describe('ReputationProfile – density toggle', () => {
-  beforeEach(() => {
-    localStorage.clear();
+describe('ReputationProfile – inline edit mode', () => {
+  const EDIT_EVENTS: ReputationEvent[] = [
+    { id: 'ev-1', type: 'Verification', summary: 'Completed identity verification', date: '2026-04-24' },
+    { id: 'ev-2', type: 'Referral', summary: 'Referred two members', date: '2026-04-20' },
+  ];
+
+  function renderEditable(props: Partial<ReputationProfileProps> = {}) {
+    const onSave = jest.fn();
+    const result = render(
+      <ReputationProfile
+        name="Edit User"
+        score={80}
+        history={EDIT_EVENTS}
+        onSave={onSave}
+        {...props}
+      />,
+    );
+    return { onSave, ...result };
+  }
+
+  describe('Edit button visibility', () => {
+    it('renders an Edit button for each event when onSave is provided', () => {
+      renderEditable();
+      const editButtons = screen.getAllByRole('button', { name: /edit/i });
+      expect(editButtons).toHaveLength(EDIT_EVENTS.length);
+    });
+
+    it('does NOT render Edit buttons when onSave is not provided', () => {
+      renderProfile({ name: 'Read User', score: 80, history: EDIT_EVENTS });
+      expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
+    });
+
+    it('does NOT render Edit buttons when history is empty', () => {
+      renderEditable({ history: [] });
+      expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
+    });
   });
 
-  it('renders comfortable view by default', () => {
-    renderProfile({ name: 'Density User', history: HISTORY_EVENTS });
-    expect(screen.getByRole('button', { name: /Switch to compact density/i })).toBeInTheDocument();
-    expect(screen.getByText('Compact View')).toBeInTheDocument();
+  describe('Entering edit mode', () => {
+    it('clicking Edit switches the row to edit mode with form inputs', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      expect(screen.getByLabelText('Type')).toBeInTheDocument();
+      expect(screen.getByLabelText('Summary')).toBeInTheDocument();
+      expect(screen.getByLabelText('Date')).toBeInTheDocument();
+    });
+
+    it('edit form fields are pre-filled with the original event values', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      expect(screen.getByLabelText('Type')).toHaveValue('Verification');
+      expect(screen.getByLabelText('Summary')).toHaveValue('Completed identity verification');
+      expect(screen.getByLabelText('Date')).toHaveValue('2026-04-24');
+    });
+
+    it('Save and Cancel buttons appear in edit mode', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      expect(screen.getByRole('button', { name: /^Save$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Cancel$/i })).toBeInTheDocument();
+    });
+
+    it('the non-edited row still shows its original read-only content', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      expect(screen.getByText('Referral')).toBeInTheDocument();
+      expect(screen.getByText('Referred two members')).toBeInTheDocument();
+    });
   });
 
-  it('toggles density and persists to localStorage', () => {
-    renderProfile({ name: 'Density User', history: HISTORY_EVENTS });
-    const toggleButton = screen.getByRole('button', { name: /Switch to compact density/i });
-    
-    toggleButton.click();
-    
-    // Now it should be compact view, showing 'Comfortable View' button
-    expect(screen.getByRole('button', { name: /Switch to comfortable density/i })).toBeInTheDocument();
-    expect(screen.getByText('Comfortable View')).toBeInTheDocument();
-    
-    expect(localStorage.getItem('talenttrust:reputation-density')).toBe('compact');
+  describe('Save – valid data', () => {
+    it('calls onSave with the updated event when validation passes', () => {
+      const { onSave } = renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'Updated Verification' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      expect(onSave).toHaveBeenCalledTimes(1);
+      expect(onSave).toHaveBeenCalledWith({
+        id: 'ev-1',
+        type: 'Updated Verification',
+        summary: 'Completed identity verification',
+        date: '2026-04-24',
+      });
+    });
+
+    it('returns to read-only mode after a successful save', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      expect(screen.queryByLabelText('Type')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Save$/i })).not.toBeInTheDocument();
+    });
+
+    it('announces success via the live region', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      const liveRegion = screen.getByRole('status');
+      expect(liveRegion).toHaveTextContent('Reputation event updated successfully.');
+    });
   });
 
-  it('restores density from localStorage on mount', () => {
-    localStorage.setItem('talenttrust:reputation-density', 'compact');
-    renderProfile({ name: 'Density User', history: HISTORY_EVENTS });
-    
-    // Should render compact view directly
-    expect(screen.getByRole('button', { name: /Switch to comfortable density/i })).toBeInTheDocument();
-    expect(screen.getByText('Comfortable View')).toBeInTheDocument();
+  describe('Save – validation errors', () => {
+    it('blocks save and shows errors when type is empty', () => {
+      const { onSave } = renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      expect(onSave).not.toHaveBeenCalled();
+      expect(screen.getByText('Type is required')).toBeInTheDocument();
+    });
+
+    it('blocks save and shows errors when summary is empty', () => {
+      const { onSave } = renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Summary'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      expect(onSave).not.toHaveBeenCalled();
+      expect(screen.getByText('Summary is required')).toBeInTheDocument();
+    });
+
+    it('blocks save and shows errors when date is invalid', () => {
+      const { onSave } = renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Date'), { target: { value: 'not-a-date' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      expect(onSave).not.toHaveBeenCalled();
+      expect(screen.getByText('Date must be a valid date')).toBeInTheDocument();
+    });
+
+    it('stays in edit mode when validation fails', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      expect(screen.getByLabelText('Type')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Save$/i })).toBeInTheDocument();
+    });
+
+    it('announces validation errors via the live region', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      const liveRegion = screen.getByRole('status');
+      expect(liveRegion.textContent).toMatch(/Validation error/);
+    });
+
+    it('sets aria-invalid on fields with errors', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      expect(screen.getByLabelText('Type')).toHaveAttribute('aria-invalid', 'true');
+    });
+
+    it('clears previous errors when re-saving with valid data', () => {
+      const { onSave } = renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+      expect(screen.getByText('Type is required')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'Fixed' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      expect(onSave).toHaveBeenCalled();
+      expect(screen.queryByText('Type is required')).not.toBeInTheDocument();
+    });
   });
 
-  it('falls back safely on invalid stored value', () => {
-    localStorage.setItem('talenttrust:reputation-density', 'invalid_density');
-    renderProfile({ name: 'Density User', history: HISTORY_EVENTS });
-    
-    // Should fallback to default comfortable view
-    expect(screen.getByRole('button', { name: /Switch to compact density/i })).toBeInTheDocument();
+  describe('Cancel', () => {
+    it('clicking Cancel discards changes and returns to read-only mode', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'Changed' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Cancel$/i }));
+
+      expect(screen.queryByLabelText('Type')).not.toBeInTheDocument();
+      expect(screen.getByText('Verification')).toBeInTheDocument();
+    });
+
+    it('does NOT call onSave when cancelling', () => {
+      const { onSave } = renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'Changed' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Cancel$/i }));
+
+      expect(onSave).not.toHaveBeenCalled();
+    });
+
+    it('clears the announcement when cancelling', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+      expect(screen.getByRole('status')).toHaveTextContent(/Validation error/);
+
+      fireEvent.click(screen.getByRole('button', { name: /^Cancel$/i }));
+      expect(screen.getByRole('status')).toHaveTextContent('');
+    });
+  });
+
+  describe('Keyboard accessibility', () => {
+    it('Escape key cancels editing', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'Changed' } });
+      fireEvent.keyDown(screen.getByLabelText('Type'), { key: 'Escape' });
+
+      expect(screen.queryByLabelText('Type')).not.toBeInTheDocument();
+      expect(screen.getByText('Verification')).toBeInTheDocument();
+    });
+
+    it('Ctrl+Enter saves when data is valid', () => {
+      const { onSave } = renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'Updated' } });
+      fireEvent.keyDown(screen.getByLabelText('Type'), { key: 'Enter', ctrlKey: true });
+
+      expect(onSave).toHaveBeenCalledTimes(1);
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ type: 'Updated' }));
+    });
+
+    it('Meta+Enter saves when data is valid', () => {
+      const { onSave } = renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'Updated' } });
+      fireEvent.keyDown(screen.getByLabelText('Type'), { key: 'Enter', metaKey: true });
+
+      expect(onSave).toHaveBeenCalledTimes(1);
+    });
+
+    it('Ctrl+Enter does NOT save when validation fails', () => {
+      const { onSave } = renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: '' } });
+      fireEvent.keyDown(screen.getByLabelText('Type'), { key: 'Enter', ctrlKey: true });
+
+      expect(onSave).not.toHaveBeenCalled();
+      expect(screen.getByText('Type is required')).toBeInTheDocument();
+    });
+
+    it('Escape cancels even when there are validation errors', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+      expect(screen.getByText('Type is required')).toBeInTheDocument();
+
+      fireEvent.keyDown(screen.getByLabelText('Type'), { key: 'Escape' });
+      expect(screen.queryByLabelText('Type')).not.toBeInTheDocument();
+      expect(screen.queryByText('Type is required')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Editing second event', () => {
+    it('pre-fills the form with the second event values', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[1]);
+
+      expect(screen.getByLabelText('Type')).toHaveValue('Referral');
+      expect(screen.getByLabelText('Summary')).toHaveValue('Referred two members');
+      expect(screen.getByLabelText('Date')).toHaveValue('2026-04-20');
+    });
+
+    it('calls onSave with the correct event id for the second event', () => {
+      const { onSave } = renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[1]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'Updated Referral' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      expect(onSave).toHaveBeenCalledWith({
+        id: 'ev-2',
+        type: 'Updated Referral',
+        summary: 'Referred two members',
+        date: '2026-04-20',
+      });
+    });
+  });
+
+  describe('Accessibility – edit mode', () => {
+    it('edit form inputs have associated labels', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      expect(screen.getByLabelText('Type')).toBeInTheDocument();
+      expect(screen.getByLabelText('Summary')).toBeInTheDocument();
+      expect(screen.getByLabelText('Date')).toBeInTheDocument();
+    });
+
+    it('validation error messages are linked to inputs via aria-describedby', () => {
+      renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+      fireEvent.change(screen.getByLabelText('Type'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      const typeInput = screen.getByLabelText('Type');
+      const errorId = typeInput.getAttribute('aria-describedby');
+      expect(errorId).toBeDefined();
+      expect(document.getElementById(errorId!)).toHaveTextContent('Type is required');
+    });
+
+    it('has a live region for announcements', () => {
+      renderEditable();
+      const liveRegion = screen.getByRole('status');
+      expect(liveRegion).toHaveAttribute('aria-live', 'polite');
+      expect(liveRegion).toHaveAttribute('aria-atomic', 'true');
+    });
+
+    it('axe audit passes in edit mode', async () => {
+      const { container } = renderEditable();
+      fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+      await assertNoA11yViolations(container);
+    });
   });
 });
-
