@@ -84,6 +84,81 @@ describe('WalletContext persistence', () => {
       expect(screen.getByTestId('is-connecting')).toHaveTextContent('Not connecting');
     });
 
+    it('announces a successful wallet connection via a polite live region', async () => {
+      renderWithProviders(<WalletConsumer />);
+
+      await act(async () => {
+        screen.getByTestId('connect-btn').click();
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(200);
+      });
+
+      expect(screen.getByTestId('wallet-announcer')).toHaveTextContent('Wallet connected');
+    });
+
+    it('announces a failed wallet connection via a polite live region', async () => {
+      const originalSetTimeout = global.setTimeout;
+      const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation(((callback: (...args: unknown[]) => void, delay?: number) => {
+        if (delay === 1000) {
+          throw new Error('wallet connection failed');
+        }
+        return originalSetTimeout(callback as (...args: unknown[]) => void, delay as number);
+      }) as typeof setTimeout);
+
+      renderWithProviders(<WalletConsumer />);
+
+      await act(async () => {
+        screen.getByTestId('connect-btn').click();
+      });
+
+      expect(screen.getByTestId('error')).toHaveTextContent('Failed to connect wallet');
+
+      await act(async () => {
+        jest.advanceTimersByTime(200);
+      });
+
+      expect(screen.getByTestId('wallet-announcer')).toHaveTextContent('Wallet connection failed');
+      setTimeoutSpy.mockRestore();
+    });
+
+    it('debounces rapid wallet announcements so only the latest result is announced', async () => {
+      renderWithProviders(<WalletConsumer />);
+
+      await act(async () => {
+        screen.getByTestId('connect-btn').click();
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(50);
+      });
+
+      await act(async () => {
+        screen.getByTestId('connect-btn').click();
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+
+      expect(screen.getByTestId('wallet-announcer')).toHaveTextContent('');
+
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(150);
+      });
+
+      expect(screen.getByTestId('wallet-announcer')).toHaveTextContent('Wallet connected');
+    });
+
     it('sets a valid Stellar G-address that passes isValidStellarAddress', async () => {
       renderWithProviders(<WalletConsumer />);
 
@@ -289,7 +364,7 @@ describe('WalletContext persistence', () => {
       });
 
       expect(screen.getByTestId('address')).toHaveTextContent('No address');
-      expect(screen.getByRole('status')).toHaveTextContent('Session expired');
+      expect(screen.getByText('Session expired')).toBeInTheDocument();
     });
 
     it('resets the timer on user activity', async () => {
