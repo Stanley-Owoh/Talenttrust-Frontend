@@ -1,9 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import StatusBadge, { StatusType, statusColorMap, statusIconMap } from './StatusBadge';
 import { usePreferences } from '@/lib/preferences';
 import { isDueSoon } from '@/lib/dueSoon';
 import { findCurrencyMismatches, normalizeCurrencyCode } from '@/lib/currencyMismatch';
 import { milestoneStatusTally } from '@/lib/milestoneStatusTally';
+import { BulkActionToolbar } from './milestones/BulkActionToolbar';
+import { ConfirmDialog } from './ConfirmDialog';
 
 export type Milestone = {
   id: string;
@@ -12,21 +14,38 @@ export type Milestone = {
   payout: number;
   currency: string;
   dueDate?: string;
-  /** Id of the parent `Contract` this milestone belongs to, when known. */
   contractId?: string;
 };
 
 export type MilestonesListProps = {
   milestones: Milestone[];
   contractCurrency?: string;
+  onBulkDelete?: (ids: string[]) => number;
+  onBulkStatusUpdate?: (ids: string[], status: StatusType) => number;
+  onBulkExport?: (milestones: Milestone[]) => void;
+  onSelectionChange?: (ids: string[]) => void;
 };
 
 export const REMINDER_WINDOW_DAYS = 7;
 
-const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) => {
+type SelectionState = Set<string>;
+
+const MilestonesList = ({
+  milestones,
+  contractCurrency,
+  onBulkDelete,
+  onBulkStatusUpdate,
+  onBulkExport,
+  onSelectionChange,
+}: MilestonesListProps) => {
   const { formatAmount } = usePreferences();
   const [isDismissed, setIsDismissed] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<SelectionState>(new Set());
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
   const listContainerRef = useRef<HTMLDivElement>(null);
+  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
+  const deleteTriggerRef = useRef<HTMLButtonElement>(null);
 
   const today = new Date();
 
@@ -48,9 +67,6 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
 
   const tallies = milestoneStatusTally(milestones);
 
-  // Filter due-soon milestones:
-  // - Exclude terminal statuses: Paid, Completed
-  // - Check if due date is within REMINDER_WINDOW_DAYS
   const dueSoonMilestones = milestones.filter(
     (m) =>
       m.status !== 'Paid' &&
@@ -59,11 +75,131 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
   );
 
   const showBanner = dueSoonMilestones.length > 0 && !isDismissed;
+  const selectedCount = selectedIds.size;
+  const totalCount = milestones.length;
+  const allSelected = totalCount > 0 && selectedCount === totalCount;
+  const someSelected = selectedCount > 0 && selectedCount < totalCount;
+
+  useEffect(() => {
+    const checkbox = selectAllCheckboxRef.current;
+    if (checkbox) {
+      checkbox.indeterminate = someSelected;
+    }
+  }, [someSelected]);
+
+  useEffect(() => {
+    onSelectionChange?.(Array.from(selectedIds));
+  }, [selectedIds, onSelectionChange]);
+
+  const announce = useCallback((message: string) => {
+    setAnnouncement('');
+    const frame = requestAnimationFrame(() => {
+      setAnnouncement(message);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   const handleDismiss = () => {
     setIsDismissed(true);
-    // Programmatically shift focus to the list container to avoid focus loss (WCAG 2.1.1)
     listContainerRef.current?.focus();
+  };
+
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const wasSelected = next.has(id);
+      if (wasSelected) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAllChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const allIds = milestones.map((m) => m.id);
+      setSelectedIds(new Set(allIds));
+      announce(`${allIds.length} items selected`);
+    } else {
+      setSelectedIds(new Set());
+      announce('Selection cleared');
+    }
+  };
+
+  const handleItemCheckboxChange = (id: string) => {
+    const wasSelected = selectedIds.has(id);
+    toggleSelection(id);
+    const milestone = milestones.find((m) => m.id === id);
+    if (milestone) {
+      announce(
+        wasSelected
+          ? `${milestone.title} deselected`
+          : `${milestone.title} selected`
+      );
+    }
+  };
+
+  const handleItemKeyDown = (e: React.KeyboardEvent, id: string) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      handleItemCheckboxChange(id);
+    }
+  };
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    announce('Selection cleared');
+  }, [announce]);
+
+  const getSelectedMilestones = useCallback(() => {
+    return milestones.filter((m) => selectedIds.has(m.id));
+  }, [milestones, selectedIds]);
+
+  const getSelectedIdsArray = useCallback(() => {
+    return Array.from(selectedIds);
+  }, [selectedIds]);
+
+  const handleExport = useCallback(() => {
+    const selected = getSelectedMilestones();
+    if (onBulkExport) {
+      onBulkExport(selected);
+    }
+    announce(
+      `${selected.length} ${selected.length === 1 ? 'milestone' : 'milestones'} exported`
+    );
+  }, [getSelectedMilestones, onBulkExport, announce]);
+
+  const handleStatusUpdate = useCallback((status: StatusType) => {
+    const ids = getSelectedIdsArray();
+    const changed = onBulkStatusUpdate ? onBulkStatusUpdate(ids, status) : ids.length;
+    setSelectedIds(new Set());
+    announce(
+      `${changed} ${changed === 1 ? 'milestone status' : 'milestone statuses'} updated to ${status}`
+    );
+  }, [getSelectedIdsArray, onBulkStatusUpdate, announce]);
+
+  const handleDeleteRequest = () => {
+    deleteTriggerRef.current =
+      document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = useCallback(() => {
+    const ids = getSelectedIdsArray();
+    const removed = onBulkDelete ? onBulkDelete(ids) : ids.length;
+    setDeleteDialogOpen(false);
+    setSelectedIds(new Set());
+    announce(
+      `${removed} ${removed === 1 ? 'milestone' : 'milestones'} successfully deleted`
+    );
+    deleteTriggerRef.current?.focus();
+  }, [getSelectedIdsArray, onBulkDelete, announce]);
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    deleteTriggerRef.current?.focus();
   };
 
   return (
@@ -73,6 +209,16 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
           Milestones
         </h2>
         <span id="milestones-count" className="text-sm text-slate-500">{milestones.length} total</span>
+      </div>
+
+      <div
+        role="status"
+        aria-label="Milestone selection announcements"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {announcement}
       </div>
 
       {tallies.length > 0 && (
@@ -151,21 +297,47 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
         </div>
       )}
 
-      {/*
-        Keyboard Accessibility (WCAG 2.1.1):
-        The scrollable container is focusable (tabIndex={0}) with role="region" so keyboard-only users
-        can navigate to it and scroll with arrow keys.
+      {milestones.length > 0 && (
+        <div
+          role="group"
+          aria-label="Milestone selection controls"
+          className="mt-6 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+        >
+          <label className="flex cursor-pointer items-center gap-2 select-none">
+            <input
+              ref={selectAllCheckboxRef}
+              type="checkbox"
+              aria-label={
+                someSelected
+                  ? 'Deselect all milestones (partial selection)'
+                  : allSelected
+                  ? 'Deselect all milestones'
+                  : 'Select all milestones'
+              }
+              aria-checked={someSelected ? 'mixed' : allSelected}
+              checked={allSelected}
+              onChange={handleSelectAllChange}
+              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            />
+            <span className="text-sm font-medium text-slate-700">
+              {allSelected ? 'Deselect All' : 'Select All'}
+            </span>
+          </label>
+          <span className="text-xs text-slate-500" aria-hidden="true">
+            {selectedCount > 0 ? `${selectedCount} selected` : 'Use checkboxes to select milestones for bulk actions'}
+          </span>
+        </div>
+      )}
 
-        Labelling (WCAG 1.3.1 / 4.1.2):
-        aria-labelledby references both the visible "Milestones" heading (milestones-title) and the live
-        count span (milestones-count) so AT users hear e.g. "Milestones, 3 total – region" rather than
-        a disconnected static string. This keeps the accessible name in sync with both the heading and
-        the rendered item count without duplicating text.
+      <BulkActionToolbar
+        selectedCount={selectedCount}
+        totalCount={totalCount}
+        onClearSelection={handleClearSelection}
+        onExport={handleExport}
+        onStatusUpdate={handleStatusUpdate}
+        onDelete={handleDeleteRequest}
+      />
 
-        Why tabIndex is always applied when the list is populated:
-        1. Consistency between SSR and client hydration avoids layout/hydration shifts.
-        2. Testability in JSDOM where clientHeight/scrollHeight are always zero.
-      */}
       <div
         ref={listContainerRef}
         role={milestones.length > 0 ? 'region' : undefined}
@@ -173,28 +345,67 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
         tabIndex={milestones.length > 0 ? 0 : undefined}
         className="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
       >
-        {milestones.map((milestone) => (
-          <article
-            key={milestone.id}
-            id={`milestone-${milestone.id}`}
-            className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">{milestone.title}</p>
-                <p className="mt-1 text-sm text-slate-500">Due {milestone.dueDate ?? 'TBD'}</p>
+        {milestones.map((milestone) => {
+          const isSelected = selectedIds.has(milestone.id);
+          const checkboxId = `select-milestone-${milestone.id}`;
+          const titleId = `milestone-title-${milestone.id}`;
+          return (
+            <article
+              key={milestone.id}
+              id={`milestone-${milestone.id}`}
+              aria-labelledby={titleId}
+              data-selected={isSelected ? 'true' : 'false'}
+              className={`rounded-3xl border p-4 shadow-sm transition-colors ${
+                isSelected
+                  ? 'border-blue-400 bg-blue-50/50 ring-2 ring-blue-200'
+                  : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+              }`}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <label
+                    htmlFor={checkboxId}
+                    className="sr-only"
+                  >
+                    Select milestone: {milestone.title}
+                  </label>
+                  <input
+                    id={checkboxId}
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => handleItemCheckboxChange(milestone.id)}
+                    onKeyDown={(e) => handleItemKeyDown(e, milestone.id)}
+                    aria-label={isSelected ? `Deselect ${milestone.title}` : `Select ${milestone.title}`}
+                    className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  />
+                  <div>
+                    <p id={titleId} className="text-sm font-medium text-slate-600">{milestone.title}</p>
+                    <p className="mt-1 text-sm text-slate-500">Due {milestone.dueDate ?? 'TBD'}</p>
+                  </div>
+                </div>
+                <StatusBadge status={milestone.status} />
               </div>
-              <StatusBadge status={milestone.status} />
-            </div>
-            <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600">
-              <p>Payout</p>
-              <p className="font-semibold text-slate-900">
-                {formatAmount(milestone.payout, milestone.currency)}
-              </p>
-            </div>
-          </article>
-        ))}
+              <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600">
+                <p>Payout</p>
+                <p className="font-semibold text-slate-900">
+                  {formatAmount(milestone.payout, milestone.currency)}
+                </p>
+              </div>
+            </article>
+          );
+        })}
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteDialogOpen}
+        title={`Delete ${selectedCount} ${selectedCount === 1 ? 'Milestone' : 'Milestones'}?`}
+        description={`You are about to permanently delete ${selectedCount} ${selectedCount === 1 ? 'milestone' : 'milestones'}. This action cannot be undone. Are you sure you want to continue?`}
+        confirmLabel={`Delete ${selectedCount} ${selectedCount === 1 ? 'Item' : 'Items'}`}
+        cancelLabel="Cancel"
+        tone="destructive"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </section>
   );
 };

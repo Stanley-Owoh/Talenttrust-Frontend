@@ -136,20 +136,24 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <h2 id={titleId} className="text-lg font-semibold mb-4">
           {title}
         </h2>
-        <p id={descriptionId} className="text-sm text-gray-700 mb-6">{description}</p>
-        <div className="flex justify-end space-x-3">
+        <p id={descriptionId} className="text-sm text-slate-700 mb-6">{description}</p>
+        <div className="flex justify-end gap-3">
           <button
             ref={cancelBtnRef}
             type="button"
             onClick={onCancel}
-            
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           >
             {cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="px-4 py-2 rounded bg-primary-600 text-white hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className={
+              tone === 'destructive'
+                ? 'rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-rose-500'
+                : 'rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500'
+            }
           >
             {confirmLabel}
           </button>

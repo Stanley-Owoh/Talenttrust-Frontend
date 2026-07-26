@@ -6,9 +6,16 @@ import EmptyState from '../../components/EmptyState';
 import MilestonesList from '../../components/MilestonesList';
 import MilestoneFilter, { type MilestoneStatusFilter } from '../../components/milestones/MilestoneFilter';
 import { MilestoneCreationForm } from '../../components/milestones/MilestoneCreationForm';
-import { listMilestones, saveMilestone } from '@/lib/repository';
+import {
+  listMilestones,
+  saveMilestone,
+  deleteMilestones,
+  bulkUpdateMilestoneStatus,
+  exportMilestones,
+} from '@/lib/repository';
 import { getItem, setItem } from '@/lib/safeStorage';
 import type { Milestone } from '@/types/domain';
+import type { StatusType } from '@/components/StatusBadge';
 
 export const SAMPLE_DISMISSED_KEY = 'talenttrust-milestones-sample-dismissed';
 
@@ -145,6 +152,48 @@ const MilestonesContent: React.FC = () => {
     setShowForm(false);
   }, []);
 
+  const handleBulkDelete = useCallback((ids: string[]): number => {
+    const removed = deleteMilestones(ids);
+    setMilestones((currentMilestones) =>
+      currentMilestones.filter((milestone) => !ids.includes(milestone.id)),
+    );
+    setIsDismissed(true);
+    return removed;
+  }, []);
+
+  const handleBulkStatusUpdate = useCallback((ids: string[], status: StatusType): number => {
+    const changed = bulkUpdateMilestoneStatus(ids, status);
+    setMilestones((currentMilestones) =>
+      currentMilestones.map((milestone) =>
+        ids.includes(milestone.id) ? { ...milestone, status } : milestone,
+      ),
+    );
+    setIsDismissed(true);
+    return changed;
+  }, []);
+
+  const handleBulkExport = useCallback((selectedMilestones: Milestone[]): void => {
+    const json = exportMilestones(selectedMilestones);
+    try {
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `milestones-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback: copy to clipboard if download fails (e.g. SSR or Blob unsupported)
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(json).catch(() => {
+          // Silently fail – user can still use browser DevTools or copy from exportMilestones
+        });
+      }
+    }
+  }, []);
+
   return (
     <main className="min-h-screen p-8">
       <h1 className="text-2xl font-bold mb-6">Milestones</h1>
@@ -220,7 +269,12 @@ const MilestonesContent: React.FC = () => {
               onAction={handleAddMilestone}
             />
           ) : (
-            <MilestonesList milestones={filtered} />
+            <MilestonesList
+              milestones={filtered}
+              onBulkDelete={handleBulkDelete}
+              onBulkStatusUpdate={handleBulkStatusUpdate}
+              onBulkExport={handleBulkExport}
+            />
           )}
         </>
       )}

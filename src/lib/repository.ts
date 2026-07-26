@@ -302,6 +302,99 @@ export function updateMilestone(id: string, patch: Partial<Milestone>): boolean 
   return writeStore({ ...store, milestones: updatedMilestones });
 }
 
+/**
+ * Deletes multiple milestones identified by an array of ids.
+ *
+ * Non-existent ids are silently skipped. The operation is pure – the caller's
+ * input array is never mutated.
+ *
+ * @param ids - Array of milestone ids to delete.
+ * @returns The number of milestones actually deleted (may be less than the
+ *   length of `ids` when some ids were not found).
+ *
+ * @example
+ * ```ts
+ * const removed = deleteMilestones(['ms-1', 'ms-2', 'ms-999']);
+ * // → 2 (ms-999 didn't exist)
+ * ```
+ */
+export function deleteMilestones(ids: string[]): number {
+  if (!Array.isArray(ids) || ids.length === 0) return 0;
+
+  const store = readStore();
+  const idSet = new Set(ids);
+  const before = store.milestones.length;
+  const remaining = store.milestones.filter((m) => !idSet.has(m.id));
+  const removed = before - remaining.length;
+
+  if (removed > 0) {
+    writeStore({ ...store, milestones: remaining });
+  }
+
+  return removed;
+}
+
+/**
+ * Updates the `status` field of every milestone whose id appears in `ids`.
+ *
+ * Missing ids are silently skipped. A single write is performed only when at
+ * least one milestone changes.
+ *
+ * @param ids - Array of milestone ids whose status should be updated.
+ * @param status - The new status value to apply.
+ * @returns The number of milestones actually updated (may be less than
+ *   `ids.length` when ids were not found or already had the target status).
+ *
+ * @example
+ * ```ts
+ * const changed = bulkUpdateMilestoneStatus(['ms-1', 'ms-2'], 'Completed');
+ * // → 2
+ * ```
+ */
+export function bulkUpdateMilestoneStatus(
+  ids: string[],
+  status: Milestone['status'],
+): number {
+  if (!Array.isArray(ids) || ids.length === 0) return 0;
+
+  const store = readStore();
+  const idSet = new Set(ids);
+  let changed = 0;
+
+  const updatedMilestones = store.milestones.map((m) => {
+    if (!idSet.has(m.id)) return m;
+    if (m.status === status) return m;
+    changed += 1;
+    return { ...m, status };
+  });
+
+  if (changed > 0) {
+    writeStore({ ...store, milestones: updatedMilestones });
+  }
+
+  return changed;
+}
+
+/**
+ * Serialises an array of milestones for export as a JSON string.
+ *
+ * The output is a pretty-printed JSON array containing the full milestone
+ * objects, suitable for downloading via `Blob` + `URL.createObjectURL` or
+ * copy-to-clipboard. No side effects – nothing is written to storage.
+ *
+ * @param milestones - The milestone records to serialise.
+ * @returns A pretty-printed JSON string representation of the input array.
+ *
+ * @example
+ * ```ts
+ * const json = exportMilestones(selected);
+ * navigator.clipboard.writeText(json);
+ * ```
+ */
+export function exportMilestones(milestones: Milestone[]): string {
+  return JSON.stringify(milestones, null, 2);
+}
+
 // ---------------------------------------------------------------------------
 // Public API — Maintenance helpers
 // ---------------------------------------------------------------------------
