@@ -48,6 +48,7 @@ export const metadata: Metadata = {
 
 import { PreferencesProvider } from '@/lib/preferences';
 import { SettingsTrigger } from '@/components/settings/SettingsTrigger';
+import { CommandPalette } from '@/components/CommandPalette';
 import { WalletProvider } from '@/contexts/WalletContext';
 import RouteAnnouncer from '@/components/RouteAnnouncer';
 import Navbar from '@/components/Navbar';

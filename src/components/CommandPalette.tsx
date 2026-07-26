@@ -1,214 +1,167 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
+import { useWallet } from '@/contexts/WalletContext';
+import {
+  assertNoDuplicateActionIds,
+  getCommandPaletteActions,
+  matchesCommandPaletteQuery,
+} from '@/lib/commandPaletteActions';
 
-interface PaletteEntry {
-  id: string;
-  label: string;
-  keywords: string[];
-  href: string;
-}
-
-const PALETTE_ENTRIES: PaletteEntry[] = [
-  { id: 'new-contract', label: 'New Contract', keywords: ['create', 'contract', 'agreement', 'form'], href: '/contracts' },
-  { id: 'new-milestone', label: 'New Milestone', keywords: ['create', 'milestone', 'payment', 'progress', 'form'], href: '/milestones' },
-  { id: 'contracts', label: 'Go to Contracts', keywords: ['contract', 'list', 'all'], href: '/contracts' },
-  { id: 'milestones', label: 'Go to Milestones', keywords: ['milestone', 'list', 'all'], href: '/milestones' },
-  { id: 'reputation', label: 'Go to Reputation', keywords: ['reputation', 'score', 'profile'], href: '/reputation' },
-];
-
-export default function CommandPalette(): React.JSX.Element {
-  const router = useRouter();
+/**
+ * Global command palette.
+ *
+ * Mounted once in `src/app/layout.tsx` (alongside `SettingsTrigger`) so it is
+ * reachable from every page. Opens via the floating trigger button or the
+ * Ctrl+K / Cmd+K keyboard shortcut. Typing filters the registered actions by
+ * label or keyword; Enter (or a click) activates the highlighted action.
+ */
+export function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
+  const { connect } = useWallet();
+
+  const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const listboxId = useId();
 
-  const filtered = useMemo(() => {
-    if (!query.trim()) return PALETTE_ENTRIES;
-    const lower = query.toLowerCase();
-    return PALETTE_ENTRIES.filter(
-      (entry) =>
-        entry.label.toLowerCase().includes(lower) ||
-        entry.keywords.some((k) => k.includes(lower)),
-    );
-  }, [query]);
+  const actions = useMemo(() => {
+    const registered = getCommandPaletteActions({ connectWallet: connect });
+    assertNoDuplicateActionIds(registered);
+    return registered;
+  }, [connect]);
 
-  const handleOpen = useCallback(() => {
-    setIsOpen(true);
-    setQuery('');
+  const results = useMemo(
+    () => actions.filter((action) => matchesCommandPaletteQuery(action, query)),
+    [actions, query],
+  );
+
+  useEffect(() => {
     setActiveIndex(0);
-  }, []);
+  }, [query, isOpen]);
 
-  const handleClose = useCallback(() => {
+  const close = useCallback(() => {
     setIsOpen(false);
     setQuery('');
     requestAnimationFrame(() => triggerRef.current?.focus());
   }, []);
 
-  const handleNavigate = useCallback(
-    (href: string) => {
-      router.push(href);
-      handleClose();
+  useDialogFocusTrap({
+    isOpen,
+    dialogRef,
+    initialFocusRef: inputRef,
+    onEscape: close,
+  });
+
+  // Global shortcut: Ctrl+K (Windows/Linux) or Cmd+K (macOS) toggles the palette.
+  useEffect(() => {
+    function handleGlobalKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setIsOpen((open) => !open);
+      }
+    }
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
+  const runAction = useCallback(
+    (index: number) => {
+      const action = results[index];
+      if (!action) return;
+      action.perform();
+      close();
     },
-    [router, handleClose],
+    [results, close],
   );
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isModK = (e.metaKey || e.ctrlKey) && e.key === 'k';
-      if (isModK) {
-        e.preventDefault();
-        if (isOpen) {
-          handleClose();
-        } else {
-          handleOpen();
-        }
-        return;
-      }
-      if (!isOpen) return;
-
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        handleClose();
-        return;
-      }
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setActiveIndex((prev) => (prev + 1) % filtered.length);
-        return;
-      }
-
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setActiveIndex((prev) => (prev - 1 + filtered.length) % filtered.length);
-        return;
-      }
-
-      if (e.key === 'Enter' && filtered.length > 0) {
-        e.preventDefault();
-        handleNavigate(filtered[activeIndex].href);
-        return;
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, filtered, activeIndex, handleOpen, handleClose, handleNavigate]);
-
-  useEffect(() => {
-    if (isOpen) {
-      requestAnimationFrame(() => inputRef.current?.focus());
+  function handleInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveIndex((index) => (results.length === 0 ? 0 : (index + 1) % results.length));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveIndex((index) => (results.length === 0 ? 0 : (index - 1 + results.length) % results.length));
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      runAction(activeIndex);
     }
-  }, [isOpen]);
+  }
 
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query]);
-
-  const activeDescendantId = filtered.length > 0 ? `command-${filtered[activeIndex].id}` : undefined;
+  const activeOptionId =
+    results[activeIndex] !== undefined ? `${listboxId}-option-${results[activeIndex].id}` : undefined;
 
   return (
     <>
       <button
         ref={triggerRef}
         type="button"
-        onClick={handleOpen}
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:right-2 focus:z-50 focus:rounded-lg focus:bg-blue-600 focus:px-4 focus:py-2 focus:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-6 right-24 p-3 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-lg hover:scale-110 transition-transform z-40 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2"
         aria-label="Open command palette"
       >
-        Open command palette (Ctrl+K)
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+          />
+        </svg>
       </button>
 
       {isOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
-          role="presentation"
-        >
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 overflow-hidden">
           <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={handleClose}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={close}
             aria-hidden="true"
           />
-
           <div
-            className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-label="Command palette"
+            className="relative z-10 w-full max-w-lg bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden"
           >
-            <div className="flex items-center border-b border-slate-200 px-4">
-              <svg
-                aria-hidden="true"
-                className="h-5 w-5 shrink-0 text-slate-400"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-              <input
-                ref={inputRef}
-                type="text"
-                role="combobox"
-                aria-expanded={filtered.length > 0}
-                aria-controls="command-palette-listbox"
-                aria-activedescendant={activeDescendantId}
-                aria-autocomplete="list"
-                aria-label="Search commands"
-                placeholder="Search commands..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-full border-none bg-transparent px-3 py-4 text-sm text-slate-900 placeholder-slate-400 focus:outline-none"
-              />
-              <kbd className="hidden shrink-0 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-xs text-slate-400 sm:inline-block">
-                ESC
-              </kbd>
-            </div>
-
-            {filtered.length === 0 ? (
-              <div className="px-3 py-8 text-center text-sm text-slate-400">
-                No results found
-              </div>
-            ) : (
-              <ul
-                ref={listRef}
-                id="command-palette-listbox"
-                role="listbox"
-                aria-label="Commands"
-                className="max-h-80 overflow-y-auto p-2"
-              >
-                {filtered.map((entry, index) => {
-                  const isActive = index === activeIndex;
-                  return (
-                    <li
-                      key={entry.id}
-                      id={`command-${entry.id}`}
-                      role="option"
-                      aria-selected={isActive}
-                      onClick={() => handleNavigate(entry.href)}
-                      onMouseEnter={() => setActiveIndex(index)}
-                      className={[
-                        'flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
-                        isActive
-                          ? 'bg-blue-600 text-white'
-                          : 'text-slate-700 hover:bg-slate-100',
-                      ].join(' ')}
-                    >
-                      <span className="font-medium">{entry.label}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={handleInputKeyDown}
+              role="combobox"
+              aria-expanded="true"
+              aria-haspopup="listbox"
+              aria-controls={listboxId}
+              aria-autocomplete="list"
+              aria-activedescendant={activeOptionId}
+              placeholder="Type a command..."
+              className="w-full px-4 py-3 border-b border-gray-200 text-sm focus:outline-none"
+            />
+            <ul id={listboxId} role="listbox" aria-label="Commands" className="max-h-72 overflow-y-auto">
+              {results.length === 0 && (
+                <li className="px-4 py-3 text-sm text-gray-500">No matching commands</li>
+              )}
+              {results.map((action, index) => (
+                <li
+                  key={action.id}
+                  id={`${listboxId}-option-${action.id}`}
+                  role="option"
+                  aria-selected={index === activeIndex}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => runAction(index)}
+                  className={`px-4 py-3 text-sm cursor-pointer ${
+                    index === activeIndex ? 'bg-slate-100' : ''
+                  }`}
+                >
+                  {action.label}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}
