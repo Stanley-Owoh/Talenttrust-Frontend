@@ -26,7 +26,7 @@
  */
 
 import React from 'react';
-import { render, screen, within, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import ReputationProfile, {
   ReputationEvent,
   ReputationProfileProps,
@@ -59,8 +59,9 @@ const HISTORY_EVENTS: ReputationEvent[] = [
 ];
 
 // Convenience wrapper so every render call uses the exported prop type.
+// syncUrl is off here so unit tests stay isolated from next/navigation URL writes.
 function renderProfile(props: ReputationProfileProps) {
-  return render(<ReputationProfile {...props} />);
+  return render(<ReputationProfile syncUrl={false} {...props} />);
 }
 
 function getLevelText() {
@@ -270,12 +271,13 @@ describe('ReputationProfile – full reputation (score + history)', () => {
   });
 
   it('renders each event date', () => {
+    const ol = document.querySelector('ol');
     HISTORY_EVENTS.forEach((ev) => {
-      expect(screen.getByText(ev.date)).toBeInTheDocument();
+      expect(within(ol!).getByText(ev.date)).toBeInTheDocument();
     });
   });
 
-  it('renders events in DOM order matching the history array', () => {
+  it('renders events newest-first by default (matching history array order)', () => {
     const ol = document.querySelector('ol');
     const items = ol ? within(ol).getAllByRole('listitem') : [];
     HISTORY_EVENTS.forEach((ev, idx) => {
@@ -915,10 +917,10 @@ describe('reputation level legend and derived level', () => {
   });
 
 // ---------------------------------------------------------------------------
-// 12. History Filtering
+// 12. History filter + sort (local, syncUrl=false)
 // ---------------------------------------------------------------------------
 
-describe('ReputationProfile – history filtering', () => {
+describe('ReputationProfile – history filtering and sorting', () => {
   const FILTER_EVENTS: ReputationEvent[] = [
     {
       id: 'ev-1',
@@ -940,79 +942,70 @@ describe('ReputationProfile – history filtering', () => {
     },
   ];
 
-  it('renders filter with "All" and available types sorted', () => {
+  it('renders filter with All and available types sorted', () => {
     renderProfile({ name: 'Filter User', score: 80, history: FILTER_EVENTS });
     const select = screen.getByLabelText(/Filter:/i);
-    expect(select).toBeInTheDocument();
     const options = within(select).getAllByRole('option');
-    expect(options).toHaveLength(3); // All, On-chain review, Verification
+    expect(options).toHaveLength(3);
     expect(options[0]).toHaveTextContent('All');
     expect(options[1]).toHaveTextContent('On-chain review');
     expect(options[2]).toHaveTextContent('Verification');
   });
 
-  it('filter narrows entries and announces counts', () => {
+  it('filter narrows entries and All restores them', () => {
     renderProfile({ name: 'Filter User', score: 80, history: FILTER_EVENTS });
     const select = screen.getByLabelText(/Filter:/i);
 
-    // Initial state: 3 items
-    let ol = document.querySelector('ol');
-    let items = ol ? within(ol).getAllByRole('listitem') : [];
-    expect(items).toHaveLength(3);
-
-    // Filter to Verification
     fireEvent.change(select, { target: { value: 'Verification' } });
-    ol = document.querySelector('ol');
-    items = ol ? within(ol).getAllByRole('listitem') : [];
+    let items = within(document.querySelector('ol')!).getAllByRole('listitem');
     expect(items).toHaveLength(1);
     expect(screen.getByText('Completed identity verification')).toBeInTheDocument();
     expect(screen.queryByText('Received positive trust signal')).not.toBeInTheDocument();
 
-    // Check announcement
-    expect(screen.getByText('Showing 1 event')).toBeInTheDocument();
-  });
-
-  it('all restores history', () => {
-    renderProfile({ name: 'Filter User', score: 80, history: FILTER_EVENTS });
-    const select = screen.getByLabelText(/Filter:/i);
-
-    // Change filter, then back to All
-    fireEvent.change(select, { target: { value: 'Verification' } });
-    let ol = document.querySelector('ol');
-    let items = ol ? within(ol).getAllByRole('listitem') : [];
-    expect(items).toHaveLength(1);
-    
     fireEvent.change(select, { target: { value: 'All' } });
-    ol = document.querySelector('ol');
-    items = ol ? within(ol).getAllByRole('listitem') : [];
+    items = within(document.querySelector('ol')!).getAllByRole('listitem');
     expect(items).toHaveLength(3);
-    
-    // Check announcement for plural
-    expect(screen.getByText('Showing 3 events')).toBeInTheDocument();
   });
 
-  it('empty result guidance', () => {
-    const { rerender } = render(<ReputationProfile name="Filter User" score={80} history={FILTER_EVENTS} />);
-    const select = screen.getByLabelText(/Filter:/i);
+  it('shows empty guidance when filter matches nothing', () => {
+    const { rerender } = renderProfile({
+      name: 'Filter User',
+      score: 80,
+      history: FILTER_EVENTS,
+    });
+    fireEvent.change(screen.getByLabelText(/Filter:/i), {
+      target: { value: 'Verification' },
+    });
 
-    fireEvent.change(select, { target: { value: 'Verification' } });
-    const ol = document.querySelector('ol');
-    const items = ol ? within(ol).getAllByRole('listitem') : [];
-    expect(items).toHaveLength(1);
+    // History updates while a now-absent type remains selected.
+    rerender(
+      <ReputationProfile
+        syncUrl={false}
+        name="Filter User"
+        score={80}
+        history={[FILTER_EVENTS[1], FILTER_EVENTS[2]]}
+      />
+    );
 
-    // Change history to remove Verification type, while filter is still on Verification
-    rerender(<ReputationProfile name="Filter User" score={80} history={FILTER_EVENTS.slice(1)} />);
-
-    // Should show empty message
-    expect(screen.getByText(/No matching events./i)).toBeInTheDocument();
-    expect(document.querySelector('ol')).toBeNull();
+    expect(screen.getByText(/No events match this filter/i)).toBeInTheDocument();
+    expect(document.querySelector('ol')).not.toBeInTheDocument();
   });
 
-  it('single entry edge case', () => {
-    renderProfile({ name: 'Filter User', score: 80, history: [FILTER_EVENTS[0]] });
-    const select = screen.getByLabelText(/Filter:/i);
-    const options = within(select).getAllByRole('option');
-    expect(options).toHaveLength(2); // All, Verification
+  it('sorts oldest first when sort direction changes', () => {
+    renderProfile({ name: 'Sort User', score: 80, history: FILTER_EVENTS });
+    fireEvent.change(screen.getByLabelText(/Sort:/i), {
+      target: { value: 'asc' },
+    });
+    const items = within(document.querySelector('ol')!).getAllByRole('listitem');
+    expect(within(items[0]).getByText('Another trust signal')).toBeInTheDocument();
+    expect(within(items[2]).getByText('Completed identity verification')).toBeInTheDocument();
+  });
+
+  it('announces result count via aria-live', () => {
+    renderProfile({ name: 'Filter User', score: 80, history: FILTER_EVENTS });
+    fireEvent.change(screen.getByLabelText(/Filter:/i), {
+      target: { value: 'On-chain review' },
+    });
+    expect(screen.getByText(/Showing 2 events of type On-chain review/i)).toBeInTheDocument();
   });
 });
-

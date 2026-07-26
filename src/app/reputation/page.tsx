@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import EmptyState from '../../components/EmptyState';
 import ReputationProfile from '../../components/ReputationProfile';
 import type { Reputation } from '@/types/domain';
@@ -32,13 +32,15 @@ export function ReputationPageContent({
   return (
     <>
       <h1 className="text-2xl font-bold mb-6">Reputation</h1>
-      <ReputationProfile
-        name={userName}
-        score={score}
-        level={reputationData.level}
-        history={reputationData.history}
-      />
-    </>
+      <Suspense fallback={null}>
+        <ReputationProfile
+          name={userName}
+          score={score}
+          level={reputationData.level}
+          history={reputationData.history}
+        />
+      </Suspense>
+    </main>
   );
 }
 
