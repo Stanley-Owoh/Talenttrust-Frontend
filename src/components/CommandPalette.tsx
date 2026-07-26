@@ -1,436 +1,307 @@
 'use client';
 
 import React, {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useId,
   useMemo,
   useRef,
   useState,
 } from 'react';
+import { useRouter } from 'next/navigation';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-/** A single command-palette action registered by a dialog or page. */
-export interface CommandAction {
-  /** Unique identifier — duplicates are deduplicated (last wins). */
-  id: string;
-  /** Human-readable label shown in the palette. */
+/** A single navigable route shown in the command palette. */
+interface CommandRoute {
+  href: string;
   label: string;
-  /** Additional searchable keywords beyond the label tokens. */
   keywords: string[];
-  /** Optional grouping header. */
-  section?: string;
-  /** Callback invoked when the action is selected. */
-  onSelect: () => void;
 }
 
-// ---------------------------------------------------------------------------
-// Context
-// ---------------------------------------------------------------------------
-
-interface CommandPaletteContextValue {
-  /** Register an action; returns a cleanup function. */
-  registerAction: (action: CommandAction) => () => void;
-  /** Whether the palette dialog is currently open. */
-  isOpen: boolean;
-  /** Programmatically open or close the palette. */
-  setIsOpen: (open: boolean) => void;
-  /** Currently registered actions (sorted by label). */
-  actions: CommandAction[];
-}
-
-const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(
-  null,
-);
-
-// ---------------------------------------------------------------------------
-// Provider
-// ---------------------------------------------------------------------------
+const ROUTES: CommandRoute[] = [
+  { href: '/contracts', label: 'Contracts', keywords: ['contracts', 'escrow', 'payments'] },
+  { href: '/milestones', label: 'Milestones', keywords: ['milestones', 'milestone', 'tasks'] },
+  { href: '/reputation', label: 'Reputation', keywords: ['reputation', 'profile', 'rating'] },
+];
 
 /**
- * Wraps the application so the command palette and its action registry are
- * available everywhere via `useCommandPalette` / `useRegisterCommandAction`.
- *
- * Place it high in the tree — typically directly inside the root layout
- * body — so actions registered deeper in the tree are visible.
+ * Simple fuzzy match: returns true when every character in `query`
+ * appears in `text` in order (case-insensitive).
  */
-export function CommandPaletteProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const actionsRef = useRef<Map<string, CommandAction>>(new Map());
-  // We mirror the map into state so the palette re-renders on register /
-  // unregister without forcing consumers to know about an internal ref.
-  const [actions, setActions] = useState<CommandAction[]>([]);
+function fuzzyMatch(query: string, text: string): boolean {
+  const lower = query.toLowerCase();
+  const target = text.toLowerCase();
+  let qi = 0;
+  for (let ti = 0; ti < target.length && qi < lower.length; ti++) {
+    if (target[ti] === lower[qi]) qi++;
+  }
+  return qi === lower.length;
+}
 
-  const notify = useCallback(() => {
-    setActions(
-      Array.from(actionsRef.current.values()).sort((a, b) =>
-        a.label.localeCompare(b.label),
-      ),
+/**
+ * CommandPalette — keyboard-driven route navigator.
+ *
+ * Opens on Cmd+K (Mac) / Ctrl+K and closes on Escape.
+ * Lists all primary routes with fuzzy filtering and arrow-key
+ * navigation. Respects `prefers-reduced-motion` for open/close
+ * transitions.
+ *
+ * @example
+ * ```tsx
+ * // In src/app/layout.tsx
+ * <CommandPalette />
+ * ```
+ */
+export default function CommandPalette(): React.JSX.Element {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const router = useRouter();
+  const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+
+  const inputId = useId();
+  const listboxId = useId();
+
+  const filteredRoutes = useMemo(() => {
+    if (!query.trim()) return ROUTES;
+    return ROUTES.filter(
+      (route) =>
+        fuzzyMatch(query, route.label) ||
+        route.keywords.some((kw) => fuzzyMatch(query, kw)),
     );
+  }, [query]);
+
+  const close = useCallback(() => {
+    setIsOpen(false);
+    setQuery('');
+    setActiveIndex(0);
+    const trigger = previousFocusRef.current;
+    if (trigger && document.contains(trigger)) {
+      trigger.focus();
+    }
   }, []);
 
-  const registerAction = useCallback(
-    (action: CommandAction) => {
-      actionsRef.current.set(action.id, action);
-      notify();
-      return () => {
-        actionsRef.current.delete(action.id);
-        notify();
-      };
+  const navigateTo = useCallback(
+    (href: string) => {
+      close();
+      router.push(href);
     },
-    [notify],
+    [close, router],
   );
 
-  const value = useMemo<CommandPaletteContextValue>(
-    () => ({ registerAction, isOpen, setIsOpen, actions }),
-    [registerAction, isOpen, actions],
-  );
-
-  return (
-    <CommandPaletteContext.Provider value={value}>
-      {children}
-    </CommandPaletteContext.Provider>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Hooks
-// ---------------------------------------------------------------------------
-
-/**
- * Returns the current command-palette context.
- *
- * **Must** be used inside a `<CommandPaletteProvider>` tree.
- */
-export function useCommandPalette(): CommandPaletteContextValue {
-  const ctx = useContext(CommandPaletteContext);
-  if (!ctx) {
-    throw new Error(
-      'useCommandPalette must be used within a <CommandPaletteProvider>',
-    );
-  }
-  return ctx;
-}
-
-/**
- * Registers a command-palette action for the lifetime of the calling
- * component.  The action is automatically unregistered on unmount.
- *
- * Re-registers if `action.id`, `action.label`, or any keyword changes
- * (shallow compare of the array).
- */
-export function useRegisterCommandAction(action: CommandAction): void {
-  const { registerAction } = useCommandPalette();
-
-  useEffect(() => {
-    const unregister = registerAction(action);
-    return unregister;
-  }, [action.id, registerAction]);
-}
-
-// ---------------------------------------------------------------------------
-// Palette Dialog
-// ---------------------------------------------------------------------------
-
-const FOCUSABLE_SELECTORS =
-  'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-/**
- * Renders the command-palette dialog and global keyboard shortcut listener.
- *
- * Place this **once** inside the `<CommandPaletteProvider>` tree — typically
- * in the root layout.
- */
-export function CommandPalette(): React.JSX.Element | null {
-  const { isOpen, setIsOpen, actions } = useCommandPalette();
-  const [query, setQuery] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
-
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listId = useId();
-
-  // Filter actions by query (match against label tokens + keywords).
-  const filtered = useMemo(() => {
-    if (!query.trim()) return actions;
-    const tokens = query
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(Boolean);
-    return actions.filter((a) => {
-      const haystack = `${a.label} ${a.keywords.join(' ')}`.toLowerCase();
-      return tokens.every((t) => haystack.includes(t));
-    });
-  }, [actions, query]);
-
-  // Refs to avoid re-attaching keyboard listeners on every keystroke.
-  const filteredRef = useRef(filtered);
-  filteredRef.current = filtered;
-  const selectedIndexRef = useRef(selectedIndex);
-  selectedIndexRef.current = selectedIndex;
-
-  // Group filtered actions by section (undefined section = "Actions").
-  const groups = useMemo(() => {
-    const map = new Map<string, CommandAction[]>();
-    for (const action of filtered) {
-      const key = action.section ?? 'Actions';
-      const list = map.get(key);
-      if (list) list.push(action);
-      else map.set(key, [action]);
-    }
-    return Array.from(map.entries());
-  }, [filtered]);
-
-  // Keep selectedIndex within bounds.
-  useEffect(() => {
-    setSelectedIndex((prev) =>
-      filtered.length === 0 ? 0 : Math.min(prev, filtered.length - 1),
-    );
-  }, [filtered.length]);
-
-  // ---------- Global keyboard shortcut ----------
+  // Global keyboard listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setIsOpen(!isOpen);
+        setIsOpen((prev) => {
+          if (!prev) {
+            previousFocusRef.current =
+              document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            setQuery('');
+            setActiveIndex(0);
+          } else {
+            const trigger = previousFocusRef.current;
+            if (trigger && document.contains(trigger)) {
+              trigger.focus();
+            }
+          }
+          return !prev;
+        });
+        return;
       }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, setIsOpen]);
 
-  // ---------- Dialog keyboard handling ----------
-  useEffect(() => {
-    if (!isOpen) return;
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        e.preventDefault();
-        setIsOpen(false);
-        return;
-      }
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex((prev) => {
-          const len = filteredRef.current.length;
-          return len === 0 ? 0 : (prev + 1) % len;
+        setIsOpen((prev) => {
+          if (!prev) return prev;
+          const trigger = previousFocusRef.current;
+          if (trigger && document.contains(trigger)) {
+            trigger.focus();
+          }
+          return false;
         });
-        return;
-      }
-
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex((prev) => {
-          const len = filteredRef.current.length;
-          return len === 0 ? 0 : (prev - 1 + len) % len;
-        });
-        return;
-      }
-
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const action = filteredRef.current[selectedIndexRef.current];
-        if (action) {
-          action.onSelect();
-          setIsOpen(false);
-          setQuery('');
-        }
-        return;
-      }
-
-      // Handle Tab: trap within dialog
-      if (e.key === 'Tab') {
-        const els = Array.from(
-          dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS),
-        );
-        if (els.length === 0) return;
-        const first = els[0];
-        const last = els[els.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, setIsOpen]);
+  }, []);
 
-  // Focus input when opened; reset state when closed.
+  // Focus input on open
   useEffect(() => {
     if (isOpen) {
-      setQuery('');
-      setSelectedIndex(0);
-      // Defer focus so the DOM is painted before we move focus (compatible
-      // with both browser requestAnimationFrame and JSDOM setTimeout).
-      setTimeout(() => inputRef.current?.focus(), 0);
+      // Small delay so the DOM is painted before we focus
+      const id = requestAnimationFrame(() => inputRef.current?.focus());
+      return () => cancelAnimationFrame(id);
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  // Reset active index when filtered list changes
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [filteredRoutes.length, query]);
+
+  const handleInputKeyDown = (e: React.KeyboardEvent) => {
+    switch (e.key) {
+      case 'Escape':
+        e.preventDefault();
+        close();
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        setActiveIndex((prev) => (prev + 1) % filteredRoutes.length);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setActiveIndex((prev) =>
+          prev <= 0 ? filteredRoutes.length - 1 : prev - 1,
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (filteredRoutes[activeIndex]) {
+          navigateTo(filteredRoutes[activeIndex].href);
+        }
+        break;
+    }
+  };
+
+  // Scroll active option into view
+  useEffect(() => {
+    if (!isOpen) return;
+    const option = listRef.current?.children[activeIndex] as HTMLElement | undefined;
+    if (option && typeof option.scrollIntoView === 'function') {
+      option.scrollIntoView({ block: 'nearest' });
+    }
+  }, [activeIndex, isOpen]);
+
+  if (!isOpen) return <></>;
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] overflow-hidden"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={() => setIsOpen(false)}
+        className="absolute inset-0 bg-black/50 transition-opacity backdrop-blur-sm"
+        onClick={close}
         aria-hidden="true"
       />
 
-      {/* Palette */}
+      {/* Panel */}
       <div
-        ref={dialogRef}
-        className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
+        className={`relative z-10 w-full max-w-lg overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl ${
+          prefersReducedMotion ? '' : 'animate-in fade-in zoom-in-95'
+        }`}
       >
         {/* Search input */}
         <div className="flex items-center border-b border-slate-200 px-4">
           <svg
+            aria-hidden="true"
             className="h-5 w-5 shrink-0 text-slate-400"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={2}
-            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
             />
           </svg>
           <input
             ref={inputRef}
+            id={inputId}
             type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search actions..."
-            className="flex-1 border-0 bg-transparent px-3 py-4 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none"
-            aria-label="Search command palette"
-            aria-controls={listId}
+            role="combobox"
+            aria-expanded="true"
+            aria-controls={listboxId}
             aria-activedescendant={
-              filtered[selectedIndex]
-                ? `cmd-${filtered[selectedIndex].id}`
+              filteredRoutes[activeIndex]
+                ? `${listboxId}-option-${activeIndex}`
                 : undefined
             }
-            autoComplete="off"
-            spellCheck={false}
+            aria-autocomplete="list"
+            aria-label="Search routes"
+            placeholder="Search routes..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleInputKeyDown}
+            className="w-full bg-transparent px-3 py-4 text-sm text-slate-900 placeholder-slate-400 outline-none"
           />
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500 font-mono">
-            esc
-          </kbd>
         </div>
 
-        {/* Results list */}
+        {/* Route list */}
         <div
-          className="max-h-72 overflow-y-auto p-2"
+          ref={listRef}
+          id={listboxId}
           role="listbox"
-          id={listId}
-          aria-label="Command palette actions"
+          aria-label="Navigation routes"
+          className="max-h-60 overflow-y-auto p-2"
         >
-          {groups.length === 0 && (
-            <p className="px-4 py-8 text-center text-sm text-slate-500">
-              No matching actions found.
+          {filteredRoutes.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-slate-500">
+              No routes found.
             </p>
-          )}
-
-          {groups.map(([section, sectionActions]) => (
-            <div key={section}>
-              <div
-                className="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-400"
-                role="presentation"
-              >
-                {section}
-              </div>
-              {sectionActions.map((action) => {
-                const index = filtered.indexOf(action);
-                const isSelected = index === selectedIndex;
-
-                return (
-                  <button
-                    key={action.id}
-                    id={`cmd-${action.id}`}
-                    role="option"
-                    aria-selected={isSelected}
-                    tabIndex={-1}
-                    onClick={() => {
-                      action.onSelect();
-                      setIsOpen(false);
-                      setQuery('');
-                    }}
-                    onMouseEnter={() => setSelectedIndex(index)}
-                    className={[
-                      'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors',
-                      isSelected
-                        ? 'bg-blue-600 text-white'
-                        : 'text-slate-700 hover:bg-slate-100',
-                    ].join(' ')}
+          ) : (
+            filteredRoutes.map((route, index) => {
+              const isActive = index === activeIndex;
+              const optionId = `${listboxId}-option-${index}`;
+              return (
+                <button
+                  key={route.href}
+                  id={optionId}
+                  role="option"
+                  aria-selected={isActive}
+                  type="button"
+                  onClick={() => navigateTo(route.href)}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                    isActive
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4 shrink-0 text-slate-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
                   >
-                    <span className="flex-1 truncate">{action.label}</span>
-                    {action.keywords.length > 0 && (
-                      <span
-                        className={[
-                          'hidden sm:inline-flex shrink-0 gap-1 text-xs',
-                          isSelected ? 'text-blue-100' : 'text-slate-400',
-                        ].join(' ')}
-                      >
-                        {action.keywords.slice(0, 2).map((kw) => (
-                          <span key={kw}>{kw}</span>
-                        ))}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                  <span className="font-medium">{route.label}</span>
+                  <span className="ml-auto text-xs text-slate-400">
+                    {route.href}
+                  </span>
+                </button>
+              );
+            })
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-slate-200 px-4 py-2">
-          <div className="flex items-center gap-3 text-xs text-slate-400">
-            <span>
-              <kbd className="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-mono text-[10px]">
-                ↑↓
-              </kbd>{' '}
-              navigate
-            </span>
-            <span>
-              <kbd className="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-mono text-[10px]">
-                ↵
-              </kbd>{' '}
-              select
-            </span>
-          </div>
-          <span className="text-xs text-slate-400">
-            {filtered.length} action{filtered.length !== 1 ? 's' : ''}
-          </span>
+        {/* Footer hint */}
+        <div className="flex items-center justify-between border-t border-slate-200 px-4 py-2 text-xs text-slate-400">
+          <span>Navigate with ↑↓</span>
+          <span>↵ Open</span>
+          <span>Esc Close</span>
         </div>
       </div>
     </div>
   );
 }
-
-export default CommandPalette;

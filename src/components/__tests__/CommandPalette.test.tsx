@@ -1,595 +1,548 @@
+/**
+ * @file CommandPalette.test.tsx
+ *
+ * Comprehensive test suite for the CommandPalette component.
+ *
+ * Coverage targets:
+ *  1. Global keyboard shortcut (Cmd+K / Ctrl+K) opens the palette.
+ *  2. Escape closes the palette and restores focus.
+ *  3. ARIA combobox / listbox roles and attributes.
+ *  4. Arrow-key navigation through route options.
+ *  5. Enter selects the active route and navigates.
+ *  6. Fuzzy filtering matches routes and keywords.
+ *  7. Mouse hover updates the active index.
+ *  8. Backdrop click closes the palette.
+ *  9. Reduced-motion preference disables transition animation.
+ * 10. Focus management: input receives focus on open, trigger regains focus on close.
+ * 11. Accessibility: jest-axe audit passes.
+ */
+
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { axe } from 'jest-axe';
-import {
-  CommandPaletteProvider,
-  CommandPalette,
-  useRegisterCommandAction,
-  useCommandPalette,
-  type CommandAction,
-} from '../CommandPalette';
+import '@testing-library/jest-dom';
+import { axe, toHaveNoViolations } from 'jest-axe';
+import CommandPalette from '../CommandPalette';
+
+expect.extend(toHaveNoViolations);
+
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
+
+const mockPush = jest.fn();
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+jest.mock('@/hooks/useMediaQuery', () => ({
+  useMediaQuery: jest.fn(() => false),
+}));
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Renders a component tree with the provider and palette mounted. */
-function renderWithPalette(ui?: React.ReactElement) {
-  return render(
-    <CommandPaletteProvider>
-      {ui}
-      <CommandPalette />
-    </CommandPaletteProvider>,
-  );
-}
+/** Fire the platform-appropriate shortcut. Uses CtrlKey since jsdom is not Mac. */
+const openPalette = () => {
+  fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+};
 
-/** Registers up to three actions using individual hook calls (avoids hook-in-loop). */
-function ActionRegistrar({
-  actions,
-}: {
-  actions: CommandAction[];
-}): React.JSX.Element {
-  useRegisterCommandAction(actions[0]!);
-  if (actions.length > 1) {
-    useRegisterCommandAction(actions[1]!);
-  }
-  if (actions.length > 2) {
-    useRegisterCommandAction(actions[2]!);
-  }
-  return <span data-testid="registrar" />;
-}
-
-/** Opens the palette via the keyboard shortcut. */
-async function openPalette() {
-  await act(async () => {
-    await userEvent.keyboard('{Meta>}k{/Meta}');
-  });
-}
+const closePalette = () => {
+  fireEvent.keyDown(document, { key: 'Escape' });
+};
 
 // ---------------------------------------------------------------------------
-// Tests
+// Suite 1 — Open / close via keyboard shortcut
 // ---------------------------------------------------------------------------
 
-describe('CommandPalette', () => {
-  // -----------------------------------------------------------------------
-  // Registration
-  // -----------------------------------------------------------------------
-  describe('action registration', () => {
-    it('registers an action and displays it when the palette opens', async () => {
-      const onSelect = jest.fn();
-      const action: CommandAction = {
-        id: 'test-action',
-        label: 'Test Action',
-        keywords: ['test', 'example'],
-        section: 'Tests',
-        onSelect,
-      };
-
-      renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
-
-      expect(screen.getByRole('option', { name: /test action/i })).toBeInTheDocument();
-    });
-
-    it('unregisters an action when its component unmounts', async () => {
-      const action: CommandAction = {
-        id: 'transient',
-        label: 'Transient Action',
-        keywords: [],
-        onSelect: jest.fn(),
-      };
-
-      const { unmount } = render(
-        <CommandPaletteProvider>
-          <ActionRegistrar actions={[action]} />
-          <CommandPalette />
-        </CommandPaletteProvider>,
-      );
-
-      await openPalette();
-      expect(screen.getByRole('option', { name: /transient action/i })).toBeInTheDocument();
-
-      // Close palette, unmount registrar, reopen
-      await userEvent.keyboard('{Escape}');
-      unmount();
-      await openPalette();
-
-      expect(screen.queryByRole('option', { name: /transient action/i })).not.toBeInTheDocument();
-    });
-
-    it('deduplicates actions by id (last registration wins)', async () => {
-      const firstFn = jest.fn();
-      const secondFn = jest.fn();
-
-      function DoubleRegistrar() {
-        useRegisterCommandAction({
-          id: 'dup',
-          label: 'First',
-          keywords: [],
-          onSelect: firstFn,
-        });
-        useRegisterCommandAction({
-          id: 'dup',
-          label: 'Second',
-          keywords: [],
-          onSelect: secondFn,
-        });
-        return null;
-      }
-
-      renderWithPalette(<DoubleRegistrar />);
-      await openPalette();
-
-      // Only one entry should appear — the last one registered.
-      const options = screen.getAllByRole('option');
-      expect(options).toHaveLength(1);
-      expect(options[0]).toHaveTextContent('Second');
-
-      await userEvent.click(options[0]);
-      expect(firstFn).not.toHaveBeenCalled();
-      expect(secondFn).toHaveBeenCalledTimes(1);
-    });
+describe('CommandPalette — open/close', () => {
+  beforeEach(() => {
+    mockPush.mockClear();
   });
 
-  // -----------------------------------------------------------------------
-  // Activation (opening & closing)
-  // -----------------------------------------------------------------------
-  describe('activation', () => {
-    it('opens on Cmd+K (Meta+K)', async () => {
-      renderWithPalette();
-      await openPalette();
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
-    });
-
-    it('opens on Ctrl+K', async () => {
-      renderWithPalette();
-      await act(async () => {
-        await userEvent.keyboard('{Control>}k{/Control}');
-      });
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
-    });
-
-    it('closes on Escape', async () => {
-      renderWithPalette();
-      await openPalette();
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
-
-      await userEvent.keyboard('{Escape}');
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
-
-    it('closes when clicking the backdrop', async () => {
-      renderWithPalette();
-      await openPalette();
-
-      const backdrop = document.querySelector('.bg-black\\/50');
-      expect(backdrop).toBeTruthy();
-      await userEvent.click(backdrop!);
-
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
-
-    it('toggles open/closed with Cmd+K', async () => {
-      renderWithPalette();
-      await openPalette();
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
-
-      await act(async () => {
-        await userEvent.keyboard('{Meta>}k{/Meta}');
-      });
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
-
-    it('focuses the search input when opened', async () => {
-      renderWithPalette();
-      await openPalette();
-
-      const input = screen.getByLabelText('Search command palette');
-      expect(input).toHaveFocus();
-    });
-
-    it('clears the search query when reopened', async () => {
-      renderWithPalette();
-      await openPalette();
-
-      const input = screen.getByLabelText('Search command palette');
-      await userEvent.type(input, 'test');
-      expect(input).toHaveValue('test');
-
-      await userEvent.keyboard('{Escape}');
-      await openPalette();
-      expect(screen.getByLabelText('Search command palette')).toHaveValue('');
-    });
+  it('renders nothing initially', () => {
+    render(<CommandPalette />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  // -----------------------------------------------------------------------
-  // Keyboard navigation
-  // -----------------------------------------------------------------------
-  describe('keyboard navigation', () => {
-    const actions: CommandAction[] = [
-      { id: 'a', label: 'Alpha', keywords: [], onSelect: jest.fn() },
-      { id: 'b', label: 'Bravo', keywords: [], onSelect: jest.fn() },
-      { id: 'c', label: 'Charlie', keywords: [], onSelect: jest.fn() },
-    ];
-
-    it('selects the first action by default', async () => {
-      renderWithPalette(<ActionRegistrar actions={actions} />);
-      await openPalette();
-
-      const first = screen.getByRole('option', { name: 'Alpha' });
-      expect(first).toHaveAttribute('aria-selected', 'true');
-    });
-
-    it('navigates down through options with ArrowDown', async () => {
-      renderWithPalette(<ActionRegistrar actions={actions} />);
-      await openPalette();
-
-      await userEvent.keyboard('{ArrowDown}');
-      expect(screen.getByRole('option', { name: 'Bravo' })).toHaveAttribute('aria-selected', 'true');
-
-      await userEvent.keyboard('{ArrowDown}');
-      expect(screen.getByRole('option', { name: 'Charlie' })).toHaveAttribute('aria-selected', 'true');
-
-      // Wrap around
-      await userEvent.keyboard('{ArrowDown}');
-      expect(screen.getByRole('option', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'true');
-    });
-
-    it('navigates up through options with ArrowUp', async () => {
-      renderWithPalette(<ActionRegistrar actions={actions} />);
-      await openPalette();
-
-      await userEvent.keyboard('{ArrowUp}');
-      expect(screen.getByRole('option', { name: 'Charlie' })).toHaveAttribute('aria-selected', 'true');
-
-      await userEvent.keyboard('{ArrowUp}');
-      expect(screen.getByRole('option', { name: 'Bravo' })).toHaveAttribute('aria-selected', 'true');
-    });
-
-    it('activates the selected action on Enter', async () => {
-      renderWithPalette(<ActionRegistrar actions={actions} />);
-      await openPalette();
-
-      await userEvent.keyboard('{ArrowDown}'); // Bravo
-      await userEvent.keyboard('{Enter}');
-
-      expect(actions[1].onSelect).toHaveBeenCalledTimes(1);
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
-
-    it('does nothing on Enter when no actions match', async () => {
-      const onSelect = jest.fn();
-      const action: CommandAction = { id: 'only', label: 'Only', keywords: [], onSelect };
-      renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
-
-      const input = screen.getByLabelText('Search command palette');
-      await userEvent.type(input, 'nonexistent');
-      await userEvent.keyboard('{Enter}');
-
-      expect(onSelect).not.toHaveBeenCalled();
-      expect(screen.getByRole('dialog')).toBeInTheDocument(); // still open
-    });
-
-    it('closes on Escape after interacting with the palette (dialog remains keyboard-operable)', async () => {
-      renderWithPalette(<ActionRegistrar actions={actions} />);
-      await openPalette();
-
-      // Navigate down a few times to ensure keyboard state is active
-      await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}');
-      // Escape should still close regardless of navigation state
-      await userEvent.keyboard('{Escape}');
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
-
-    it('retains focus on the input after ArrowDown navigation (aria-activedescendant pattern)', async () => {
-      renderWithPalette(<ActionRegistrar actions={actions} />);
-      await openPalette();
-
-      // Arrow navigation changes aria-activedescendant but doesn't move DOM focus
-      await userEvent.keyboard('{ArrowDown}');
-      expect(screen.getByLabelText('Search command palette')).toHaveFocus();
-    });
+  it('opens on Ctrl+K', () => {
+    render(<CommandPalette />);
+    openPalette();
+    expect(screen.getByRole('dialog', { name: /command palette/i })).toBeInTheDocument();
   });
 
-  // -----------------------------------------------------------------------
-  // Search / filtering
-  // -----------------------------------------------------------------------
-  describe('search filtering', () => {
-    const actions: CommandAction[] = [
-      { id: 'settings', label: 'Open Settings', keywords: ['preferences', 'theme', 'config'], onSelect: jest.fn() },
-      { id: 'contract', label: 'Create Contract', keywords: ['new', 'escrow'], onSelect: jest.fn() },
-      { id: 'milestone', label: 'Add Milestone', keywords: ['new', 'deliverable'], onSelect: jest.fn() },
-    ];
-
-    it('filters actions by label text', async () => {
-      renderWithPalette(<ActionRegistrar actions={actions} />);
-      await openPalette();
-
-      const input = screen.getByLabelText('Search command palette');
-      await userEvent.type(input, 'contract');
-
-      const options = screen.getAllByRole('option');
-      expect(options).toHaveLength(1);
-      expect(options[0]).toHaveTextContent('Create Contract');
-    });
-
-    it('filters actions by keywords', async () => {
-      renderWithPalette(<ActionRegistrar actions={actions} />);
-      await openPalette();
-
-      const input = screen.getByLabelText('Search command palette');
-      await userEvent.type(input, 'preferences');
-
-      const options = screen.getAllByRole('option');
-      expect(options).toHaveLength(1);
-      expect(options[0]).toHaveTextContent('Open Settings');
-    });
-
-    it('shows "No matching actions" when nothing matches', async () => {
-      renderWithPalette(<ActionRegistrar actions={actions} />);
-      await openPalette();
-
-      const input = screen.getByLabelText('Search command palette');
-      await userEvent.type(input, 'zzzzyyyyxxx');
-
-      expect(screen.getByText('No matching actions found.')).toBeInTheDocument();
-    });
-
-    it('shows all actions when query is empty', async () => {
-      renderWithPalette(<ActionRegistrar actions={actions} />);
-      await openPalette();
-
-      const options = screen.getAllByRole('option');
-      expect(options).toHaveLength(3);
-    });
-
-    it('filters case-insensitively', async () => {
-      renderWithPalette(<ActionRegistrar actions={actions} />);
-      await openPalette();
-
-      const input = screen.getByLabelText('Search command palette');
-      await userEvent.type(input, 'SETTINGS');
-
-      const options = screen.getAllByRole('option');
-      expect(options).toHaveLength(1);
-      expect(options[0]).toHaveTextContent('Open Settings');
-    });
-
-    it('searches with multiple space-separated tokens (AND logic)', async () => {
-      renderWithPalette(<ActionRegistrar actions={actions} />);
-      await openPalette();
-
-      const input = screen.getByLabelText('Search command palette');
-      await userEvent.type(input, 'new escrow');
-
-      const options = screen.getAllByRole('option');
-      expect(options).toHaveLength(1);
-      expect(options[0]).toHaveTextContent('Create Contract');
-    });
+  it('closes on Escape', () => {
+    render(<CommandPalette />);
+    openPalette();
+    closePalette();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  // -----------------------------------------------------------------------
-  // Action selection via click
-  // -----------------------------------------------------------------------
-  describe('click selection', () => {
-    it('invokes onSelect and closes palette when an option is clicked', async () => {
-      const onSelect = jest.fn();
-      const action: CommandAction = { id: 'click-test', label: 'Click Me', keywords: [], onSelect };
-      renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
+  it('toggles open/closed on repeated Ctrl+K', () => {
+    render(<CommandPalette />);
+    openPalette();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    openPalette();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    openPalette();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+});
 
-      await userEvent.click(screen.getByRole('option', { name: 'Click Me' }));
-      expect(onSelect).toHaveBeenCalledTimes(1);
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
+// ---------------------------------------------------------------------------
+// Suite 2 — Search input
+// ---------------------------------------------------------------------------
 
-    it('selects action on mouse hover', async () => {
-      const actionsHover: CommandAction[] = [
-        { id: 'hover-a', label: 'A', keywords: [], onSelect: jest.fn() },
-        { id: 'hover-b', label: 'B', keywords: [], onSelect: jest.fn() },
-      ];
-      renderWithPalette(<ActionRegistrar actions={actionsHover} />);
-      await openPalette();
-
-      await userEvent.hover(screen.getByRole('option', { name: 'B' }));
-      expect(screen.getByRole('option', { name: 'B' })).toHaveAttribute('aria-selected', 'true');
-      expect(screen.getByRole('option', { name: 'A' })).toHaveAttribute('aria-selected', 'false');
-    });
+describe('CommandPalette — search input', () => {
+  beforeEach(() => {
+    mockPush.mockClear();
   });
 
-  // -----------------------------------------------------------------------
-  // Section grouping
-  // -----------------------------------------------------------------------
-  describe('section grouping', () => {
-    it('groups actions by section', async () => {
-      const actionsGrouped: CommandAction[] = [
-        { id: 'd1', label: 'Dialog One', keywords: [], section: 'Dialogs', onSelect: jest.fn() },
-        { id: 'n1', label: 'Nav One', keywords: [], section: 'Navigation', onSelect: jest.fn() },
-        { id: 'd2', label: 'Dialog Two', keywords: [], section: 'Dialogs', onSelect: jest.fn() },
-      ];
-
-      renderWithPalette(<ActionRegistrar actions={actionsGrouped} />);
-      await openPalette();
-
-      // Section headers should be visible (using text content because they have role="presentation")
-      expect(screen.getByText('Dialogs')).toBeInTheDocument();
-      expect(screen.getByText('Navigation')).toBeInTheDocument();
-    });
-
-    it('assigns default section "Actions" when section is undefined', async () => {
-      const action: CommandAction = { id: 'no-section', label: 'No Section', keywords: [], onSelect: jest.fn() };
-      renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
-
-      expect(screen.getByText('Actions')).toBeInTheDocument();
-    });
+  it('renders a combobox input with placeholder', () => {
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+    expect(input).toHaveAttribute('placeholder', 'Search routes...');
   });
 
-  // -----------------------------------------------------------------------
-  // Action count footer
-  // -----------------------------------------------------------------------
-  describe('footer', () => {
-    it('displays the correct action count', async () => {
-      const actionsFooter: CommandAction[] = [
-        { id: 'f1', label: 'One', keywords: [], onSelect: jest.fn() },
-        { id: 'f2', label: 'Two', keywords: [], onSelect: jest.fn() },
-      ];
-      renderWithPalette(<ActionRegistrar actions={actionsFooter} />);
-      await openPalette();
-
-      expect(screen.getByText('2 actions')).toBeInTheDocument();
-    });
-
-    it('displays singular "action" when exactly one', async () => {
-      const action: CommandAction = { id: 'single', label: 'Only', keywords: [], onSelect: jest.fn() };
-      renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
-
-      expect(screen.getByText('1 action')).toBeInTheDocument();
-    });
+  it('input receives focus on open', async () => {
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+    await waitFor(() => expect(input).toHaveFocus());
   });
 
-  // -----------------------------------------------------------------------
-  // useCommandPalette hook
-  // -----------------------------------------------------------------------
-  describe('useCommandPalette hook', () => {
-    it('throws when used outside provider', () => {
-      // Suppress console.error for the expected error boundary
-      const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-      function BadComponent() {
-        useCommandPalette();
-        return null;
-      }
-
-      expect(() => render(<BadComponent />)).toThrow(
-        'useCommandPalette must be used within a <CommandPaletteProvider>',
-      );
-
-      spy.mockRestore();
-    });
-
-    it('returns the context when used inside provider', () => {
-      function GoodComponent() {
-        const ctx = useCommandPalette();
-        expect(ctx).toBeDefined();
-        expect(typeof ctx.registerAction).toBe('function');
-        expect(typeof ctx.setIsOpen).toBe('function');
-        return <span data-testid="good" />;
-      }
-
-      renderWithPalette(<GoodComponent />);
-      expect(screen.getByTestId('good')).toBeInTheDocument();
-    });
+  it('has aria-expanded="true" and aria-controls pointing to the listbox', () => {
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+    expect(input).toHaveAttribute('aria-expanded', 'true');
+    expect(input).toHaveAttribute('aria-controls');
   });
 
-  // -----------------------------------------------------------------------
-  // Edge cases
-  // -----------------------------------------------------------------------
-  describe('edge cases', () => {
-    it('renders nothing when closed', () => {
-      renderWithPalette();
-      // Dialog should not be in the DOM when closed
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
+  it('has aria-autocomplete="list"', () => {
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+    expect(input).toHaveAttribute('aria-autocomplete', 'list');
+  });
+});
 
-    it('works with zero registered actions', async () => {
-      renderWithPalette();
-      await openPalette();
+// ---------------------------------------------------------------------------
+// Suite 3 — Route list rendering
+// ---------------------------------------------------------------------------
 
-      expect(screen.getByText('No matching actions found.')).toBeInTheDocument();
-    });
-
-    it('empty keywords array is handled gracefully', async () => {
-      const action: CommandAction = { id: 'no-kw', label: 'No Keywords', keywords: [], onSelect: jest.fn() };
-      renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
-
-      expect(screen.getByRole('option', { name: /no keywords/i })).toBeInTheDocument();
-    });
-
-    it('keyword display does not error with empty keywords', async () => {
-      const action: CommandAction = { id: 'empty-kw', label: 'Empty KW', keywords: [], onSelect: jest.fn() };
-      renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
-
-      // Should render without error — just checking no crash
-      expect(screen.getByRole('option', { name: /empty kw/i })).toBeInTheDocument();
-    });
+describe('CommandPalette — route list', () => {
+  beforeEach(() => {
+    mockPush.mockClear();
   });
 
-  // -----------------------------------------------------------------------
-  // Accessibility
-  // -----------------------------------------------------------------------
-  describe('accessibility', () => {
-    it('has no axe violations when open', async () => {
-      const action: CommandAction = { id: 'a11y', label: 'A11y Action', keywords: ['accessible'], onSelect: jest.fn() };
-      const { container } = renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
+  it('lists all three routes by default', () => {
+    render(<CommandPalette />);
+    openPalette();
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    expect(within(listbox).getByRole('option', { name: /contracts/i })).toBeInTheDocument();
+    expect(within(listbox).getByRole('option', { name: /milestones/i })).toBeInTheDocument();
+    expect(within(listbox).getByRole('option', { name: /reputation/i })).toBeInTheDocument();
+  });
 
-      const results = await axe(container);
-      expect(results.violations).toHaveLength(0);
-    });
+  it('shows the href for each route', () => {
+    render(<CommandPalette />);
+    openPalette();
+    expect(screen.getByText('/contracts')).toBeInTheDocument();
+    expect(screen.getByText('/milestones')).toBeInTheDocument();
+    expect(screen.getByText('/reputation')).toBeInTheDocument();
+  });
 
-    it('has dialog role and aria-modal', async () => {
-      const action: CommandAction = { id: 'modal-test', label: 'Modal', keywords: [], onSelect: jest.fn() };
-      renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
+  it('first option is aria-selected by default', () => {
+    render(<CommandPalette />);
+    openPalette();
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const options = within(listbox).getAllByRole('option');
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+    expect(options[1]).toHaveAttribute('aria-selected', 'false');
+    expect(options[2]).toHaveAttribute('aria-selected', 'false');
+  });
+});
 
-      const dialog = screen.getByRole('dialog');
-      expect(dialog).toHaveAttribute('aria-modal', 'true');
-      expect(dialog).toHaveAttribute('aria-label', 'Command palette');
-    });
+// ---------------------------------------------------------------------------
+// Suite 4 — Arrow key navigation
+// ---------------------------------------------------------------------------
 
-    it('search input has aria-controls pointing to the listbox', async () => {
-      const action: CommandAction = { id: 'aria-test', label: 'ARIA', keywords: [], onSelect: jest.fn() };
-      renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
+describe('CommandPalette — arrow key navigation', () => {
+  beforeEach(() => {
+    mockPush.mockClear();
+  });
 
-      const input = screen.getByLabelText('Search command palette');
-      const listbox = screen.getByRole('listbox');
-      expect(input).toHaveAttribute('aria-controls', listbox.id);
-    });
+  it('ArrowDown moves selection to the next option', async () => {
+    const user = userEvent.setup();
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
 
-    it('listbox has an accessible name', async () => {
-      const action: CommandAction = { id: 'listbox-name', label: 'Listbox', keywords: [], onSelect: jest.fn() };
-      renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
+    await user.click(input);
+    await user.keyboard('{ArrowDown}');
 
-      const listbox = screen.getByRole('listbox');
-      expect(listbox).toHaveAttribute('aria-label', 'Command palette actions');
-    });
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const options = within(listbox).getAllByRole('option');
+    expect(options[0]).toHaveAttribute('aria-selected', 'false');
+    expect(options[1]).toHaveAttribute('aria-selected', 'true');
+  });
 
-    it('selected option has aria-selected="true"', async () => {
-      const action: CommandAction = { id: 'sel', label: 'Selected', keywords: [], onSelect: jest.fn() };
-      renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
+  it('ArrowUp moves selection to the previous option', async () => {
+    const user = userEvent.setup();
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
 
-      expect(screen.getByRole('option')).toHaveAttribute('aria-selected', 'true');
-    });
+    await user.click(input);
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{ArrowUp}');
 
-    it('input has aria-activedescendant pointing to selected option', async () => {
-      const actionsAct: CommandAction[] = [
-        { id: 'first', label: 'First', keywords: [], onSelect: jest.fn() },
-        { id: 'second', label: 'Second', keywords: [], onSelect: jest.fn() },
-      ];
-      renderWithPalette(<ActionRegistrar actions={actionsAct} />);
-      await openPalette();
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const options = within(listbox).getAllByRole('option');
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+  });
 
-      const input = screen.getByLabelText('Search command palette');
-      const firstOption = screen.getByRole('option', { name: 'First' });
-      expect(input).toHaveAttribute('aria-activedescendant', firstOption.id);
-    });
+  it('ArrowDown wraps from last to first', async () => {
+    const user = userEvent.setup();
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
 
-    it('options have tabIndex={-1} so focus stays on the input', async () => {
-      const action: CommandAction = { id: 'tab-idx', label: 'Tab Index', keywords: [], onSelect: jest.fn() };
-      renderWithPalette(<ActionRegistrar actions={[action]} />);
-      await openPalette();
+    await user.click(input);
+    // Navigate to last option
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{ArrowDown}');
+    // Wrap to first
+    await user.keyboard('{ArrowDown}');
 
-      const option = screen.getByRole('option', { name: 'Tab Index' });
-      expect(option).toHaveAttribute('tabindex', '-1');
-    });
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const options = within(listbox).getAllByRole('option');
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('ArrowUp wraps from first to last', async () => {
+    const user = userEvent.setup();
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+
+    await user.click(input);
+    await user.keyboard('{ArrowUp}');
+
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const options = within(listbox).getAllByRole('option');
+    expect(options[2]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('aria-activedescendant updates as arrow keys are pressed', async () => {
+    const user = userEvent.setup();
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+
+    await user.click(input);
+    await user.keyboard('{ArrowDown}');
+
+    expect(input).toHaveAttribute('aria-activedescendant');
+    const activedescendant = input.getAttribute('aria-activedescendant');
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const options = within(listbox).getAllByRole('option');
+    expect(activedescendant).toBe(options[1].id);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 5 — Enter to navigate
+// ---------------------------------------------------------------------------
+
+describe('CommandPalette — Enter navigation', () => {
+  beforeEach(() => {
+    mockPush.mockClear();
+  });
+
+  it('Enter navigates to the active route', async () => {
+    const user = userEvent.setup();
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+
+    await user.click(input);
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{Enter}');
+
+    expect(mockPush).toHaveBeenCalledWith('/milestones');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('Enter navigates to the first route by default', async () => {
+    const user = userEvent.setup();
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+
+    await user.click(input);
+    await user.keyboard('{Enter}');
+
+    expect(mockPush).toHaveBeenCalledWith('/contracts');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 6 — Fuzzy filtering
+// ---------------------------------------------------------------------------
+
+describe('CommandPalette — fuzzy filtering', () => {
+  beforeEach(() => {
+    mockPush.mockClear();
+  });
+
+  it('filters routes by label substring', () => {
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+
+    fireEvent.change(input, { target: { value: 'mile' } });
+
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const options = within(listbox).getAllByRole('option');
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent('Milestones');
+  });
+
+  it('filters routes by keyword', () => {
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+
+    fireEvent.change(input, { target: { value: 'escrow' } });
+
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const options = within(listbox).getAllByRole('option');
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent('Contracts');
+  });
+
+  it('shows "No routes found" when nothing matches', () => {
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+
+    fireEvent.change(input, { target: { value: 'xyz123' } });
+
+    expect(screen.getByText('No routes found.')).toBeInTheDocument();
+  });
+
+  it('fuzzy match works with non-contiguous characters', () => {
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+
+    // "Ctr" matches "Contracts" (C, t, r in order)
+    fireEvent.change(input, { target: { value: 'ctr' } });
+
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const options = within(listbox).getAllByRole('option');
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent('Contracts');
+  });
+
+  it('filtering is case-insensitive', () => {
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+
+    fireEvent.change(input, { target: { value: 'REPUTATION' } });
+
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const options = within(listbox).getAllByRole('option');
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent('Reputation');
+  });
+
+  it('empty query shows all routes', () => {
+    render(<CommandPalette />);
+    openPalette();
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+
+    fireEvent.change(input, { target: { value: 'mile' } });
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: '' } });
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const options = within(listbox).getAllByRole('option');
+    expect(options).toHaveLength(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 7 — Mouse interaction
+// ---------------------------------------------------------------------------
+
+describe('CommandPalette — mouse interaction', () => {
+  beforeEach(() => {
+    mockPush.mockClear();
+  });
+
+  it('hovering an option updates the active selection', () => {
+    render(<CommandPalette />);
+    openPalette();
+
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const options = within(listbox).getAllByRole('option');
+
+    fireEvent.mouseEnter(options[2]);
+
+    expect(options[2]).toHaveAttribute('aria-selected', 'true');
+    expect(options[0]).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('clicking an option navigates and closes', () => {
+    render(<CommandPalette />);
+    openPalette();
+
+    const listbox = screen.getByRole('listbox', { name: /navigation routes/i });
+    const reputation = within(listbox).getByRole('option', { name: /reputation/i });
+
+    fireEvent.click(reputation);
+
+    expect(mockPush).toHaveBeenCalledWith('/reputation');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('clicking the backdrop closes the palette', () => {
+    render(<CommandPalette />);
+    openPalette();
+
+    // The backdrop is the first element with aria-hidden="true"
+    const backdrop = document.querySelector('[aria-hidden="true"]');
+    expect(backdrop).toBeInTheDocument();
+    fireEvent.click(backdrop!);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 8 — Reduced motion
+// ---------------------------------------------------------------------------
+
+describe('CommandPalette — reduced motion', () => {
+  it('does not apply animation classes when prefers-reduced-motion is reduce', () => {
+    const useMediaQuery = require('@/hooks/useMediaQuery').useMediaQuery;
+    useMediaQuery.mockReturnValue(true);
+
+    render(<CommandPalette />);
+    openPalette();
+
+    const panel = screen.getByRole('dialog').querySelector('.max-w-lg');
+    expect(panel?.className).not.toContain('animate-in');
+  });
+
+  it('applies animation classes when reduced motion is not preferred', () => {
+    const useMediaQuery = require('@/hooks/useMediaQuery').useMediaQuery;
+    useMediaQuery.mockReturnValue(false);
+
+    render(<CommandPalette />);
+    openPalette();
+
+    const panel = screen.getByRole('dialog').querySelector('.max-w-lg');
+    expect(panel?.className).toContain('animate-in');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 9 — Focus management
+// ---------------------------------------------------------------------------
+
+describe('CommandPalette — focus management', () => {
+  it('restores focus to the previously focused element on close', async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <button type="button" data-testid="trigger">
+          Open
+        </button>
+        <CommandPalette />
+      </>,
+    );
+
+    const trigger = screen.getByTestId('trigger');
+    trigger.focus();
+
+    // Open via keyboard
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+
+    // Input should be focused now (after rAF flush)
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+    await waitFor(() => expect(input).toHaveFocus());
+
+    // Close
+    await user.keyboard('{Escape}');
+
+    // Focus should return to trigger
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 10 — Keyboard hint footer
+// ---------------------------------------------------------------------------
+
+describe('CommandPalette — footer hints', () => {
+  it('displays keyboard hints', () => {
+    render(<CommandPalette />);
+    openPalette();
+
+    expect(screen.getByText('Navigate with ↑↓')).toBeInTheDocument();
+    expect(screen.getByText('↵ Open')).toBeInTheDocument();
+    expect(screen.getByText('Esc Close')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 11 — Accessibility (jest-axe)
+// ---------------------------------------------------------------------------
+
+describe('CommandPalette — accessibility', () => {
+  it('has no axe violations when open', async () => {
+    const { container } = render(<CommandPalette />);
+    openPalette();
+
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
+  it('has no axe violations when open with filtered results', async () => {
+    const { container } = render(<CommandPalette />);
+    openPalette();
+
+    const input = screen.getByRole('combobox', { name: /search routes/i });
+    fireEvent.change(input, { target: { value: 'mile' } });
+
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 12 — Unmount
+// ---------------------------------------------------------------------------
+
+describe('CommandPalette — unmount', () => {
+  it('unmounts cleanly while open', () => {
+    const { unmount } = render(<CommandPalette />);
+    openPalette();
+    expect(() => unmount()).not.toThrow();
+  });
+
+  it('unmounts cleanly while closed', () => {
+    const { unmount } = render(<CommandPalette />);
+    expect(() => unmount()).not.toThrow();
   });
 });
