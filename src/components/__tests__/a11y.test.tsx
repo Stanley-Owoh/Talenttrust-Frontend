@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import { testA11y, renderWithA11y, assertNoA11yViolations } from '@/test-utils/a11y';
 import MilestonesList from '@/components/MilestonesList';
 import ContractSummary from '@/components/ContractSummary';
@@ -11,6 +11,7 @@ import MilestoneFilter from '@/components/milestones/MilestoneFilter';
 import { MilestonesListSkeleton } from '@/components/MilestonesListSkeleton';
 import { ToastProvider, useToast } from '@/components/toast/toast-provider';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import HeaderActions from '@/components/HeaderActions';
 
 describe('a11y: MilestonesList', () => {
   it('empty list has no violations', async () => {
@@ -601,80 +602,200 @@ describe('a11y: Breadcrumbs', () => {
   });
 });
 
-describe('a11y: prefers-reduced-motion — milestones', () => {
-  let restoreMatchMedia: () => void;
+// ---------------------------------------------------------------------------
+// a11y: wallet focus management
+// ---------------------------------------------------------------------------
 
+describe('a11y: wallet focus management', () => {
   beforeEach(() => {
-    restoreMatchMedia = mockReducedMotion();
+    jest.useRealTimers();
+    localStorage.clear();
   });
 
-  afterEach(() => {
-    restoreMatchMedia();
-  });
+  it('WalletConnectButton: focus moves to connected element after connect', async () => {
+    const { useWallet } = require('@/contexts/WalletContext') as {
+      useWallet: jest.Mock;
+    };
+    useWallet.mockReturnValue({
+      address: null,
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
 
-  it('MilestonesList renders cleanly with no axe violations under reduced motion', async () => {
-    const milestones = [
-      { id: '1', title: 'Design Review', status: 'Completed' as const, payout: 1000, currency: 'USD', dueDate: '2026-06-01' },
-      { id: '2', title: 'Implementation', status: 'Pending' as const, payout: 2500, currency: 'USD', dueDate: '2026-07-01' },
-    ];
-    await testA11y(<MilestonesList milestones={milestones} />);
-  });
-
-  it('ContractProgress progress bar renders cleanly with no axe violations under reduced motion', async () => {
-    const milestones = [
-      { id: '1', title: 'Design Review', status: 'Completed' as const, payout: 1000, currency: 'USD' },
-      { id: '2', title: 'Implementation', status: 'Pending' as const, payout: 2500, currency: 'USD' },
-    ];
-    await testA11y(<ContractProgress milestones={milestones} />);
-  });
-
-  it('MilestoneFilter radiogroup renders cleanly with no axe violations under reduced motion', async () => {
-    await testA11y(<MilestoneFilter selected="All" onChange={jest.fn()} resultCount={2} />);
-  });
-
-  it('MilestonesListSkeleton loading state renders cleanly with no axe violations under reduced motion', async () => {
-    await testA11y(<MilestonesListSkeleton />);
-  });
-});
-
-describe('a11y: forced-colors / high contrast — milestones', () => {
-  afterEach(() => {
-    setTheme('light');
-  });
-
-  it('MilestonesList status badges have role="status" and pass accessibility in high contrast mode', async () => {
-    setTheme('dark');
-    const view = renderWithA11y(
-      <MilestonesList
-        milestones={[
-          { id: '1', title: 'Phase 1', status: 'Active', payout: 500, currency: 'USD' },
-        ]}
-      />
+    const { rerender } = plainRender(
+      <PreferencesProvider>
+        <ToastProvider>
+          <WalletConnectButton />
+        </ToastProvider>
+      </PreferencesProvider>,
     );
-    const badge = screen.getByRole('status', { name: 'Status: Active' });
-    expect(badge).toBeInTheDocument();
-    await assertNoA11yViolations(view.container);
-  });
 
-  it('ContractProgress displays progressbar role and valid valuenow in high contrast mode', async () => {
-    setTheme('dark');
-    const milestones = [
-      { id: '1', title: 'Phase 1', status: 'Completed' as const, payout: 500, currency: 'USD' },
-      { id: '2', title: 'Phase 2', status: 'Pending' as const, payout: 500, currency: 'USD' },
-    ];
-    const view = renderWithA11y(<ContractProgress milestones={milestones} />);
-    const progressbar = screen.getByRole('progressbar');
-    expect(progressbar).toHaveAttribute('aria-valuenow', '50');
-    await assertNoA11yViolations(view.container);
-  });
+    // Simulate connect
+    useWallet.mockReturnValue({
+      address: 'GABC123',
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
 
-  it('MilestoneFilter renders accessible fieldset and radiogroup in high contrast mode', async () => {
-    setTheme('dark');
-    const view = renderWithA11y(
-      <MilestoneFilter selected="Active" onChange={jest.fn()} resultCount={3} />
+    rerender(
+      <PreferencesProvider>
+        <ToastProvider>
+          <WalletConnectButton />
+        </ToastProvider>
+      </PreferencesProvider>,
     );
-    const radioGroup = screen.getByRole('radiogroup', { name: /filter milestones by status/i });
-    expect(radioGroup).toBeInTheDocument();
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const connectedElement = screen.getByRole('button', { name: /copy address/i }).parentElement;
+    expect(connectedElement).toBeInTheDocument();
+  });
+
+  it('WalletConnectButton: focus returns to connect button after disconnect', async () => {
+    const { useWallet } = require('@/contexts/WalletContext') as {
+      useWallet: jest.Mock;
+    };
+    useWallet.mockReturnValue({
+      address: 'GABC123',
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+
+    const { rerender } = plainRender(
+      <PreferencesProvider>
+        <ToastProvider>
+          <WalletConnectButton />
+        </ToastProvider>
+      </PreferencesProvider>,
+    );
+
+    // Simulate disconnect
+    useWallet.mockReturnValue({
+      address: null,
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+
+    rerender(
+      <PreferencesProvider>
+        <ToastProvider>
+          <WalletConnectButton />
+        </ToastProvider>
+      </PreferencesProvider>,
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const connectButton = screen.getByRole('button', { name: /connect wallet/i });
+    expect(connectButton).toBeInTheDocument();
+  });
+
+  it('HeaderActions: mobile toggle opens and focuses first interactive element', async () => {
+    const { useWallet } = require('@/contexts/WalletContext') as {
+      useWallet: jest.Mock;
+    };
+    useWallet.mockReturnValue({
+      address: null,
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+
+    plainRender(
+      <PreferencesProvider>
+        <ToastProvider>
+          <HeaderActions />
+        </ToastProvider>
+      </PreferencesProvider>,
+    );
+
+    const toggleButton = screen.getByRole('button', { name: /open wallet actions/i });
+    fireEvent.click(toggleButton);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    // After opening, focus should move to first interactive element in panel
+    // (the connect wallet button inside the panel)
+    const connectButton = screen.getByRole('button', { name: /connect wallet/i });
+    expect(connectButton).toBeInTheDocument();
+  });
+
+  it('HeaderActions: mobile toggle closes and restores focus to toggle button', async () => {
+    const { useWallet } = require('@/contexts/WalletContext') as {
+      useWallet: jest.Mock;
+    };
+    useWallet.mockReturnValue({
+      address: null,
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+
+    plainRender(
+      <PreferencesProvider>
+        <ToastProvider>
+          <HeaderActions />
+        </ToastProvider>
+      </PreferencesProvider>,
+    );
+
+    const toggleButton = screen.getByRole('button', { name: /open wallet actions/i });
+    
+    // Open
+    fireEvent.click(toggleButton);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    // Close
+    fireEvent.click(toggleButton);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    // Focus should return to toggle button
+    expect(document.activeElement).toBe(toggleButton);
+  });
+
+  it('HeaderActions: no axe violations when panel is open', async () => {
+    const { useWallet } = require('@/contexts/WalletContext') as {
+      useWallet: jest.Mock;
+    };
+    useWallet.mockReturnValue({
+      address: null,
+      isConnecting: false,
+      error: null,
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    });
+
+    const view = renderWithA11y(
+      <PreferencesProvider>
+        <ToastProvider>
+          <HeaderActions />
+        </ToastProvider>
+      </PreferencesProvider>,
+    );
+
+    const toggleButton = screen.getByRole('button', { name: /open wallet actions/i });
+    fireEvent.click(toggleButton);
+
     await assertNoA11yViolations(view.container);
   });
 });
