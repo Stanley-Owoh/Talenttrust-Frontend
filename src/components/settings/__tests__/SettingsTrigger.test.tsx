@@ -4,17 +4,17 @@ import userEvent from '@testing-library/user-event';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import { SettingsTrigger } from '../SettingsTrigger';
 import { PreferencesProvider } from '@/lib/preferences';
-import { ToastProvider } from '@/components/toast/toast-provider';
+import { CommandPaletteProvider } from '@/components/CommandPalette';
 
 expect.extend(toHaveNoViolations);
 
 const renderWithProvider = (ui: React.ReactElement) =>
   render(
     <PreferencesProvider>
-      <ToastProvider>
+      <CommandPaletteProvider>
         {ui}
-      </ToastProvider>
-    </PreferencesProvider>
+      </CommandPaletteProvider>
+    </PreferencesProvider>,
   );
 
 describe('SettingsTrigger', () => {
