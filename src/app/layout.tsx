@@ -56,6 +56,9 @@ import { CommandPalette } from '@/components/CommandPalette';
 import Navbar from '@/components/Navbar';
 import HeaderActions from '@/components/HeaderActions';
 import CommandPalette from '@/components/CommandPalette';
+import { registerDefaultCommands } from '@/lib/commands/defaultCommands';
+
+registerDefaultCommands();
 
 export default function RootLayout({
   children,
@@ -95,7 +98,6 @@ export default function RootLayout({
               <CommandPalette />
               <SettingsTrigger />
               <CommandPalette />
-            </CommandPaletteProvider>
             </WalletProvider>
           </ToastProvider>
         </PreferencesProvider>
