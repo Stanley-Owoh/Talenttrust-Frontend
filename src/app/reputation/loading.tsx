@@ -14,11 +14,11 @@
  *     - 3 history event rows
  *
  * Accessibility:
- * - `aria-busy="true"` on <main>.
  * - Visually-hidden `role="status"` announces "Loading reputation…".
  * - All shimmer blocks carry `aria-hidden="true"`.
  * - Animation disabled for `prefers-reduced-motion` via globals.css rule
  *   and `motion-reduce:animate-none`.
+ * - Focus management is handled by ReputationLoadingClient wrapper.
  */
 
 // ---------------------------------------------------------------------------
@@ -105,7 +105,7 @@ const HistoryCardSkeleton = () => (
 
 export default function ReputationLoading() {
   return (
-    <main className="min-h-screen p-8" aria-busy="true">
+    <>
       <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         Loading reputation…
       </span>
@@ -121,6 +121,8 @@ export default function ReputationLoading() {
         <ProfileCardSkeleton />
         <HistoryCardSkeleton />
       </section>
-    </main>
+    </>
   );
 }
+
+export { ReputationLoadingClient as default } from './ReputationLoadingClient';
