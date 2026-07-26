@@ -161,18 +161,41 @@ export function saveContract(contract: Contract): void {
 }
 
 /**
+ * Result returned by {@link upsertContract}.
+ */
+export type UpsertResult = {
+  /** Whether the write succeeded. */
+  success: boolean;
+  /** When `true`, the write was rejected because a newer version of the same
+   *  contract was already persisted. Callers should roll back any optimistic
+   *  UI update and surface a clear message. */
+  stale: boolean;
+};
+
+/**
  * Replaces an existing contract that shares the same `contractName`, or appends
  * the contract when no persisted match exists yet.
  *
- * The helper returns a success flag so calling UI code can surface a toast or
- * fallback message when persistence fails instead of assuming the write worked.
+ * The helper returns a result object so calling UI code can distinguish between
+ * a plain persistence failure and a stale-overwrite rejection, allowing it to
+ * surface a more specific message and roll back optimistic updates.
+ *
+ * **Stale-overwrite guard**
+ *
+ * Every contract carries an internal `version` field that starts at `1` for
+ * new contracts and increments on each successful upsert. Before writing, the
+ * function compares the incoming contract's version against the currently stored
+ * version. If the stored version is higher, the write is rejected with
+ * `{ success: false, stale: true }` — this prevents one tab from silently
+ * overwriting a status change made in another tab.
  *
  * @param contract - The full `Contract` record to insert or replace.
- * @returns `true` when the contract is persisted successfully; otherwise `false`.
+ * @returns An `UpsertResult` with `success` indicating whether the write
+ *   completed, and `stale` indicating a stale-overwrite rejection.
  *
  * @example
  * ```ts
- * const updated = upsertContract({
+ * const { success, stale } = upsertContract({
  *   contractName: 'Design Sprint',
  *   parties: [{ label: 'Client', address: '0xABC...' }],
  *   totalValue: 5000,
@@ -181,22 +204,59 @@ export function saveContract(contract: Contract): void {
  *   createdAt: '2025-01-01',
  *   milestoneCount: 3,
  * });
+ * if (!success && stale) {
+ *   // Optimistic update was rolled back — another tab modified this contract.
+ * }
  * ```
  */
-export function upsertContract(contract: Contract): boolean {
+export function upsertContract(contract: Contract): UpsertResult {
   const store = readStore();
   const existingIndex = store.contracts.findIndex(
     (existingContract) => existingContract.contractName === contract.contractName,
   );
 
+  if (existingIndex !== -1) {
+    const existing = store.contracts[existingIndex];
+    const existingVersion = existing.version ?? 0;
+    const incomingVersion = contract.version ?? 0;
+
+    if (incomingVersion < existingVersion) {
+      return { success: false, stale: true };
+    }
+  }
+
+  const nextVersion = (contract.version ?? 0) + 1;
+  const updatedContract: Contract = { ...contract, version: nextVersion };
+
   const contracts =
     existingIndex === -1
-      ? [...store.contracts, contract]
+      ? [...store.contracts, updatedContract]
       : store.contracts.map((existingContract, index) =>
-          index === existingIndex ? contract : existingContract,
+          index === existingIndex ? updatedContract : existingContract,
         );
 
-  return writeStore({ ...store, contracts });
+  const ok = writeStore({ ...store, contracts });
+  return { success: ok, stale: false };
+}
+
+/**
+ * Returns the current persistence-layer version for the contract matching
+ * `contractName`, or `0` if the contract has never been persisted or does
+ * not carry a version field.
+ *
+ * Callers use this to build a `Contract` object with the correct base
+ * version before calling {@link upsertContract}, ensuring the stale-overwrite
+ * guard compares against the right baseline.
+ *
+ * @param contractName - The name of the contract to look up.
+ * @returns The stored version number (`0` if not found).
+ */
+export function getContractVersion(contractName: string): number {
+  const store = readStore();
+  const existing = store.contracts.find(
+    (existingContract) => existingContract.contractName === contractName,
+  );
+  return existing?.version ?? 0;
 }
 
 // ---------------------------------------------------------------------------
