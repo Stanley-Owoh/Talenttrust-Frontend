@@ -47,6 +47,8 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPersistingStatus, setIsPersistingStatus] = useState(false);
   const isMountedRef = useRef(true);
+  const isPersistingStatusRef = useRef(false);
+  const activeStatusRequestRef = useRef(0);
   const { showError, showSuccess } = useToast();
 
   /**
@@ -84,7 +86,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
    * @param successDescription - The toast description shown after success.
    */
   const persistContractStatus = useCallback(
-    (
+    async (
       nextStatus: ContractData['status'],
       successTitle: string,
       successDescription: string,
@@ -99,29 +101,68 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
         return;
       }
 
-      setIsPersistingStatus(true);
-      setErrorMessage(null);
-
-      const persisted = upsertContract(buildPersistedContract(contractData, nextStatus));
-
-      if (!persisted) {
-        const message = 'The contract status could not be persisted. Please try again.';
+      if (isPersistingStatusRef.current) {
+        const message = 'Another status update is already in progress. Please wait a moment and try again.';
         setErrorMessage(message);
         showError({
           title: 'Unable to update contract',
           description: message,
         });
-        setIsPersistingStatus(false);
         return;
       }
 
-      const updatedContract = { ...contractData, status: nextStatus };
-      setContractData(updatedContract);
-      showSuccess({
-        title: successTitle,
-        description: successDescription,
-      });
-      setIsPersistingStatus(false);
+      const requestId = activeStatusRequestRef.current + 1;
+      activeStatusRequestRef.current = requestId;
+      isPersistingStatusRef.current = true;
+      setErrorMessage(null);
+
+      const currentContract = contractData;
+      const optimisticContract = { ...currentContract, status: nextStatus };
+
+      if (isMountedRef.current) {
+        setIsPersistingStatus(true);
+        setContractData(optimisticContract);
+      }
+
+      try {
+        const persisted = await Promise.resolve(
+          upsertContract(buildPersistedContract(currentContract, nextStatus)),
+        );
+
+        if (!persisted) {
+          throw new Error('The contract status could not be persisted. Please try again.');
+        }
+
+        if (activeStatusRequestRef.current !== requestId) {
+          return;
+        }
+
+        showSuccess({
+          title: successTitle,
+          description: successDescription,
+        });
+      } catch (error) {
+        if (activeStatusRequestRef.current !== requestId) {
+          return;
+        }
+
+        if (isMountedRef.current) {
+          setContractData(currentContract);
+        }
+        const message = error instanceof Error ? error.message : 'The contract status could not be persisted. Please try again.';
+        setErrorMessage(message);
+        showError({
+          title: 'Unable to update contract',
+          description: message,
+        });
+      } finally {
+        if (activeStatusRequestRef.current === requestId) {
+          isPersistingStatusRef.current = false;
+          if (isMountedRef.current) {
+            setIsPersistingStatus(false);
+          }
+        }
+      }
     },
     [buildPersistedContract, contractData, showError, showSuccess],
   );
@@ -170,7 +211,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
    * Persists the confirmed release-funds action as a completed contract.
    */
   const handleReleaseFunds = useCallback(() => {
-    persistContractStatus(
+    void persistContractStatus(
       'Completed',
       'Funds released',
       'The contract was marked as Completed and the change was saved.',
@@ -181,7 +222,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
    * Persists the confirmed dispute action as a disputed contract.
    */
   const handleDispute = useCallback(() => {
-    persistContractStatus(
+    void persistContractStatus(
       'Disputed',
       'Dispute opened',
       'The contract was marked as Disputed and the change was saved.',
