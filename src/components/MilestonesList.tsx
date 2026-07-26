@@ -1,6 +1,10 @@
+'use client';
+
 import { useState, useRef } from 'react';
 import StatusBadge, { StatusType, statusColorMap, statusIconMap } from './StatusBadge';
 import { usePreferences } from '@/lib/preferences';
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { useToast } from '@/components/toast/toast-provider';
 import { isDueSoon } from '@/lib/dueSoon';
 import { findCurrencyMismatches, normalizeCurrencyCode } from '@/lib/currencyMismatch';
 import { milestoneStatusTally } from '@/lib/milestoneStatusTally';
@@ -22,6 +26,47 @@ export type MilestonesListProps = {
 };
 
 export const REMINDER_WINDOW_DAYS = 7;
+
+const MilestoneCard = ({ milestone }: { milestone: Milestone }) => {
+  const { formatAmount } = usePreferences();
+  const { showSuccess, showError } = useToast();
+  const { copied, copy } = useCopyToClipboard({
+    onSuccess: () => showSuccess({ title: 'ID copied', description: 'Milestone ID copied to clipboard.' }),
+    onError: () => showError({ title: 'Copy failed', description: 'Unable to copy milestone ID.' }),
+  });
+
+  return (
+    <article
+      id={`milestone-${milestone.id}`}
+      className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-600">{milestone.title}</p>
+          <p className="mt-1 text-sm text-slate-500">Due {milestone.dueDate ?? 'TBD'}</p>
+        </div>
+        <StatusBadge status={milestone.status} />
+      </div>
+      <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+        <span className="font-mono">ID: {milestone.id}</span>
+        <button
+          type="button"
+          onClick={() => copy(milestone.id)}
+          aria-label={copied ? 'Copied' : `Copy milestone ID ${milestone.id}`}
+          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-medium text-blue-600 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 transition-colors"
+        >
+          {copied ? 'Copied!' : 'Copy ID'}
+        </button>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
+        <p>Payout</p>
+        <p className="font-semibold text-slate-900">
+          {formatAmount(milestone.payout, milestone.currency)}
+        </p>
+      </div>
+    </article>
+  );
+};
 
 const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) => {
   const { formatAmount } = usePreferences();
@@ -174,25 +219,7 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
         className="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
       >
         {milestones.map((milestone) => (
-          <article
-            key={milestone.id}
-            id={`milestone-${milestone.id}`}
-            className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">{milestone.title}</p>
-                <p className="mt-1 text-sm text-slate-500">Due {milestone.dueDate ?? 'TBD'}</p>
-              </div>
-              <StatusBadge status={milestone.status} />
-            </div>
-            <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600">
-              <p>Payout</p>
-              <p className="font-semibold text-slate-900">
-                {formatAmount(milestone.payout, milestone.currency)}
-              </p>
-            </div>
-          </article>
+          <MilestoneCard key={milestone.id} milestone={milestone} />
         ))}
       </div>
     </section>
