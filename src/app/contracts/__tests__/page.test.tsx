@@ -5,6 +5,7 @@ import * as repository from '@/lib/repository';
 
 import * as stellarAddress from '@/lib/stellarAddress';
 
+const mockShowError = jest.fn();
 
 // Mock dependencies
 jest.mock('@/lib/repository', () => {
@@ -17,6 +18,11 @@ jest.mock('@/lib/repository', () => {
   };
 });
 jest.mock('@/lib/stellarAddress');
+jest.mock('@/components/toast/toast-provider', () => ({
+  useToast: () => ({
+    showError: mockShowError,
+  }),
+}));
 
 const mockListContracts = repository.listContracts as jest.MockedFunction<
   typeof repository.listContracts
@@ -36,6 +42,7 @@ describe('ContractsPage', () => {
     localStorage.clear();
     mockListContracts.mockReturnValue([]);
     mockIsValidStellarAddress.mockImplementation((addr: string | null | undefined) => addr === VALID_ADDRESS);
+    mockShowError.mockReset();
   });
 
   describe('Empty State', () => {
@@ -202,9 +209,10 @@ describe('ContractsPage', () => {
   });
 
   describe('Contract Persistence', () => {
-    it('saves contract and refreshes list on successful submission', async () => {
+    it('adds the contract optimistically and keeps the list in sync on success', async () => {
       // Start with empty list
       mockListContracts.mockReturnValue([]);
+      mockSaveContract.mockReturnValue(true);
       render(<ContractsPage />);
 
       // Open form
@@ -269,6 +277,60 @@ describe('ContractsPage', () => {
 
       // Verify listContracts was called to refresh
       expect(mockListContracts).toHaveBeenCalled();
+    });
+
+    it('rolls back the optimistic contract and shows an error toast on save failure', async () => {
+      const existingContract = {
+        contractName: 'Existing Contract',
+        parties: [
+          { label: 'Client', address: VALID_ADDRESS },
+          { label: 'Freelancer', address: VALID_ADDRESS },
+        ],
+        totalValue: 2500,
+        currency: 'USD',
+        status: 'Active' as const,
+        createdAt: 'Jan 1, 2025',
+        milestoneCount: 1,
+      };
+
+      mockListContracts.mockReturnValue([existingContract]);
+      mockSaveContract.mockReturnValue(false);
+      render(<ContractsPage />);
+
+      fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
+
+      fireEvent.change(screen.getByLabelText(/contract name/i), {
+        target: { value: 'New Contract' },
+      });
+      fireEvent.change(screen.getByLabelText(/total value/i), {
+        target: { value: '7500' },
+      });
+      fireEvent.change(screen.getByLabelText(/currency/i), {
+        target: { value: 'EUR' },
+      });
+
+      const partyLabels = screen.getAllByPlaceholderText(/e\.g\., client, freelancer/i);
+      const partyAddresses = screen.getAllByPlaceholderText(/GXXXXXXXXXX/i);
+
+      fireEvent.change(partyLabels[0], { target: { value: 'Client Corp' } });
+      fireEvent.change(partyAddresses[0], { target: { value: VALID_ADDRESS } });
+
+      fireEvent.change(partyLabels[1], { target: { value: 'Designer' } });
+      fireEvent.change(partyAddresses[1], { target: { value: VALID_ADDRESS } });
+
+      fireEvent.click(screen.getByRole('button', { name: /create contract/i, hidden: false }));
+
+      await waitFor(() => {
+        expect(mockShowError).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Unable to create contract',
+            description: 'Your contract could not be saved. Please try again.',
+          }),
+        );
+      });
+
+      expect(screen.getByText('Existing Contract')).toBeInTheDocument();
+      expect(screen.queryByText('New Contract')).not.toBeInTheDocument();
     });
 
     it('closes form after successful submission', async () => {
@@ -344,24 +406,7 @@ describe('ContractsPage', () => {
       fireEvent.change(partyLabels[1], { target: { value: 'Worker' } });
       fireEvent.change(partyAddresses[1], { target: { value: VALID_ADDRESS } });
 
-      // Update mock to return the new contract
-      const createdContract = {
-        contractName: 'My First Contract',
-        parties: [
-          { label: 'Client', address: VALID_ADDRESS },
-          { label: 'Worker', address: VALID_ADDRESS },
-        ],
-        totalValue: 2500,
-        currency: 'USD',
-        status: 'Pending' as const,
-        createdAt: new Date().toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-        }),
-        milestoneCount: 0,
-      };
-      mockListContracts.mockReturnValue([createdContract]);
+      mockSaveContract.mockReturnValue(true);
 
       fireEvent.click(screen.getByRole('button', { name: /create contract/i, hidden: false }));
 

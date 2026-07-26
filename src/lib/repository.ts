@@ -155,9 +155,9 @@ export function listContracts(): Contract[] {
  * });
  * ```
  */
-export function saveContract(contract: Contract): void {
+export function saveContract(contract: Contract): boolean {
   const store = readStore();
-  writeStore({ ...store, contracts: [...store.contracts, contract] });
+  return writeStore({ ...store, contracts: [...store.contracts, contract] });
 }
 
 /**
@@ -264,9 +264,9 @@ export function listMilestonesByContract(contractId: string): Milestone[] {
  * });
  * ```
  */
-export function saveMilestone(milestone: Milestone): void {
+export function saveMilestone(milestone: Milestone): boolean {
   const store = readStore();
-  writeStore({ ...store, milestones: [...store.milestones, milestone] });
+  return writeStore({ ...store, milestones: [...store.milestones, milestone] });
 }
 
 /**

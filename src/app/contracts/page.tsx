@@ -3,14 +3,18 @@
 import React, { useState, useCallback } from 'react';
 import EmptyState from '../../components/EmptyState';
 import { ContractCreationForm } from '../../components/ContractCreationForm';
+import { useToast } from '@/components/toast/toast-provider';
 import { listContracts, saveContract } from '@/lib/repository';
 import type { Contract } from '@/types/domain';
+
+type OptimisticContract = Contract & { __optimisticId?: string };
 
 const ContractsPage: React.FC = () => {
   // Initialise from localStorage on first render; subsequent saves trigger
   // a state update so the list reflects newly added items immediately.
   const [contracts, setContracts] = useState<Contract[]>(() => listContracts());
   const [showForm, setShowForm] = useState(false);
+  const { showError } = useToast();
 
   /**
    * Opens the contract creation form modal.
@@ -23,11 +27,22 @@ const ContractsPage: React.FC = () => {
    * Handles form submission by persisting the contract and refreshing the list.
    */
   const handleSubmitContract = useCallback((contract: Contract) => {
-    saveContract(contract);
-    // Re-read storage so the component reflects the persisted state.
-    setContracts(listContracts());
+    const optimisticId = `optimistic-contract-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimisticContract = { ...contract, __optimisticId: optimisticId } as OptimisticContract;
+
+    setContracts((prev) => [...prev, optimisticContract as Contract]);
     setShowForm(false);
-  }, []);
+
+    const persisted = saveContract(contract);
+    if (!persisted) {
+      setContracts((prev) => prev.filter((item) => (item as OptimisticContract).__optimisticId !== optimisticId));
+      showError({
+        title: 'Unable to create contract',
+        description: 'Your contract could not be saved. Please try again.',
+      });
+      return;
+    }
+  }, [showError]);
 
   /**
    * Closes the contract creation form modal.
