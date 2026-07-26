@@ -20,6 +20,7 @@ jest.mock('@/lib/contractResolver');
 jest.mock('@/lib/repository', () => ({
   upsertContract: jest.fn(),
   listMilestonesByContract: jest.fn(() => []),
+  getContractVersion: jest.fn(() => 0),
 }));
 
 const mockedResolveContractData = jest.mocked(contractResolver.resolveContractData);
@@ -94,7 +95,7 @@ describe('ContractDetailPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedResolveContractData.mockResolvedValue(contractData);
-    mockedUpsertContract.mockReturnValue(true);
+    mockedUpsertContract.mockReturnValue({ success: true, stale: false });
     mockedListMilestonesByContract.mockReturnValue([]);
     mockedUseWallet.mockReturnValue({
       address: '0x123',
@@ -140,6 +141,7 @@ describe('ContractDetailPage', () => {
         status: 'Completed',
         createdAt: contractData.createdAt,
         milestoneCount: contractData.milestones.length,
+        version: 0,
       });
     });
   });
@@ -430,7 +432,7 @@ describe('existing contract detail page behaviour', () => {
 
     await waitFor(() => {
       expect(mockedUpsertContract).toHaveBeenCalledWith(
-        expect.objectContaining({ contractName: contractData.name, status: 'Disputed' }),
+        expect.objectContaining({ contractName: contractData.name, status: 'Disputed', version: 0 }),
       );
     });
 
@@ -472,7 +474,7 @@ describe('existing contract detail page behaviour', () => {
 
   it('shows error feedback and preserves the current status when persistence fails', async () => {
     const user = userEvent.setup();
-    mockedUpsertContract.mockReturnValue(false);
+    mockedUpsertContract.mockReturnValue({ success: false, stale: false });
 
     await renderPage();
 
@@ -488,6 +490,25 @@ describe('existing contract detail page behaviour', () => {
     expect(screen.getByText('Unable to update contract')).toBeInTheDocument();
     const alerts = screen.getAllByRole('alert');
     expect(alerts.some(el => el.textContent?.includes('The contract status could not be persisted. Please try again.'))).toBe(true);
+  });
+
+  it('shows a stale-overwrite message and rolls back when another session modified the contract', async () => {
+    const user = userEvent.setup();
+    mockedUpsertContract.mockReturnValue({ success: false, stale: true });
+
+    await renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /release funds to the contractor/i }));
+    await user.click(within(screen.getByRole('alertdialog', { name: /confirm release funds/i })).getByRole('button', { name: /^release funds$/i }));
+
+    await waitFor(() => {
+      expect(mockedUpsertContract).toHaveBeenCalledTimes(1);
+    });
+
+    expect(within(getContractSummarySection()).getByLabelText('Status: Active')).toBeInTheDocument();
+    expect(screen.getByText('Unable to update contract')).toBeInTheDocument();
+    const alerts = screen.getAllByRole('alert');
+    expect(alerts.some(el => el.textContent?.includes('This contract was updated in another session. Please reload and try again.'))).toBe(true);
   });
 
   it('keeps the "Back to contracts" link for a valid id', async () => {
