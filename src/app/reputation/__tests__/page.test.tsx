@@ -25,6 +25,18 @@ jest.mock('../../../components/ReputationProfile', () => {
   };
 });
 
+// Mock EmptyState component
+jest.mock('../../../components/EmptyState', () => {
+  return function MockEmptyState(props: any) {
+    return (
+      <div data-testid="empty-state">
+        <div data-testid="empty-state-title">{props.title}</div>
+        <div data-testid="empty-state-description">{props.description}</div>
+      </div>
+    );
+  };
+});
+
 describe('ReputationPageContent', () => {
   describe('State 1: No Reputation', () => {
     it('renders EmptyState when reputation data is null', () => {
@@ -33,6 +45,7 @@ describe('ReputationPageContent', () => {
       expect(screen.getByText('No reputation yet')).toBeInTheDocument();
       expect(screen.getByText('Your reputation will be built as you complete contracts and receive feedback from clients. Start by creating and fulfilling your first contract.')).toBeInTheDocument();
       expect(screen.queryByTestId('reputation-profile')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('empty-state')).toBeInTheDocument();
     });
 
     it('renders EmptyState when reputation data is undefined', () => {
@@ -40,6 +53,7 @@ describe('ReputationPageContent', () => {
 
       expect(screen.getByText('No reputation yet')).toBeInTheDocument();
       expect(screen.queryByTestId('reputation-profile')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('empty-state')).toBeInTheDocument();
     });
 
     it('renders EmptyState when score is null or undefined', () => {
@@ -48,6 +62,7 @@ describe('ReputationPageContent', () => {
 
       expect(screen.getByText('No reputation yet')).toBeInTheDocument();
       expect(screen.queryByTestId('reputation-profile')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('empty-state')).toBeInTheDocument();
     });
 
     it('renders EmptyState when score is negative', () => {
@@ -56,12 +71,14 @@ describe('ReputationPageContent', () => {
 
       expect(screen.getByText('No reputation yet')).toBeInTheDocument();
       expect(screen.queryByTestId('reputation-profile')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('empty-state')).toBeInTheDocument();
     });
 
     it('does not render ReputationProfile when there is no reputation data', () => {
       render(<ReputationPageContent />);
 
       expect(screen.queryByTestId('reputation-profile')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('empty-state')).toBeInTheDocument();
     });
   });
 
