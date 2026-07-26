@@ -121,6 +121,39 @@ body {
     animation: none !important;
     background-image: none !important;
   }
+
+  /* Freeze pulse animations on skeleton components (e.g. MilestonesListSkeleton). */
+  .animate-pulse {
+    animation: none !important;
+  }
+}
+
+/* forced-colors / high-contrast mode: ensures legibility and clear component
+   boundaries for users on Windows High Contrast / Forced Colors mode. */
+@media (forced-colors: active) {
+  /* Progress bar container and fill visibility in high-contrast mode */
+  [role="progressbar"] {
+    border: 1px solid CanvasText !important;
+  }
+
+  [role="progressbar"] > div {
+    background-color: Highlight !important;
+    forced-color-adjust: none;
+  }
+
+  /* Status chips, filter radios, and alert containers high contrast borders */
+  [role="listitem"],
+  [role="status"],
+  fieldset label {
+    border: 1px solid CanvasText !important;
+  }
+
+  /* Selected filter state in radiogroup */
+  fieldset label:has(input:checked) {
+    background-color: Highlight !important;
+    color: HighlightText !important;
+    border: 1px solid Highlight !important;
+  }
 }
 
 /* ---------------------------------------------------------------------------
