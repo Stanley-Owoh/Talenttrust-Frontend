@@ -1,3 +1,5 @@
+import { useState, useMemo } from 'react';
+
 export type ReputationEvent = {
   id: string;
   type: string;
@@ -63,6 +65,18 @@ export default function ReputationProfile({
 }: ReputationProfileProps) {
   const hasReputation = typeof score === 'number' && score >= 0;
   const showPartial = hasReputation && history.length === 0;
+
+  const [selectedType, setSelectedType] = useState<string>('All');
+
+  const availableTypes = useMemo(() => {
+    const types = new Set(history.map((event) => event.type));
+    return ['All', ...Array.from(types).sort()];
+  }, [history]);
+
+  const filteredHistory = useMemo(() => {
+    if (selectedType === 'All') return history;
+    return history.filter((event) => event.type === selectedType);
+  }, [history, selectedType]);
 
   const resolvedLevel = level !== undefined
     ? level
@@ -193,16 +207,40 @@ export default function ReputationProfile({
        *   is omitted, keeping the markup valid.
        */}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-slate-950">Reputation history</h2>
             <p className="mt-1 text-sm text-slate-500">
               History is shown as safe, aggregated events with no wallet or personal metadata by default.
             </p>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600">
-            {history.length ? 'Visible' : 'Private by default'}
-          </span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            {history.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="history-type-filter" className="text-sm font-medium text-slate-700">
+                  Filter:
+                </label>
+                <select
+                  id="history-type-filter"
+                  className="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                >
+                  {availableTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+                <div aria-live="polite" className="sr-only">
+                  Showing {filteredHistory.length} {filteredHistory.length === 1 ? 'event' : 'events'}
+                </div>
+              </div>
+            )}
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600 self-start sm:self-auto">
+              {history.length ? 'Visible' : 'Private by default'}
+            </span>
+          </div>
         </div>
 
         {history.length === 0 ? (
@@ -212,9 +250,16 @@ export default function ReputationProfile({
               Reputation history appears once you complete verified actions. Your profile remains safe and privacy-friendly until then.
             </p>
           </div>
+        ) : filteredHistory.length === 0 ? (
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-slate-700">
+            <p className="font-semibold text-slate-900">No matching events.</p>
+            <p className="mt-2 text-sm leading-6">
+              Try selecting a different filter type or "All" to view your reputation history.
+            </p>
+          </div>
         ) : (
           <ol className="space-y-4">
-            {history.map((event) => {
+            {filteredHistory.map((event) => {
               // Determine whether the date string is a parseable ISO date.
               // If it is, expose the ISO value via dateTime for machine readability.
               const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
