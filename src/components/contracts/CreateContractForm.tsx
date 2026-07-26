@@ -157,19 +157,6 @@ const CreateContractForm: React.FC<CreateContractFormProps> = ({ onSuccess, onCa
           onChange={setFreelancerAddress}
           error={errors.find((e) => e.fieldId === 'freelancerAddress')?.message}
           required
-        >
-          <input
-            type="text"
-            value={freelancerAddress}
-            onChange={(e) => {
-              setFreelancerAddress(e.target.value);
-              setErrors((prev) => prev.filter((err) => err.fieldId !== 'freelancerAddress'));
-            }}
-            placeholder="GABC…"
-            autoComplete="off"
-            className={`${inputClass} font-mono`}
-          />
-        </FormField>
           onValidation={handleWalletValidation}
         />
 
