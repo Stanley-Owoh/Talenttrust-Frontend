@@ -24,9 +24,12 @@ export type MilestonesListProps = {
 export const REMINDER_WINDOW_DAYS = 7;
 
 const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) => {
-  const { formatAmount } = usePreferences();
+  const { formatAmount, preferences, updatePreference } = usePreferences();
   const [isDismissed, setIsDismissed] = useState(false);
+  const [isDensityAnnounced, setIsDensityAnnounced] = useState(false);
   const listContainerRef = useRef<HTMLDivElement>(null);
+
+  const isCompact = preferences.milestonesDensity === 'compact';
 
   const today = new Date();
 
@@ -60,6 +63,12 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
 
   const showBanner = dueSoonMilestones.length > 0 && !isDismissed;
 
+  const handleToggleDensity = () => {
+    const next: 'comfortable' | 'compact' = isCompact ? 'comfortable' : 'compact';
+    updatePreference('milestonesDensity', next);
+    setIsDensityAnnounced(true);
+  };
+
   const handleDismiss = () => {
     setIsDismissed(true);
     // Programmatically shift focus to the list container to avoid focus loss (WCAG 2.1.1)
@@ -72,14 +81,53 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
         <h2 id="milestones-title" className="text-xl font-semibold text-slate-900">
           Milestones
         </h2>
-        <span id="milestones-count" className="text-sm text-slate-500">{milestones.length} total</span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleToggleDensity}
+            aria-pressed={isCompact}
+            aria-label={isCompact ? 'Switch to comfortable density' : 'Switch to compact density'}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+          >
+            <svg
+              aria-hidden="true"
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              {isCompact ? (
+                <>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16" />
+                </>
+              ) : (
+                <>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </>
+              )}
+            </svg>
+            {isCompact ? 'Compact' : 'Comfortable'}
+          </button>
+          <span id="milestones-count" className="text-sm text-slate-500">{milestones.length} total</span>
+        </div>
       </div>
+
+      {/* aria-live region: announces density change to screen readers */}
+      <span
+        className="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {isDensityAnnounced ? `Milestones density set to ${isCompact ? 'compact' : 'comfortable'}` : ''}
+      </span>
 
       {tallies.length > 0 && (
         <div
           role="list"
           aria-label="Milestone status summary"
-          className="mt-4 flex flex-wrap gap-2"
+          className={`flex flex-wrap gap-2 ${isCompact ? 'mt-2' : 'mt-4'}`}
         >
           {tallies.map(({ status, count }) => (
             <span
@@ -171,22 +219,22 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
         role={milestones.length > 0 ? 'region' : undefined}
         aria-labelledby={milestones.length > 0 ? 'milestones-title milestones-count' : undefined}
         tabIndex={milestones.length > 0 ? 0 : undefined}
-        className="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
+        className={`max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 ${isCompact ? 'mt-4 space-y-2' : 'mt-6 space-y-4'}`}
       >
         {milestones.map((milestone) => (
           <article
             key={milestone.id}
             id={`milestone-${milestone.id}`}
-            className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
+            className={`rounded-3xl border border-slate-200 bg-slate-50 shadow-sm ${isCompact ? 'p-3' : 'p-4'}`}
           >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between ${isCompact ? 'gap-2' : 'gap-3'}`}>
               <div>
                 <p className="text-sm font-medium text-slate-600">{milestone.title}</p>
                 <p className="mt-1 text-sm text-slate-500">Due {milestone.dueDate ?? 'TBD'}</p>
               </div>
               <StatusBadge status={milestone.status} />
             </div>
-            <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600">
+            <div className={`flex items-center justify-between gap-4 border-t border-slate-200 text-sm text-slate-600 ${isCompact ? 'mt-3 pt-3' : 'mt-4 pt-4'}`}>
               <p>Payout</p>
               <p className="font-semibold text-slate-900">
                 {formatAmount(milestone.payout, milestone.currency)}
