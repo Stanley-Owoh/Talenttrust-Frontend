@@ -6,6 +6,9 @@ import ContractSummary from '@/components/ContractSummary';
 import ReputationProfile from '@/components/ReputationProfile';
 import EmptyState from '@/components/EmptyState';
 import StatusBadge from '@/components/StatusBadge';
+import ContractProgress from '@/components/ContractProgress';
+import MilestoneFilter from '@/components/milestones/MilestoneFilter';
+import { MilestonesListSkeleton } from '@/components/MilestonesListSkeleton';
 import { ToastProvider, useToast } from '@/components/toast/toast-provider';
 import Breadcrumbs from '@/components/Breadcrumbs';
 
@@ -595,5 +598,83 @@ describe('a11y: Breadcrumbs', () => {
         ]}
       />,
     );
+  });
+});
+
+describe('a11y: prefers-reduced-motion — milestones', () => {
+  let restoreMatchMedia: () => void;
+
+  beforeEach(() => {
+    restoreMatchMedia = mockReducedMotion();
+  });
+
+  afterEach(() => {
+    restoreMatchMedia();
+  });
+
+  it('MilestonesList renders cleanly with no axe violations under reduced motion', async () => {
+    const milestones = [
+      { id: '1', title: 'Design Review', status: 'Completed' as const, payout: 1000, currency: 'USD', dueDate: '2026-06-01' },
+      { id: '2', title: 'Implementation', status: 'Pending' as const, payout: 2500, currency: 'USD', dueDate: '2026-07-01' },
+    ];
+    await testA11y(<MilestonesList milestones={milestones} />);
+  });
+
+  it('ContractProgress progress bar renders cleanly with no axe violations under reduced motion', async () => {
+    const milestones = [
+      { id: '1', title: 'Design Review', status: 'Completed' as const, payout: 1000, currency: 'USD' },
+      { id: '2', title: 'Implementation', status: 'Pending' as const, payout: 2500, currency: 'USD' },
+    ];
+    await testA11y(<ContractProgress milestones={milestones} />);
+  });
+
+  it('MilestoneFilter radiogroup renders cleanly with no axe violations under reduced motion', async () => {
+    await testA11y(<MilestoneFilter selected="All" onChange={jest.fn()} resultCount={2} />);
+  });
+
+  it('MilestonesListSkeleton loading state renders cleanly with no axe violations under reduced motion', async () => {
+    await testA11y(<MilestonesListSkeleton />);
+  });
+});
+
+describe('a11y: forced-colors / high contrast — milestones', () => {
+  afterEach(() => {
+    setTheme('light');
+  });
+
+  it('MilestonesList status badges have role="status" and pass accessibility in high contrast mode', async () => {
+    setTheme('dark');
+    const view = renderWithA11y(
+      <MilestonesList
+        milestones={[
+          { id: '1', title: 'Phase 1', status: 'Active', payout: 500, currency: 'USD' },
+        ]}
+      />
+    );
+    const badge = screen.getByRole('status', { name: 'Status: Active' });
+    expect(badge).toBeInTheDocument();
+    await assertNoA11yViolations(view.container);
+  });
+
+  it('ContractProgress displays progressbar role and valid valuenow in high contrast mode', async () => {
+    setTheme('dark');
+    const milestones = [
+      { id: '1', title: 'Phase 1', status: 'Completed' as const, payout: 500, currency: 'USD' },
+      { id: '2', title: 'Phase 2', status: 'Pending' as const, payout: 500, currency: 'USD' },
+    ];
+    const view = renderWithA11y(<ContractProgress milestones={milestones} />);
+    const progressbar = screen.getByRole('progressbar');
+    expect(progressbar).toHaveAttribute('aria-valuenow', '50');
+    await assertNoA11yViolations(view.container);
+  });
+
+  it('MilestoneFilter renders accessible fieldset and radiogroup in high contrast mode', async () => {
+    setTheme('dark');
+    const view = renderWithA11y(
+      <MilestoneFilter selected="Active" onChange={jest.fn()} resultCount={3} />
+    );
+    const radioGroup = screen.getByRole('radiogroup', { name: /filter milestones by status/i });
+    expect(radioGroup).toBeInTheDocument();
+    await assertNoA11yViolations(view.container);
   });
 });
