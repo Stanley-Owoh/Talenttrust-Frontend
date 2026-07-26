@@ -22,6 +22,7 @@ We have implemented an accessible reputation level legend that maps score ranges
 - Documented the toast system's behavioral contract (quiet mode, eviction order, action button, accessibility) in [docs/components/toast.md](file:///c:/Users/Hp/Desktop/16Grantfox/Talenttrust-Frontend/docs/components/toast.md).
 - Documented the milestone creation modal contract, validation rules, slug-plus-timestamp id scheme, `onCancel` behavior, and parent persistence expectations in [docs/components/MilestoneCreationForm.md](./components/MilestoneCreationForm.md).
 - Documented the milestone status filter props, `Active` status support, radiogroup semantics, `aria-live` result count, and `resultCount={filtered.length}` requirement in [docs/components/MilestoneFilter.md](./components/MilestoneFilter.md).
+- Added a unified dialog usage guide covering `ConfirmDialog`, `ContractCreationForm`, `MilestoneCreationForm`, and the shared `useDialogFocusTrap` hook in [docs/components/Dialogs.md](./components/Dialogs.md).
 
 ### 5. Hotfix: ActionPanel & Dispute Form Restore
 - Resolved merge conflict corruption in [src/components/ActionPanel.tsx](file:///c:/Users/USER/Desktop/Talenttrust-Frontend/src/components/ActionPanel.tsx) to correctly render the inline dispute form and its validation state.
