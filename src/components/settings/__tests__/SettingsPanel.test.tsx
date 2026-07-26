@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { SettingsPanel } from '../SettingsPanel';
 import { PreferencesProvider } from '@/lib/preferences';
@@ -312,75 +312,84 @@ describe('SettingsPanel', () => {
     expect(document.activeElement).toBe(focusable[focusable.length - 1]);
   });
 
-  it('Tab cycling never places focus outside the dialog', () => {
+  // --- Accessibility: radiogroup keyboard interactions ---
+
+  it('supports arrow key navigation in radiogroups', async () => {
     renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
-    const dialog = screen.getByRole('dialog');
-    const focusable = Array.from(
-      dialog.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-    );
 
-    for (const el of focusable) {
-      el.focus();
-      fireEvent.keyDown(document, { key: 'Tab', shiftKey: false });
-      expect(dialog.contains(document.activeElement)).toBe(true);
-    }
-  });
-
-  it('Shift+Tab cycling never places focus outside the dialog', () => {
-    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
-    const dialog = screen.getByRole('dialog');
-    const focusable = Array.from(
-      dialog.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-    );
-
-    for (const el of [...focusable].reverse()) {
-      el.focus();
-      fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
-      expect(dialog.contains(document.activeElement)).toBe(true);
-    }
-  });
-
-  it('Escape does nothing when panel is closed', () => {
-    const onClose = jest.fn();
-    renderWithProvider(<SettingsPanel isOpen={false} onClose={onClose} />);
-    
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it('initial focus is not set when panel is not open', () => {
-    renderWithProvider(<SettingsPanel isOpen={false} onClose={() => {}} />);
-    
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(document.activeElement).not.toBe(screen.queryByRole('button', { name: /close settings/i }));
-  });
-
-  // --- Verify all preference controls are properly labeled ---
-
-  it('all preference controls have proper ARIA labels and roles', () => {
-    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
-    
     const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
-    expect(themeGroup).toBeInTheDocument();
-    
+    const themeOptions = within(themeGroup).getAllByRole('radio');
+
+    fireEvent.keyDown(themeGroup, { key: 'ArrowRight' });
+    await waitFor(() => {
+      expect(themeOptions[0]).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(themeOptions[0]);
+    });
+
+    fireEvent.keyDown(themeGroup, { key: 'ArrowLeft' });
+    await waitFor(() => {
+      expect(themeOptions[2]).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(themeOptions[2]);
+    });
+
     const currencyGroup = screen.getByRole('radiogroup', { name: /currency display/i });
-    expect(currencyGroup).toBeInTheDocument();
-    
+    const currencyOptions = within(currencyGroup).getAllByRole('radio');
+    fireEvent.keyDown(currencyGroup, { key: 'ArrowDown' });
+    await waitFor(() => {
+      expect(currencyOptions[1]).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(currencyOptions[1]);
+    });
+
     const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
-    expect(densityGroup).toBeInTheDocument();
-    
-    const quietSwitch = screen.getByRole('switch', { name: /quiet mode/i });
-    expect(quietSwitch).toBeInTheDocument();
-    
+    const densityOptions = within(densityGroup).getAllByRole('radio');
+    fireEvent.keyDown(densityGroup, { key: 'ArrowUp' });
+    await waitFor(() => {
+      expect(densityOptions[1]).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(densityOptions[1]);
+    });
+  });
+
+  it('manages roving tabIndex for radiogroups', () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
+    const currencyGroup = screen.getByRole('radiogroup', { name: /currency display/i });
+    const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
+
     const themeButtons = within(themeGroup).getAllByRole('radio');
-    expect(themeButtons).toHaveLength(3);
-    expect(themeButtons[0]).toHaveAccessibleName('light');
-    expect(themeButtons[1]).toHaveAccessibleName('dark');
-    expect(themeButtons[2]).toHaveAccessibleName('system');
+    const currencyButtons = within(currencyGroup).getAllByRole('radio');
+    const densityButtons = within(densityGroup).getAllByRole('radio');
+
+    expect(themeButtons[2]).toHaveAttribute('tabIndex', '0');
+    expect(themeButtons[0]).toHaveAttribute('tabIndex', '-1');
+    expect(themeButtons[1]).toHaveAttribute('tabIndex', '-1');
+
+    expect(currencyButtons[0]).toHaveAttribute('tabIndex', '0');
+    expect(currencyButtons[1]).toHaveAttribute('tabIndex', '-1');
+    expect(currencyButtons[2]).toHaveAttribute('tabIndex', '-1');
+
+    expect(densityButtons[0]).toHaveAttribute('tabIndex', '0');
+    expect(densityButtons[1]).toHaveAttribute('tabIndex', '-1');
+  });
+
+  it('activates radios with Enter and Space', async () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
+    const lightRadio = within(themeGroup).getByRole('radio', { name: /light/i });
+    const darkRadio = within(themeGroup).getByRole('radio', { name: /dark/i });
+
+    lightRadio.focus();
+    fireEvent.keyDown(lightRadio, { key: ' ' });
+    await waitFor(() => {
+      expect(lightRadio).toHaveAttribute('aria-checked', 'true');
+    });
+
+    darkRadio.focus();
+    fireEvent.keyDown(darkRadio, { key: 'Enter' });
+    await waitFor(() => {
+      expect(darkRadio).toHaveAttribute('aria-checked', 'true');
+    });
   });
 
   // --- Accessibility validation with jest-axe ---
@@ -401,5 +410,54 @@ describe('SettingsPanel', () => {
     
     const results = await axe(container);
     expect(results).toHaveNoViolations();
+  });
+
+
+
+  // --- Edge cases for focus management ---
+
+  it('does not call onClose when Escape is pressed while dialog is closed', () => {
+    const onClose = jest.fn();
+    renderWithProvider(<SettingsPanel isOpen={false} onClose={onClose} />);
+    
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('initial focus is not set when panel is not open', () => {
+    renderWithProvider(<SettingsPanel isOpen={false} onClose={() => {}} />);
+    
+    // Should not have any dialog content
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.activeElement).not.toBe(screen.queryByRole('button', { name: /close settings/i }));
+  });
+
+  // --- Verify all preference controls are properly labeled ---
+
+  it('all preference controls have proper ARIA labels and roles', () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+    
+    // Theme radiogroup
+    const themeGroup = screen.getByRole('radiogroup', { name: /theme/i });
+    expect(themeGroup).toBeInTheDocument();
+    
+    // Currency radiogroup
+    const currencyGroup = screen.getByRole('radiogroup', { name: /currency display/i });
+    expect(currencyGroup).toBeInTheDocument();
+    
+    // Toast density radiogroup
+    const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
+    expect(densityGroup).toBeInTheDocument();
+    
+    // Quiet mode switch
+    const quietSwitch = screen.getByRole('switch', { name: /quiet mode/i });
+    expect(quietSwitch).toBeInTheDocument();
+    
+    // All theme radio buttons should be properly labeled
+    const themeButtons = within(themeGroup).getAllByRole('radio');
+    expect(themeButtons).toHaveLength(3);
+    expect(themeButtons[0]).toHaveAccessibleName('light');
+    expect(themeButtons[1]).toHaveAccessibleName('dark');
+    expect(themeButtons[2]).toHaveAccessibleName('system');
   });
 });

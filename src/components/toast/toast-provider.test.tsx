@@ -4,7 +4,6 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { StrictMode } from 'react';
 import { PreferencesProvider } from '@/lib/preferences';
 import { ToastProvider, useToast, ToastErrorBoundary } from './toast-provider';
-import { ToastSkeleton } from './toast-skeleton';
 import * as errorReporter from '@/lib/errorReporter';
 
 function ToastHarness() {
