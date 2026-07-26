@@ -136,6 +136,7 @@ export function WalletProvider({
   const { showSuccess, showError } = useSafeToast();
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isConnectingRef = useRef(false);
   const STORAGE_KEY = 'wallet_connected_address';
 
 
@@ -211,6 +212,8 @@ export function WalletProvider({
    *   4. Validate and persist the returned Stellar public key.
    */
   const connect = useCallback(async () => {
+    if (isConnectingRef.current) return;
+    isConnectingRef.current = true;
     setIsConnecting(true);
     setError(null);
     try {
@@ -242,9 +245,10 @@ export function WalletProvider({
         description: message,
       });
     } finally {
+      isConnectingRef.current = false;
       setIsConnecting(false);
     }
-  }, []);
+  }, [showError]);
 
   return (
     <WalletContext.Provider value={{ address, isConnecting, error, connect, disconnect }}>
