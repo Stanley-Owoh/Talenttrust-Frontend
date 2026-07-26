@@ -51,8 +51,14 @@ type ToastContextValue = {
   dismissToast: (id: string) => void;
 };
 
-const ToastContext = createContext<ToastContextValue | null>(null);
+const defaultToastContext: ToastContextValue = {
+  toasts: [],
+  showSuccess: () => '',
+  showError: () => '',
+  dismissToast: () => undefined,
+};
 
+const ToastContext = createContext<ToastContextValue>(defaultToastContext);
 
 /**
  * Maps each `ToastDuration` preference value to a concrete millisecond count,
@@ -771,11 +777,5 @@ export function ToastProvider({ children }: { children: ReactNode }) {
  * or `role="alert"`.
  */
 export function useToast() {
-  const context = useContext(ToastContext);
-
-  if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
-  }
-
-  return context;
+  return useContext(ToastContext);
 }

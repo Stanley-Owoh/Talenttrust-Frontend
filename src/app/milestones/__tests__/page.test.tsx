@@ -1,9 +1,11 @@
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MilestonesPage, { SAMPLE_MILESTONES, SAMPLE_DISMISSED_KEY } from '../page';
 import { listMilestones, saveMilestone } from '@/lib/repository';
 import type { Milestone } from '@/types/domain';
+
+const mockShowError = jest.fn();
 
 // ---------------------------------------------------------------------------
 // Navigation mocks
@@ -27,6 +29,12 @@ jest.mock('next/navigation', () => ({
 jest.mock('@/lib/repository', () => ({
   listMilestones: jest.fn(),
   saveMilestone: jest.fn(),
+}));
+
+jest.mock('@/components/toast/toast-provider', () => ({
+  useToast: () => ({
+    showError: mockShowError,
+  }),
 }));
 
 const mockedListMilestones = jest.mocked(listMilestones);
@@ -86,7 +94,8 @@ beforeEach(() => {
     advanceTimers: true,
   });
   mockedListMilestones.mockReturnValue([]);
-  mockedSaveMilestone.mockImplementation(() => {});
+  mockedSaveMilestone.mockReturnValue(true);
+  mockShowError.mockReset();
   window.localStorage.clear();
   mockSearchParams.get.mockReturnValue(null);
   mockSearchParams.toString.mockReturnValue('');
@@ -104,6 +113,47 @@ afterEach(() => {
 // ===========================================================================
 
 describe('MilestonesPage — core rendering', () => {
+  it('adds a milestone optimistically and keeps it visible on success', async () => {
+    const user = userEvent.setup();
+    render(<MilestonesPage />);
+
+    await user.click(screen.getAllByRole('button', { name: /add milestone/i })[0]);
+
+    await user.type(screen.getByLabelText(/title/i), 'Launch sprint');
+    await user.type(screen.getByLabelText(/payout amount/i), '1200');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^add milestone$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Launch sprint')).toBeInTheDocument();
+    });
+    expect(mockedSaveMilestone).toHaveBeenCalledTimes(1);
+    expect(mockShowError).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the optimistic milestone and shows an error toast on save failure', async () => {
+    const user = userEvent.setup();
+    mockedSaveMilestone.mockReturnValue(false);
+    render(<MilestonesPage />);
+
+    await user.click(screen.getAllByRole('button', { name: /add milestone/i })[0]);
+
+    await user.type(screen.getByLabelText(/title/i), 'Launch sprint');
+    await user.type(screen.getByLabelText(/payout amount/i), '1200');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^add milestone$/i }));
+
+    await waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Unable to create milestone',
+          description: 'Your milestone could not be saved. Please try again.',
+        }),
+      );
+    });
+
+    expect(screen.getByText('Project Kickoff & Discovery')).toBeInTheDocument();
+    expect(screen.queryByText('Launch sprint')).not.toBeInTheDocument();
+  });
+
   it('renders persisted milestones from the repository after client load', async () => {
     mockedListMilestones.mockReturnValue(persistedMilestones);
 

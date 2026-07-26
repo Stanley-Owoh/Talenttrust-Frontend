@@ -6,7 +6,7 @@ import EmptyState from '../../components/EmptyState';
 import MilestonesList from '../../components/MilestonesList';
 import MilestoneFilter, { type MilestoneStatusFilter } from '../../components/milestones/MilestoneFilter';
 import { MilestoneCreationForm } from '../../components/milestones/MilestoneCreationForm';
-import MilestonesErrorBoundary from '../../components/milestones/MilestonesErrorBoundary';
+import { useToast } from '@/components/toast/toast-provider';
 import { listMilestones, saveMilestone } from '@/lib/repository';
 import { getItem, setItem } from '@/lib/safeStorage';
 import { exportMilestonesToCSV, exportMilestonesToJSON } from '@/lib/exportMilestones';
@@ -86,6 +86,7 @@ const MilestonesContent: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<MilestoneStatusFilter>(initialStatus);
   const [sortOrder, setSortOrder] = useState<MilestoneSortOption>(initialSort);
   const [showForm, setShowForm] = useState(false);
+  const { showError } = useToast();
 
   // Sync state if searchParams change externally (e.g. back/forward navigation)
   useEffect(() => {
@@ -194,12 +195,25 @@ const MilestonesContent: React.FC = () => {
   }, []);
 
   const handleSubmitMilestone = useCallback((milestone: Milestone) => {
-    saveMilestone(milestone);
-    const persisted = listMilestones();
-    setMilestones(persisted);
+    const previousIsDismissed = isDismissed;
+
+    setMilestones((prev) => [...prev, milestone]);
     setIsDismissed(true);
     setShowForm(false);
-  }, []);
+
+    const persisted = saveMilestone(milestone);
+    if (!persisted) {
+      setMilestones((prev) => prev.filter((item) => item.id !== milestone.id));
+      setIsDismissed(previousIsDismissed);
+      showError({
+        title: 'Unable to create milestone',
+        description: 'Your milestone could not be saved. Please try again.',
+      });
+      return;
+    }
+
+    setIsDismissed(true);
+  }, [isDismissed, showError]);
 
   const handleCancelForm = useCallback(() => {
     setShowForm(false);

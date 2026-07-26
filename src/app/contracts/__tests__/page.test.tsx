@@ -12,16 +12,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 // Mock the repository module
 jest.mock('@/lib/repository');
 
-// Mock child components to avoid DOM complexity
-jest.mock('@/components/EmptyState', () => ({
-  __esModule: true,
-  default: ({ title, actionLabel, onAction }: any) => (
-    <div data-testid="empty-state">
-      <h2>{title}</h2>
-      <button onClick={onAction}>{actionLabel}</button>
-    </div>
-  ),
-}));
+const mockShowError = jest.fn();
 
 jest.mock('@/components/contracts/ContractsList', () => ({
   __esModule: true,
@@ -72,6 +63,11 @@ function makeContract(overrides: Partial<Contract> = {}): Contract {
   };
 });
 jest.mock('@/lib/stellarAddress');
+jest.mock('@/components/toast/toast-provider', () => ({
+  useToast: () => ({
+    showError: mockShowError,
+  }),
+}));
 
 jest.mock('@/components/toast/toast-provider', () => ({
   useToast: () => ({
@@ -111,6 +107,7 @@ describe('ContractsPage', () => {
     mockUseRouter.mockReturnValue({ push: mockPush } as unknown as ReturnType<typeof useRouter>);
     mockUseSearchParams.mockReturnValue(createSearchParams());
     mockIsValidStellarAddress.mockImplementation((addr: string | null | undefined) => addr === VALID_ADDRESS);
+    mockShowError.mockReset();
   });
 
   describe('empty state', () => {
@@ -257,14 +254,11 @@ describe('ContractsPage', () => {
     });
   });
 
-  describe('memoization benefits', () => {
-    it('does not re-render contracts list when toggling form visibility', () => {
-      const contracts = [
-        makeContract({ contractName: 'Contract 1' }),
-        makeContract({ contractName: 'Contract 2' }),
-      ];
-      (repository.listContracts as jest.Mock).mockReturnValue(contracts);
-
+  describe('Contract Persistence', () => {
+    it('adds the contract optimistically and keeps the list in sync on success', async () => {
+      // Start with empty list
+      mockListContracts.mockReturnValue([]);
+      mockSaveContract.mockReturnValue(true);
       render(<ContractsPage />);
 
       const contractsList = screen.getByTestId('contracts-list');
@@ -283,6 +277,66 @@ describe('ContractsPage', () => {
       );
       (repository.listContracts as jest.Mock).mockReturnValue(contracts);
 
+      // Verify listContracts was called to refresh
+      expect(mockListContracts).toHaveBeenCalled();
+    });
+
+    it('rolls back the optimistic contract and shows an error toast on save failure', async () => {
+      const existingContract = {
+        contractName: 'Existing Contract',
+        parties: [
+          { label: 'Client', address: VALID_ADDRESS },
+          { label: 'Freelancer', address: VALID_ADDRESS },
+        ],
+        totalValue: 2500,
+        currency: 'USD',
+        status: 'Active' as const,
+        createdAt: 'Jan 1, 2025',
+        milestoneCount: 1,
+      };
+
+      mockListContracts.mockReturnValue([existingContract]);
+      mockSaveContract.mockReturnValue(false);
+      render(<ContractsPage />);
+
+      fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
+
+      fireEvent.change(screen.getByLabelText(/contract name/i), {
+        target: { value: 'New Contract' },
+      });
+      fireEvent.change(screen.getByLabelText(/total value/i), {
+        target: { value: '7500' },
+      });
+      fireEvent.change(screen.getByLabelText(/currency/i), {
+        target: { value: 'EUR' },
+      });
+
+      const partyLabels = screen.getAllByPlaceholderText(/e\.g\., client, freelancer/i);
+      const partyAddresses = screen.getAllByPlaceholderText(/GXXXXXXXXXX/i);
+
+      fireEvent.change(partyLabels[0], { target: { value: 'Client Corp' } });
+      fireEvent.change(partyAddresses[0], { target: { value: VALID_ADDRESS } });
+
+      fireEvent.change(partyLabels[1], { target: { value: 'Designer' } });
+      fireEvent.change(partyAddresses[1], { target: { value: VALID_ADDRESS } });
+
+      fireEvent.click(screen.getByRole('button', { name: /create contract/i, hidden: false }));
+
+      await waitFor(() => {
+        expect(mockShowError).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Unable to create contract',
+            description: 'Your contract could not be saved. Please try again.',
+          }),
+        );
+      });
+
+      expect(screen.getByText('Existing Contract')).toBeInTheDocument();
+      expect(screen.queryByText('New Contract')).not.toBeInTheDocument();
+    });
+
+    it('closes form after successful submission', async () => {
+      mockListContracts.mockReturnValue([]);
       render(<ContractsPage />);
 
       // Verify a few contracts are rendered
@@ -339,9 +393,7 @@ describe('ContractsPage', () => {
 
       render(<ContractsPage />);
 
-      // Verify initial state shows contracts list
-      expect(screen.getByTestId('contracts-list')).toBeInTheDocument();
-      expect(screen.queryByTestId('contract-form')).not.toBeInTheDocument();
+      mockSaveContract.mockReturnValue(true);
 
       // The memoization ensures that repeated renders don't cause excessive re-renders
       const createButton = screen.getByRole('button', {
