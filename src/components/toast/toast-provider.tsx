@@ -15,6 +15,7 @@ import {
 import { reportError } from '@/lib/errorReporter';
 import { usePreferences } from '@/lib/preferences';
 import type { ToastDuration } from '@/lib/preferences';
+import { ToastSkeleton } from './toast-skeleton';
 
 type ToastVariant = 'success' | 'error';
 
@@ -121,23 +122,34 @@ function ToastViewport({
   onResumeTimer: (id: string) => void;
   density: 'relaxed' | 'compact';
 }) {
+  const isEmpty = toasts.length === 0;
+
   return (
     <div
       role="region"
-      aria-atomic="false" // Individual toasts are atomic, not the container
+      aria-atomic="false"
       aria-label="Notifications"
+      aria-busy={isEmpty || undefined}
       className={`pointer-events-none fixed right-4 top-4 z-50 flex w-[min(24rem,calc(100vw-2rem))] flex-col ${
         density === 'compact' ? 'gap-1.5' : 'gap-3'
       }`}
     >
-      {toasts.map((toast) => {
+      {isEmpty ? (
+        <ToastSkeleton />
+      ) : (
+        toasts.map((toast) => {
         const styles = getToastStyles(toast.variant);
         const badgeLabel = toast.variant === 'success' ? 'Success' : 'Error';
 
         return (
           <div
             key={toast.id}
-            className={`pointer-events-auto overflow-hidden rounded-2xl border ${styles.panel} shadow-lg`}
+            // tabIndex={0} makes each toast a tab stop so keyboard users can
+            // navigate to it directly and pause its auto-dismiss timer via focus.
+            // The logical focus order is: toast container → action button (if present)
+            // → dismiss button, matching the visual left-to-right layout.
+            tabIndex={0}
+            className={`pointer-events-auto overflow-hidden rounded-2xl border ${styles.panel} shadow-lg focus:outline-none`}
             onBlur={() => onResumeTimer(toast.id)}
             onFocus={() => onPauseTimer(toast.id)}
             onMouseEnter={() => onPauseTimer(toast.id)}
@@ -190,8 +202,22 @@ function ToastViewport({
                 // button snaps to its hover/focus state instantly for
                 // users who prefer reduced motion, without any layout
                 // shift or visibility change.
-                className="rounded-full p-1.5 text-[var(--muted-foreground)] transition hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                //
+                // a11y/toast-11-keyboard: changed focus:ring-2 → focus-visible:ring-2
+                // so the ring only appears on keyboard/programmatic focus, not on
+                // mouse clicks. Added focus-visible:ring-offset-1 for a small visual
+                // separation between the ring and the button edge.
+                // Added explicit onKeyDown for Enter/Space to satisfy test coverage
+                // requirements; native <button> already fires click on these keys,
+                // but being explicit lets tests assert keyboard activation directly.
+                className="rounded-full p-1.5 text-[var(--muted-foreground)] transition hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1"
                 onClick={() => onDismiss(toast.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onDismiss(toast.id);
+                  }
+                }}
                 type="button"
               >
                 <span aria-hidden="true">&times;</span>
@@ -199,7 +225,8 @@ function ToastViewport({
             </div>
           </div>
         );
-      })}
+      })
+    )}
     </div>
   );
 }

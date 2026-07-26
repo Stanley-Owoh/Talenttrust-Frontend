@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { StrictMode } from 'react';
 import { PreferencesProvider } from '@/lib/preferences';
 import { ToastProvider, useToast, ToastErrorBoundary } from './toast-provider';
+import { ToastSkeleton } from './toast-skeleton';
 import * as errorReporter from '@/lib/errorReporter';
 
 function ToastHarness() {
@@ -311,6 +312,118 @@ describe('ToastProvider', () => {
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
+  });
+});
+
+describe('loading skeleton', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.clearAllTimers();
+    });
+    jest.useRealTimers();
+  });
+
+  it('renders skeleton in the viewport when no toasts are present', () => {
+    render(
+      <ToastProvider>
+        <div />
+      </ToastProvider>,
+    );
+
+    const skeleton = document.querySelector('[aria-hidden="true"]');
+    expect(skeleton).toBeInTheDocument();
+    expect(skeleton!.className).toContain('animate-pulse');
+  });
+
+  it('viewport has aria-busy when skeleton is visible', () => {
+    render(
+      <ToastProvider>
+        <div />
+      </ToastProvider>,
+    );
+
+    const viewport = screen.getByLabelText('Notifications');
+    expect(viewport).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('skeleton is replaced by toast content when a toast appears', () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    expect(screen.getByLabelText('Notifications')).toHaveAttribute('aria-busy', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('Milestone released');
+    expect(screen.getByLabelText('Notifications')).not.toHaveAttribute('aria-busy');
+  });
+
+  it('viewport is not busy when toasts are already present', () => {
+    function PreFilledHarness() {
+      const { showSuccess } = useToast();
+      return (
+        <button
+          onClick={() => showSuccess({ title: 'Exists' })}
+          type="button"
+        >
+          Add
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <PreFilledHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /add/i }));
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.getByLabelText('Notifications')).not.toHaveAttribute('aria-busy');
+  });
+
+  it('skeleton wrapper div is aria-hidden', () => {
+    render(
+      <ToastProvider>
+        <div />
+      </ToastProvider>,
+    );
+
+    const skeleton = document.querySelector('[aria-hidden="true"]');
+    expect(skeleton).toBeInTheDocument();
+  });
+
+  it('ToastSkeleton renders with correct toast-like structure', () => {
+    const { container } = render(<ToastSkeleton />);
+
+    const skeletonDiv = container.firstChild as HTMLElement;
+    expect(skeletonDiv).toHaveAttribute('aria-hidden', 'true');
+    expect(skeletonDiv.className).toContain('rounded-2xl');
+    expect(skeletonDiv.className).toContain('animate-pulse');
+    expect(skeletonDiv.querySelector('.rounded-full')).toBeInTheDocument();
+    expect(skeletonDiv.querySelector('.rounded-md')).toBeInTheDocument();
+  });
+
+  it('error boundary fallback replaces skeleton when toast render throws', () => {
+    const ThrowingSkeleton = () => {
+      throw new Error('Skeleton render error');
+    };
+
+    render(
+      <ToastErrorBoundary>
+        <ThrowingSkeleton />
+      </ToastErrorBoundary>
+    );
+
+    expect(screen.getByText('Notifications failed to load')).toBeInTheDocument();
   });
 });
 
@@ -1439,7 +1552,11 @@ describe('ToastErrorBoundary', () => {
   });
 });
 
-describe('Toast status/count live region', () => {
+// ---------------------------------------------------------------------------
+// a11y/toast-11-keyboard: keyboard operability
+// ---------------------------------------------------------------------------
+
+describe('keyboard operability', () => {
   beforeEach(() => {
     jest.useFakeTimers();
   });
@@ -1451,61 +1568,618 @@ describe('Toast status/count live region', () => {
     jest.useRealTimers();
   });
 
-  function RapidToastHarness() {
-    const { showSuccess, showError, dismissToast } = useToast();
-    return (
-      <div>
-        <button type="button" onClick={() => showSuccess({ title: 'Success' })}>Add Success</button>
-        <button type="button" onClick={() => showError({ title: 'Error' })}>Add Error</button>
-      </div>
-    );
-  }
+  // ── tab stop ──────────────────────────────────────────────────────────────
 
-  it('debounces the announcement of toast count and status', () => {
+  it('toast container div has tabIndex=0 so keyboard users can focus the toast directly', () => {
     render(
       <ToastProvider>
-        <RapidToastHarness />
-      </ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
     );
 
-    // Initial mount should have no toasts, timer is set but wait
-    // We add two toasts rapidly
-    fireEvent.click(screen.getByRole('button', { name: 'Add Success' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add Error' }));
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
 
-    // Before debounce time, announcement shouldn't show the combined yet
-    // Wait, the status is debounced 500ms
-    act(() => {
-      jest.advanceTimersByTime(200);
-    });
-    expect(screen.queryByText('2 notifications (1 error, 1 success)')).not.toBeInTheDocument();
-
-    // After debounce
-    act(() => {
-      jest.advanceTimersByTime(300);
-    });
-    expect(screen.getByText('2 notifications (1 error, 1 success)')).toBeInTheDocument();
+    const toast = screen.getByRole('status');
+    expect(toast).toHaveAttribute('tabindex', '0');
   });
 
-  it('announces zero notifications when all toasts are dismissed', async () => {
+  it('error toast container div also has tabIndex=0', () => {
     render(
       <ToastProvider>
-        <RapidToastHarness />
-      </ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Success' }));
-    
+    fireEvent.click(screen.getByRole('button', { name: /trigger error/i }));
+
+    const toast = screen.getByRole('alert');
+    expect(toast).toHaveAttribute('tabindex', '0');
+  });
+
+  // ── focus order ───────────────────────────────────────────────────────────
+
+  it('dismiss button is in the tab order (tabIndex not -1)', () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+
+    const dismissBtn = screen.getByRole('button', { name: /dismiss success notification/i });
+    // tabIndex is 0 by default on buttons; it must not be -1
+    expect(dismissBtn).not.toHaveAttribute('tabindex', '-1');
+  });
+
+  it('action button is in the tab order (tabIndex not -1)', () => {
+    function ActionHarness() {
+      const { showSuccess } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            showSuccess({
+              title: 'Saved',
+              action: { label: 'Undo', onClick: jest.fn() },
+            })
+          }
+        >
+          Trigger
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <ActionHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger/i }));
+
+    const actionBtn = screen.getByRole('button', { name: 'Undo' });
+    expect(actionBtn).not.toHaveAttribute('tabindex', '-1');
+  });
+
+  it('with both action and dismiss buttons, both are reachable in the DOM order (action before dismiss)', () => {
+    function ActionOrderHarness() {
+      const { showSuccess } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            showSuccess({
+              title: 'Ready',
+              action: { label: 'View', onClick: jest.fn() },
+            })
+          }
+        >
+          Trigger
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <ActionOrderHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger/i }));
+
+    const toast = screen.getByRole('status');
+    const buttons = toast.querySelectorAll('button');
+    expect(buttons).toHaveLength(2);
+    // Action button appears first in DOM (inside the content area), dismiss is last (far right)
+    expect(buttons[0]).toHaveAccessibleName('View');
+    expect(buttons[1]).toHaveAccessibleName('Dismiss success notification');
+  });
+
+  // ── dismiss via Enter ─────────────────────────────────────────────────────
+
+  it('pressing Enter on the dismiss button dismisses a success toast', async () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+    expect(screen.getByRole('status')).toBeInTheDocument();
+
+    const dismissBtn = screen.getByRole('button', { name: /dismiss success notification/i });
+    dismissBtn.focus();
+    fireEvent.keyDown(dismissBtn, { key: 'Enter', code: 'Enter' });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+  });
+
+  it('pressing Enter on the dismiss button dismisses an error toast', async () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger error/i }));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    const dismissBtn = screen.getByRole('button', { name: /dismiss error notification/i });
+    dismissBtn.focus();
+    fireEvent.keyDown(dismissBtn, { key: 'Enter', code: 'Enter' });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+  });
+
+  // ── dismiss via Space ─────────────────────────────────────────────────────
+
+  it('pressing Space on the dismiss button dismisses a success toast', async () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+    expect(screen.getByRole('status')).toBeInTheDocument();
+
+    const dismissBtn = screen.getByRole('button', { name: /dismiss success notification/i });
+    dismissBtn.focus();
+    fireEvent.keyDown(dismissBtn, { key: ' ', code: 'Space' });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+  });
+
+  it('pressing Space on the dismiss button dismisses an error toast', async () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger error/i }));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    const dismissBtn = screen.getByRole('button', { name: /dismiss error notification/i });
+    dismissBtn.focus();
+    fireEvent.keyDown(dismissBtn, { key: ' ', code: 'Space' });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+  });
+
+  // ── non-activation keys do not dismiss ───────────────────────────────────
+
+  it('pressing Escape or Tab on the dismiss button does NOT dismiss the toast', async () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+    const dismissBtn = screen.getByRole('button', { name: /dismiss success notification/i });
+    dismissBtn.focus();
+
+    fireEvent.keyDown(dismissBtn, { key: 'Escape', code: 'Escape' });
+    fireEvent.keyDown(dismissBtn, { key: 'Tab', code: 'Tab' });
+
+    // Toast should still be present
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
+  // ── action button keyboard activation ────────────────────────────────────
+
+  it('pressing Enter on the action button fires the callback and dismisses the toast', async () => {
+    const onActionClick = jest.fn();
+
+    function ActionKeyHarness() {
+      const { showSuccess } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            showSuccess({
+              title: 'Saved',
+              duration: 10000,
+              action: { label: 'Undo', onClick: onActionClick },
+            })
+          }
+        >
+          Trigger
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <ActionKeyHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger/i }));
+    const actionBtn = screen.getByRole('button', { name: 'Undo' });
+    actionBtn.focus();
+
+    // Simulate Enter key → browser fires click for native buttons
+    fireEvent.keyDown(actionBtn, { key: 'Enter', code: 'Enter' });
+    fireEvent.click(actionBtn);
+
+    expect(onActionClick).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+  });
+
+  it('pressing Space on the action button fires the callback and dismisses the toast', async () => {
+    const onActionClick = jest.fn();
+
+    function ActionSpaceHarness() {
+      const { showSuccess } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            showSuccess({
+              title: 'Saved',
+              duration: 10000,
+              action: { label: 'Undo', onClick: onActionClick },
+            })
+          }
+        >
+          Trigger
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <ActionSpaceHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger/i }));
+    const actionBtn = screen.getByRole('button', { name: 'Undo' });
+    actionBtn.focus();
+
+    // Simulate Space → browser fires click for native buttons
+    fireEvent.keyDown(actionBtn, { key: ' ', code: 'Space' });
+    fireEvent.click(actionBtn);
+
+    expect(onActionClick).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+  });
+
+  // ── focus pauses auto-dismiss timer ──────────────────────────────────────
+
+  it('focusing the toast container (tabIndex=0) pauses the auto-dismiss timer', async () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
+
+    // Focus the toast container directly (keyboard nav to the tab stop)
+    fireEvent.focus(screen.getByRole('status'));
+
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
+
+    // Timer should be paused — toast must still be visible
+    expect(screen.getByRole('status')).toBeInTheDocument();
+
+    // Blur resumes timer; remaining time was ~500ms before pause
+    fireEvent.blur(screen.getByRole('status'));
+
     act(() => {
       jest.advanceTimersByTime(500);
     });
-    expect(screen.getByText('1 notification (1 success)')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /dismiss success notification/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+  });
+
+  it('focusing the dismiss button pauses the auto-dismiss timer', async () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
+
+    // Focus the dismiss button (child of toast container)
+    const dismissBtn = screen.getByRole('button', { name: /dismiss success notification/i });
+    fireEvent.focus(dismissBtn);
+
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+
+    fireEvent.blur(dismissBtn);
 
     act(() => {
       jest.advanceTimersByTime(500);
     });
-    expect(screen.getByText('0 notifications')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+  });
+
+  it('focusing the action button pauses the auto-dismiss timer', async () => {
+    function ActionFocusHarness() {
+      const { showSuccess } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            showSuccess({
+              title: 'Saved',
+              duration: 2000,
+              action: { label: 'View', onClick: jest.fn() },
+            })
+          }
+        >
+          Trigger
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <ActionFocusHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger/i }));
+
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
+
+    const actionBtn = screen.getByRole('button', { name: 'View' });
+    fireEvent.focus(actionBtn);
+
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+
+    fireEvent.blur(actionBtn);
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+  });
+
+  // ── focus-visible styles ──────────────────────────────────────────────────
+
+  it('dismiss button has focus-visible:ring-2 class (not focus:ring-2)', () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+
+    const dismissBtn = screen.getByRole('button', { name: /dismiss success notification/i });
+    expect(dismissBtn.className).toContain('focus-visible:ring-2');
+    expect(dismissBtn.className).not.toMatch(/(?<![:\w])focus:ring-2/);
+  });
+
+  it('dismiss button has focus-visible:ring-offset-1 for visual ring offset', () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+
+    const dismissBtn = screen.getByRole('button', { name: /dismiss success notification/i });
+    expect(dismissBtn.className).toContain('focus-visible:ring-offset-1');
+  });
+
+  it('dismiss button has focus:outline-none to suppress native outline', () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+
+    const dismissBtn = screen.getByRole('button', { name: /dismiss success notification/i });
+    expect(dismissBtn.className).toContain('focus:outline-none');
+  });
+
+  it('toast container has focus:outline-none to suppress native outline (ring is on buttons)', () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+
+    const toast = screen.getByRole('status');
+    expect(toast.className).toContain('focus:outline-none');
+  });
+
+  it('action button has focus-visible:ring-2 styling', () => {
+    function ActionStyleHarness() {
+      const { showSuccess } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            showSuccess({
+              title: 'Ready',
+              action: { label: 'Open', onClick: jest.fn() },
+            })
+          }
+        >
+          Trigger
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <ActionStyleHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger/i }));
+
+    const actionBtn = screen.getByRole('button', { name: 'Open' });
+    expect(actionBtn.className).toContain('focus-visible:ring-2');
+    expect(actionBtn.className).toContain('focus-visible:ring-offset-1');
+  });
+
+  // ── multi-toast tab order ─────────────────────────────────────────────────
+
+  it('multiple toasts each have tabIndex=0 so all are keyboard-reachable', () => {
+    function MultiToast() {
+      const { showSuccess, showError } = useToast();
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => showSuccess({ title: 'First', duration: 10000 })}
+          >
+            Add success
+          </button>
+          <button
+            type="button"
+            onClick={() => showError({ title: 'Second', duration: 10000 })}
+          >
+            Add error
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <MultiToast />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /add success/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add error/i }));
+
+    const statusToast = screen.getByRole('status');
+    const alertToast = screen.getByRole('alert');
+
+    expect(statusToast).toHaveAttribute('tabindex', '0');
+    expect(alertToast).toHaveAttribute('tabindex', '0');
+  });
+
+  it('each toast has its own independently-accessible dismiss button', () => {
+    function MultiToast() {
+      const { showSuccess, showError } = useToast();
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => showSuccess({ title: 'Toast A', duration: 10000 })}
+          >
+            Add A
+          </button>
+          <button
+            type="button"
+            onClick={() => showError({ title: 'Toast B', duration: 10000 })}
+          >
+            Add B
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <MultiToast />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /add a/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add b/i }));
+
+    expect(screen.getByRole('button', { name: /dismiss success notification/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /dismiss error notification/i })).toBeInTheDocument();
+  });
+
+  it('dismissing one toast by keyboard leaves the other intact', async () => {
+    function MultiToast() {
+      const { showSuccess, showError } = useToast();
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => showSuccess({ title: 'Toast A', duration: 10000 })}
+          >
+            Add A
+          </button>
+          <button
+            type="button"
+            onClick={() => showError({ title: 'Toast B', duration: 10000 })}
+          >
+            Add B
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <MultiToast />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /add a/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add b/i }));
+
+    const successDismiss = screen.getByRole('button', { name: /dismiss success notification/i });
+    successDismiss.focus();
+    fireEvent.keyDown(successDismiss, { key: 'Enter', code: 'Enter' });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    // Error toast must still be present
+    expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 });

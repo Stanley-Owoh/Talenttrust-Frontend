@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import StatusBadge, { StatusType, statusColorMap, statusIconMap } from './StatusBadge';
 import { usePreferences } from '@/lib/preferences';
 import { isDueSoon } from '@/lib/dueSoon';
@@ -16,19 +16,29 @@ export type Milestone = {
   contractId?: string;
 };
 
+export const PAGE_SIZE_DEFAULT = 5;
+
 export type MilestonesListProps = {
   milestones: Milestone[];
   contractCurrency?: string;
+  pageSize?: number;
 };
 
 export const REMINDER_WINDOW_DAYS = 7;
 
-const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) => {
+const MilestonesList = ({ milestones, contractCurrency, pageSize = PAGE_SIZE_DEFAULT }: MilestonesListProps) => {
   const { formatAmount } = usePreferences();
+  const [displayCount, setDisplayCount] = useState(pageSize);
   const [isDismissed, setIsDismissed] = useState(false);
   const listContainerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    setDisplayCount(pageSize);
+  }, [milestones, pageSize]);
+
   const today = new Date();
+  const visibleMilestones = milestones.slice(0, displayCount);
+  const hasMore = displayCount < milestones.length;
 
   const mismatchedMilestoneIds = contractCurrency
     ? new Set(findCurrencyMismatches(contractCurrency, milestones))
@@ -144,7 +154,7 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
             type="button"
             onClick={handleDismiss}
             aria-label="Dismiss reminder"
-            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 hover:text-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1 dark:text-amber-400 dark:hover:bg-amber-500/10 dark:hover:text-amber-200 transition-colors"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 hover:text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1 dark:text-amber-400 dark:hover:bg-amber-500/10 dark:hover:text-amber-200 transition-colors"
           >
             <span aria-hidden="true" className="text-lg leading-none">&times;</span>
           </button>
@@ -173,7 +183,7 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
         tabIndex={milestones.length > 0 ? 0 : undefined}
         className="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
       >
-        {milestones.map((milestone) => (
+        {visibleMilestones.map((milestone) => (
           <article
             key={milestone.id}
             id={`milestone-${milestone.id}`}
@@ -194,6 +204,18 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
             </div>
           </article>
         ))}
+        {hasMore && (
+          <div className="flex justify-center pt-2">
+            <button
+              type="button"
+              onClick={() => setDisplayCount((prev) => Math.min(prev + pageSize, milestones.length))}
+              data-testid="load-more-btn"
+              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+            >
+              Load More ({milestones.length - displayCount} remaining)
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

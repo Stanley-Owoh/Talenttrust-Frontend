@@ -7,6 +7,10 @@ export function SettingsTrigger() {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
+  /**
+   * Closes the settings panel and restores focus to the trigger button
+   * using requestAnimationFrame to ensure focus returns after DOM updates.
+   */
   const handleClose = () => {
     setIsOpen(false);
     requestAnimationFrame(() => triggerRef.current?.focus());

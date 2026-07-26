@@ -24,3 +24,16 @@ export type Contract = ContractSummaryProps;
 /** Canonical reputation profile shape for list and detail views. */
 export type Reputation = Omit<ReputationProfileProps, 'name'> & { name?: string };
 
+/** Wallet item record representing assets, tokens, credentials, or keys in a wallet. */
+export interface WalletItem {
+  id: string;
+  name: string;
+  type: string;
+  balance: number;
+  currency: string;
+  address?: string;
+  status: 'Active' | 'Archived' | 'Pending';
+  createdAt: string;
+}
+
+

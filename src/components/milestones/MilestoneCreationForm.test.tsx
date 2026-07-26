@@ -12,6 +12,28 @@ describe('MilestoneCreationForm', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
+  it('matches the empty-state form structure', () => {
+    const { container } = render(<MilestoneCreationForm onSubmit={onSubmit} onCancel={onCancel} />);
+
+    expect(container.firstChild).toMatchSnapshot();
+  });
+
+  it('matches the loaded-state form structure with user-entered values', () => {
+    const { container } = render(<MilestoneCreationForm onSubmit={onSubmit} onCancel={onCancel} />);
+
+    fireEvent.change(screen.getByLabelText(/^title/i), {
+      target: { value: 'Frontend Sprint' },
+    });
+    fireEvent.change(screen.getByLabelText(/payout amount/i), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText(/currency/i), { target: { value: 'XLM' } });
+    fireEvent.change(screen.getByLabelText(/status/i), { target: { value: 'Active' } });
+    fireEvent.change(screen.getByLabelText(/due date/i), {
+      target: { value: 'Jun 1, 2025' },
+    });
+
+    expect(container.firstChild).toMatchSnapshot();
+  });
+
   it('normalizes a title before submitting the milestone', async () => {
     render(<MilestoneCreationForm onSubmit={onSubmit} onCancel={onCancel} />);
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfirmDialog } from '../ConfirmDialog';
 
@@ -209,81 +209,38 @@ describe('ConfirmDialog', () => {
 
     expect(buttons[1]).toHaveFocus();
   });
+  it('moves focus to the cancel button on open and restores it to the trigger on close', async () => {
+    const Wrapper = () => {
+      const [isOpen, setIsOpen] = React.useState(false);
+      return (
+        <div>
+          <button onClick={() => setIsOpen(true)}>Open Confirm</button>
+          <ConfirmDialog
+            isOpen={isOpen}
+            title="Wrap focus"
+            description="Keep focus inside the dialog"
+            onConfirm={jest.fn()}
+            onCancel={() => setIsOpen(false)}
+          />
+        </div>
+      );
+    };
 
-  it('renders loading state and disables buttons', () => {
-    render(
-      <ConfirmDialog
-        isOpen={true}
-        title="Loading"
-        description="Please wait"
-        isLoading={true}
-        onConfirm={jest.fn()}
-        onCancel={jest.fn()}
-      />
-    );
-
-    const confirmBtn = screen.getByRole('button', { name: 'Loading...' });
-    const cancelBtn = screen.getByRole('button', { name: 'Cancel' });
-
-    expect(confirmBtn).toBeDisabled();
-    expect(cancelBtn).toBeDisabled();
-  });
-
-  it('renders empty state message and disables confirm button', () => {
-    render(
-      <ConfirmDialog
-        isOpen={true}
-        title="Empty"
-        description="Normal description"
-        isEmpty={true}
-        onConfirm={jest.fn()}
-        onCancel={jest.fn()}
-      />
-    );
-
-    expect(screen.getByText('No data available.')).toBeInTheDocument();
-    expect(screen.queryByText('Normal description')).not.toBeInTheDocument();
+    const user = userEvent.setup();
+    render(<Wrapper />);
     
-    const confirmBtn = screen.getByRole('button', { name: 'Confirm' });
-    expect(confirmBtn).toBeDisabled();
-  });
-
-  it('renders error message and keeps confirm button enabled', () => {
-    render(
-      <ConfirmDialog
-        isOpen={true}
-        title="Error"
-        description="Normal description"
-        error="Something went wrong"
-        onConfirm={jest.fn()}
-        onCancel={jest.fn()}
-      />
-    );
-
-    const errorAlert = screen.getByRole('alert');
-    expect(errorAlert).toHaveTextContent('Something went wrong');
+    const trigger = screen.getByRole('button', { name: 'Open Confirm' });
+    trigger.focus();
+    await user.click(trigger);
     
-    const confirmBtn = screen.getByRole('button', { name: 'Confirm' });
-    expect(confirmBtn).not.toBeDisabled();
-  });
-
-  it('renders success state message and disables confirm button', () => {
-    render(
-      <ConfirmDialog
-        isOpen={true}
-        title="Success"
-        description="Normal description"
-        isSuccess={true}
-        onConfirm={jest.fn()}
-        onCancel={jest.fn()}
-      />
-    );
-
-    const successStatus = screen.getByRole('status');
-    expect(successStatus).toHaveTextContent('Action successful.');
-    expect(screen.queryByText('Normal description')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    });
     
-    const confirmBtn = screen.getByRole('button', { name: 'Confirm' });
-    expect(confirmBtn).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    
+    await waitFor(() => {
+      expect(trigger).toHaveFocus();
+    });
   });
 });

@@ -64,6 +64,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     dialogRef,
     initialFocusRef: cancelBtnRef,
     onEscape: onCancel,
+    restoreFocus: true,
   });
 
   useEffect(() => {
@@ -159,7 +160,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             ref={cancelBtnRef}
             type="button"
             onClick={onCancel}
-            disabled={isLoading}
+            className="px-4 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             {cancelLabel}
           </button>

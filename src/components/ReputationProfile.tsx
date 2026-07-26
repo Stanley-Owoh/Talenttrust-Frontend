@@ -1,3 +1,5 @@
+import { memo, useMemo } from 'react';
+
 export type ReputationEvent = {
   id: string;
   type: string;
@@ -54,7 +56,7 @@ export function resolveReputationLevel(score: number, maxScore: number): string 
 const reputationSummary =
   'Reputation represents verified trust signals and activity history, not sensitive personal metadata. Privacy-friendly defaults keep your profile safe.';
 
-export default function ReputationProfile({
+const ReputationProfile = memo(function ReputationProfile({
   name,
   score,
   level,
@@ -64,9 +66,61 @@ export default function ReputationProfile({
   const hasReputation = typeof score === 'number' && score >= 0;
   const showPartial = hasReputation && history.length === 0;
 
-  const resolvedLevel = level !== undefined
-    ? level
-    : (hasReputation ? resolveReputationLevel(score, maxScore) : 'Community Member');
+  const resolvedLevel = useMemo(() => {
+    return level !== undefined
+      ? level
+      : (hasReputation ? resolveReputationLevel(score, maxScore) : 'Community Member');
+  }, [level, hasReputation, score, maxScore]);
+
+  const renderedBands = useMemo(() => {
+    return getReputationBands(maxScore).map((band) => {
+      // If score is undefined/null, let's treat it as not active for any band, 
+      // but if we need a safe check:
+      const currentScore = score ?? 0;
+      const isActive = hasReputation && currentScore >= band.min && (
+        band.max === maxScore ? currentScore <= band.max : currentScore < band.max
+      );
+      return (
+        <li
+          key={band.label}
+          className={`rounded-2xl border p-3 transition-colors ${
+            isActive
+              ? 'border-indigo-200 bg-indigo-50/50 text-indigo-900 font-semibold'
+              : 'border-slate-200 bg-slate-50/50 text-slate-600'
+          }`}
+        >
+          <p className="font-bold text-xs uppercase tracking-wider text-slate-400">
+            {band.min.toFixed(1)} - {band.max.toFixed(1)}
+          </p>
+          <p className="mt-1 text-sm">{band.label}</p>
+        </li>
+      );
+    });
+  }, [maxScore, score, hasReputation]);
+
+  const renderedHistory = useMemo(() => {
+    return history.map((event) => {
+      // Determine whether the date string is a parseable ISO date.
+      // If it is, expose the ISO value via dateTime for machine readability.
+      const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
+      return (
+        <li key={event.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">{event.type}</p>
+              <p className="mt-1 text-base font-semibold text-slate-950">{event.summary}</p>
+            </div>
+            <time
+              className="text-sm text-slate-500"
+              {...(isValidDate ? { dateTime: event.date } : {})}
+            >
+              {event.date}
+            </time>
+          </div>
+        </li>
+      );
+    });
+  }, [history]);
 
   return (
     <section className="w-full max-w-5xl mx-auto space-y-8 px-4 py-10 sm:px-6 lg:px-8" aria-labelledby="profile-heading">
@@ -146,26 +200,7 @@ export default function ReputationProfile({
               aria-labelledby="reputation-legend-title"
               className="mt-3 grid gap-3 sm:grid-cols-5 text-sm"
             >
-              {getReputationBands(maxScore).map((band) => {
-                const isActive = score >= band.min && (
-                  band.max === maxScore ? score <= band.max : score < band.max
-                );
-                return (
-                  <li
-                    key={band.label}
-                    className={`rounded-2xl border p-3 transition-colors ${
-                      isActive
-                        ? 'border-indigo-200 bg-indigo-50/50 text-indigo-900 font-semibold'
-                        : 'border-slate-200 bg-slate-50/50 text-slate-600'
-                    }`}
-                  >
-                    <p className="font-bold text-xs uppercase tracking-wider text-slate-400">
-                      {band.min.toFixed(1)} - {band.max.toFixed(1)}
-                    </p>
-                    <p className="mt-1 text-sm">{band.label}</p>
-                  </li>
-                );
-              })}
+              {renderedBands}
             </ul>
           </div>
         )}
@@ -214,30 +249,12 @@ export default function ReputationProfile({
           </div>
         ) : (
           <ol className="space-y-4">
-            {history.map((event) => {
-              // Determine whether the date string is a parseable ISO date.
-              // If it is, expose the ISO value via dateTime for machine readability.
-              const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
-              return (
-                <li key={event.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-500">{event.type}</p>
-                      <p className="mt-1 text-base font-semibold text-slate-950">{event.summary}</p>
-                    </div>
-                    <time
-                      className="text-sm text-slate-500"
-                      {...(isValidDate ? { dateTime: event.date } : {})}
-                    >
-                      {event.date}
-                    </time>
-                  </div>
-                </li>
-              );
-            })}
+            {renderedHistory}
           </ol>
         )}
       </div>
     </section>
   );
-}
+});
+
+export default ReputationProfile;

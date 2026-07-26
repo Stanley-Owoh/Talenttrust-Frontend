@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { WalletConnectButton } from '@/components/WalletConnectButton';
+import SafeBoundary from '@/components/SafeBoundary';
 
 /**
  * HeaderActions — responsive header action wrapper.
@@ -58,7 +59,9 @@ export default function HeaderActions(): React.JSX.Element {
         ].join(' ')}
       >
         <div className="flex w-full min-w-0 justify-end sm:w-auto">
-          <WalletConnectButton />
+          <SafeBoundary fallbackTitle="Wallet section failed to load.">
+            <WalletConnectButton />
+          </SafeBoundary>
         </div>
       </div>
     </div>
