@@ -3,12 +3,25 @@
 import React from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useToast } from '@/components/toast/toast-provider';
+import { usePreferences } from '@/lib/preferences';
 import { truncateAddress } from '@/lib/truncateAddress';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 
 export const WalletConnectButton = () => {
   const { address, isConnecting, error, connect, disconnect } = useWallet();
   const { showError } = useToast();
+  const { preferences, updatePreference } = usePreferences();
+
+  const isCompact = preferences.walletDensity === 'compact';
+
+  const containerGap = isCompact ? 'gap-1.5' : 'gap-2';
+  const containerPadding = isCompact ? 'p-0.5' : 'p-1';
+  const addressPadding = isCompact ? 'px-2 py-1' : 'px-3 py-1.5';
+  const btnPadding = isCompact ? 'p-1' : 'p-1.5';
+
+  const toggleDensity = () => {
+    updatePreference('walletDensity', isCompact ? 'comfortable' : 'compact');
+  };
 
   const { copied, copy } = useCopyToClipboard({
     delay: 2000,
@@ -64,17 +77,40 @@ export const WalletConnectButton = () => {
   }
 
   if (address) {
+    const densityLabel = isCompact ? 'Switch to comfortable view' : 'Switch to compact view';
     return (
-      <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-1 ring-1 ring-slate-200">
-        <div className="flex items-center gap-2 px-3 py-1.5">
+      <div className={`flex items-center ${containerGap} rounded-xl bg-slate-100 ${containerPadding} ring-1 ring-slate-200`}>
+        <div className={`flex items-center ${containerGap} ${addressPadding}`}>
           <div className="h-2 w-2 rounded-full bg-green-500" aria-hidden="true" />
           <span className="text-sm font-medium text-slate-700 font-mono">
             {truncateAddress(address)}
           </span>
         </div>
         <button
+          onClick={toggleDensity}
+          className={`rounded-lg ${btnPadding} text-slate-500 hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500`}
+          aria-label={densityLabel}
+          title={densityLabel}
+          data-testid="wallet-density-btn"
+        >
+          {isCompact ? (
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <line x1="4" y1="5" x2="20" y2="5" />
+              <line x1="4" y1="9" x2="20" y2="9" />
+              <line x1="4" y1="13" x2="20" y2="13" />
+              <line x1="4" y1="17" x2="20" y2="17" />
+            </svg>
+          ) : (
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <line x1="4" y1="5" x2="20" y2="5" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="19" x2="20" y2="19" />
+            </svg>
+          )}
+        </button>
+        <button
           onClick={handleCopy}
-          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`rounded-lg ${btnPadding} text-slate-500 hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500`}
           aria-label="Copy address to clipboard"
           title="Copy address"
         >
@@ -90,7 +126,7 @@ export const WalletConnectButton = () => {
         </button>
         <button
           onClick={disconnect}
-          className="rounded-lg p-1.5 text-slate-500 hover:bg-red-100 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+          className={`rounded-lg ${btnPadding} text-slate-500 hover:bg-red-100 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500`}
           aria-label="Disconnect wallet"
           title="Disconnect wallet"
         >

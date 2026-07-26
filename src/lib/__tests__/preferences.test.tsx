@@ -74,6 +74,7 @@ describe('PreferencesProvider', () => {
       theme: 'system',
       amountFormat: 'usd',
       toastDensity: 'relaxed',
+      walletDensity: 'comfortable',
       quietMode: false,
       toastDuration: 'normal',
       idleDisconnectMs: 0,
@@ -142,13 +143,14 @@ describe('PreferencesProvider', () => {
     expect(r2.current.preferences.quietMode).toBe(false);
   });
 
-  it('persists only the six known keys even after a malicious payload round-trips', async () => {
+  it('persists only the seven known keys even after a malicious payload round-trips', async () => {
     localStorage.setItem(
       'talenttrust-user-preferences',
       JSON.stringify({
         theme: 'dark',
         amountFormat: 'ngn',
         toastDensity: 'compact',
+        walletDensity: 'compact',
         quietMode: true,
         toastDuration: 'long',
         idleDisconnectMs: 10000,
@@ -171,6 +173,7 @@ describe('PreferencesProvider', () => {
       'theme',
       'toastDensity',
       'toastDuration',
+      'walletDensity',
     ]);
   });
 
@@ -220,6 +223,7 @@ describe('sanitizePreferences (pure helper)', () => {
     theme: 'system',
     amountFormat: 'usd',
     toastDensity: 'relaxed',
+    walletDensity: 'comfortable',
     quietMode: false,
     toastDuration: 'normal',
     idleDisconnectMs: 0,
@@ -251,6 +255,7 @@ describe('sanitizePreferences (pure helper)', () => {
         theme: 'dark',
         amountFormat: 'compact',
         toastDensity: 'compact',
+        walletDensity: 'compact',
         quietMode: true,
         toastDuration: 'long',
         idleDisconnectMs: 15000,
@@ -259,6 +264,7 @@ describe('sanitizePreferences (pure helper)', () => {
       theme: 'dark',
       amountFormat: 'compact',
       toastDensity: 'compact',
+      walletDensity: 'compact',
       quietMode: true,
       toastDuration: 'long',
       idleDisconnectMs: 15000,
@@ -272,6 +278,7 @@ describe('sanitizePreferences (pure helper)', () => {
       theme: 'light',
       amountFormat: 'usd',
       toastDensity: 'relaxed',
+      walletDensity: 'comfortable',
       quietMode: true,
       toastDuration: 'normal',
       idleDisconnectMs: 0,
@@ -358,6 +365,7 @@ describe('sanitizePreferences (pure helper)', () => {
       theme: 'dark',
       amountFormat: '???', // invalid
       toastDensity: 'compact',
+      walletDensity: 'invalid', // invalid
       quietMode: 'yes', // invalid
       toastDuration: 'persistent', // valid
       idleDisconnectMs: 10000, // valid
@@ -368,6 +376,7 @@ describe('sanitizePreferences (pure helper)', () => {
       theme: 'dark',
       amountFormat: 'usd',
       toastDensity: 'compact',
+      walletDensity: 'comfortable',
       quietMode: false,
       toastDuration: 'persistent',
       idleDisconnectMs: 10000,
