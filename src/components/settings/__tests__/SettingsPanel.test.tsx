@@ -4,12 +4,15 @@ import { axe } from 'jest-axe';
 import { SettingsPanel } from '../SettingsPanel';
 import { PreferencesProvider } from '@/lib/preferences';
 import { resetCache } from '@/lib/safeStorage';
+import { ToastProvider } from '@/components/toast/toast-provider';
 
 
 const renderWithProvider = (ui: React.ReactElement) => {
   return render(
     <PreferencesProvider>
-      {ui}
+      <ToastProvider>
+        {ui}
+      </ToastProvider>
     </PreferencesProvider>
   );
 };
@@ -24,7 +27,7 @@ describe('SettingsPanel', () => {
     const { container } = renderWithProvider(
       <SettingsPanel isOpen={false} onClose={() => {}} />
     );
-    expect(container.firstChild).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('renders correctly when open', () => {
@@ -106,16 +109,40 @@ describe('SettingsPanel', () => {
     expect(saved.amountFormat).toBe('ngn');
   });
 
-  it('persists quietMode to localStorage when toggled', () => {
+  it('persists quietMode to localStorage when toggled', async () => {
     renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
 
     const quietSwitch = screen.getByRole('switch', { name: /Quiet Mode/i });
     fireEvent.click(quietSwitch);
 
-    const saved = JSON.parse(
+    // Should update optimistically immediately
+    const savedOptimistic = JSON.parse(
       localStorage.getItem('talenttrust-user-preferences') || '{}'
     );
-    expect(saved.quietMode).toBe(true);
+    expect(savedOptimistic.quietMode).toBe(true);
+  });
+
+  it('rolls back and shows error toast when setting update fails', async () => {
+    // Simulate server error
+    (window as any).__SIMULATE_SETTINGS_ERROR = true;
+    
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const darkButton = screen.getByRole('radio', { name: /dark/i });
+    fireEvent.click(darkButton);
+
+    // Optimistically updated
+    expect(darkButton.getAttribute('aria-checked')).toBe('true');
+
+    // Wait for the mock API to fail and rollback
+    const toasts = await screen.findAllByText(/Failed to update settings/i);
+    expect(toasts.length).toBeGreaterThan(0);
+
+    // Reverted back to initial state (system)
+    expect(darkButton.getAttribute('aria-checked')).toBe('false');
+
+    // Cleanup
+    delete (window as any).__SIMULATE_SETTINGS_ERROR;
   });
 
   it('persists toastDensity preference to localStorage when changed', () => {

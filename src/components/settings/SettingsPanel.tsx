@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useRef } from 'react';
-import { usePreferences, Theme, AmountFormat, ToastDensity } from '@/lib/preferences';
-import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
+import React, { useRef, useEffect } from 'react';
+import { usePreferences, Theme, AmountFormat, ToastDensity, UserPreferences } from '@/lib/preferences';
+import { useToast } from '@/components/toast/toast-provider';
 
 const FOCUSABLE_SELECTORS =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -14,16 +14,58 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const { preferences, updatePreference } = usePreferences();
+  const { showError } = useToast();
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  useDialogFocusTrap({
-    isOpen,
-    dialogRef: panelRef,
-    initialFocusRef: closeButtonRef,
-    onEscape: onClose,
-    restoreFocus: true,
-  });
+  const handleUpdate = async <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
+    try {
+      await updatePreference(key, value);
+    } catch {
+      showError({ title: 'Failed to update settings. Please try again.' });
+    }
+  };
+
+  /**
+   * Focus management effect for modal dialog accessibility.
+   * - Sets initial focus to the close button when dialog opens
+   * - Implements focus trapping to prevent focus from leaving the dialog
+   * - Handles Tab key wrapping from last to first element
+   * - Handles Shift+Tab wrapping from first to last element
+   * - Closes dialog on Escape key press
+   */
+  useEffect(() => {
+    if (!isOpen) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    // Set initial focus to the close button
+    const closeBtn = panel.querySelector<HTMLElement>('[aria-label="Close settings"]');
+    closeBtn?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab') {
+        const els = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS));
+        if (els.length === 0) return;
+        const first = els[0];
+        const last = els[els.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -70,7 +112,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   {(['light', 'dark', 'system'] as Theme[]).map((t) => (
                     <button
                       key={t}
-                      onClick={() => updatePreference('theme', t)}
+                      onClick={() => handleUpdate('theme', t)}
                       role="radio"
                       aria-checked={preferences.theme === t}
                       className={`px-3 py-2 text-sm rounded-md border capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 ${
@@ -91,7 +133,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   {(['usd', 'ngn', 'compact'] as AmountFormat[]).map((f) => (
                     <button
                       key={f}
-                      onClick={() => updatePreference('amountFormat', f)}
+                      onClick={() => handleUpdate('amountFormat', f)}
                       role="radio"
                       aria-checked={preferences.amountFormat === f}
                       className={`px-3 py-2 text-sm rounded-md border uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 ${
@@ -119,7 +161,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   {(['relaxed', 'compact'] as ToastDensity[]).map((d) => (
                     <button
                       key={d}
-                      onClick={() => updatePreference('toastDensity', d)}
+                      onClick={() => handleUpdate('toastDensity', d)}
                       role="radio"
                       aria-checked={preferences.toastDensity === d}
                       className={`px-3 py-2 text-sm rounded-md border capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 ${
@@ -140,7 +182,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   <p className="text-xs text-[var(--muted-foreground)]">Suppress success notifications</p>
                 </div>
                 <button
-                  onClick={() => updatePreference('quietMode', !preferences.quietMode)}
+                  onClick={() => handleUpdate('quietMode', !preferences.quietMode)}
                   role="switch"
                   aria-checked={preferences.quietMode}
                   aria-labelledby="quiet-mode-label"

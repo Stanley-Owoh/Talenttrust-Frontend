@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { usePreferences } from '@/lib/preferences';
+import { useToast } from '@/components/toast/toast-provider';
 
 /**
  * ThemeToggle — inline header button that cycles between light and dark.
@@ -15,6 +16,7 @@ import { usePreferences } from '@/lib/preferences';
  */
 export function ThemeToggle() {
   const { preferences, updatePreference } = usePreferences();
+  const { showError } = useToast();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -30,7 +32,13 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      onClick={() => updatePreference('theme', next)}
+      onClick={async () => {
+        try {
+          await updatePreference('theme', next);
+        } catch {
+          showError({ title: 'Failed to update settings. Please try again.' });
+        }
+      }}
       aria-label={label}
       aria-pressed={isDark}
       className="rounded-md p-2 text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
