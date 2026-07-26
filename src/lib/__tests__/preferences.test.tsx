@@ -74,6 +74,7 @@ describe('PreferencesProvider', () => {
       theme: 'system',
       amountFormat: 'usd',
       toastDensity: 'relaxed',
+      formDensity: 'comfortable',
       quietMode: false,
       toastDuration: 'normal',
       idleDisconnectMs: 0,
@@ -126,6 +127,36 @@ describe('PreferencesProvider', () => {
     ).toBe(false);
   });
 
+  it('uses default formDensity when none is stored', () => {
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    expect(result.current.preferences.formDensity).toBe('comfortable');
+  });
+
+  it('persists formDensity and restores it on hydation', () => {
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+
+    act(() => {
+      result.current.updatePreference('formDensity', 'compact');
+    });
+
+    expect(result.current.preferences.formDensity).toBe('compact');
+    const saved = JSON.parse(localStorage.getItem('talenttrust-user-preferences') || '{}');
+    expect(saved.formDensity).toBe('compact');
+
+    // Remount to simulate reload
+    const { result: r2 } = renderHook(() => usePreferences(), { wrapper });
+    expect(r2.current.preferences.formDensity).toBe('compact');
+  });
+
+  it('falls back to comfortable when stored formDensity is invalid', () => {
+    localStorage.setItem(
+      'talenttrust-user-preferences',
+      JSON.stringify({ formDensity: 'ultra-compact' }),
+    );
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    expect(result.current.preferences.formDensity).toBe('comfortable');
+  });
+
   it('rejects non-boolean quietMode values (truthy coercion guard)', () => {
     localStorage.setItem(
       'talenttrust-user-preferences',
@@ -142,13 +173,14 @@ describe('PreferencesProvider', () => {
     expect(r2.current.preferences.quietMode).toBe(false);
   });
 
-  it('persists only the six known keys even after a malicious payload round-trips', async () => {
+  it('persists only the seven known keys even after a malicious payload round-trips', async () => {
     localStorage.setItem(
       'talenttrust-user-preferences',
       JSON.stringify({
         theme: 'dark',
         amountFormat: 'ngn',
         toastDensity: 'compact',
+        formDensity: 'compact',
         quietMode: true,
         toastDuration: 'long',
         idleDisconnectMs: 10000,
@@ -166,6 +198,7 @@ describe('PreferencesProvider', () => {
     // so we compare with `.sort()` for engine-independent comparison.
     expect(Object.keys(serialized).sort()).toEqual([
       'amountFormat',
+      'formDensity',
       'idleDisconnectMs',
       'quietMode',
       'theme',
@@ -220,6 +253,7 @@ describe('sanitizePreferences (pure helper)', () => {
     theme: 'system',
     amountFormat: 'usd',
     toastDensity: 'relaxed',
+    formDensity: 'comfortable',
     quietMode: false,
     toastDuration: 'normal',
     idleDisconnectMs: 0,
@@ -251,6 +285,7 @@ describe('sanitizePreferences (pure helper)', () => {
         theme: 'dark',
         amountFormat: 'compact',
         toastDensity: 'compact',
+        formDensity: 'compact',
         quietMode: true,
         toastDuration: 'long',
         idleDisconnectMs: 15000,
@@ -259,6 +294,7 @@ describe('sanitizePreferences (pure helper)', () => {
       theme: 'dark',
       amountFormat: 'compact',
       toastDensity: 'compact',
+      formDensity: 'compact',
       quietMode: true,
       toastDuration: 'long',
       idleDisconnectMs: 15000,
@@ -272,6 +308,7 @@ describe('sanitizePreferences (pure helper)', () => {
       theme: 'light',
       amountFormat: 'usd',
       toastDensity: 'relaxed',
+      formDensity: 'comfortable',
       quietMode: true,
       toastDuration: 'normal',
       idleDisconnectMs: 0,
@@ -368,6 +405,7 @@ describe('sanitizePreferences (pure helper)', () => {
       theme: 'dark',
       amountFormat: 'usd',
       toastDensity: 'compact',
+      formDensity: 'comfortable',
       quietMode: false,
       toastDuration: 'persistent',
       idleDisconnectMs: 10000,

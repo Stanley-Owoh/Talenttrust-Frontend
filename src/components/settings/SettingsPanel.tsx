@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect } from 'react';
-import { usePreferences, Theme, AmountFormat, ToastDensity } from '@/lib/preferences';
+import { usePreferences, Theme, AmountFormat, ToastDensity, FormDensity } from '@/lib/preferences';
 
 const FOCUSABLE_SELECTORS =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -154,6 +154,27 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       className={`px-3 py-2 text-sm rounded-md border capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 ${
                         preferences.toastDensity === d 
                           ? 'border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]' 
+                          : 'border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label id="form-density-label" className="block text-sm font-medium mb-2 text-[var(--foreground)]">Form Density</label>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="form-density-label" aria-label="Form Density">
+                  {(['comfortable', 'compact'] as FormDensity[]).map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => updatePreference('formDensity', d)}
+                      role="radio"
+                      aria-checked={preferences.formDensity === d}
+                      className={`px-3 py-2 text-sm rounded-md border capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 ${
+                        preferences.formDensity === d
+                          ? 'border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]'
                           : 'border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]'
                       }`}
                     >

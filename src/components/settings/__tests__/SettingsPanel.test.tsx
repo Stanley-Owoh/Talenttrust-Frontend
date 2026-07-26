@@ -134,11 +134,34 @@ describe('SettingsPanel', () => {
     expect(saved.toastDensity).toBe('compact');
   });
 
+  it('updates form density preference', () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const formDensityGroup = screen.getByRole('radiogroup', { name: /form density/i });
+    const compactButton = within(formDensityGroup).getByRole('radio', { name: /compact/i });
+    fireEvent.click(compactButton);
+
+    expect(compactButton.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('persists formDensity to localStorage when changed', () => {
+    renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
+
+    const formDensityGroup = screen.getByRole('radiogroup', { name: /form density/i });
+    const compactButton = within(formDensityGroup).getByRole('radio', { name: /compact/i });
+    fireEvent.click(compactButton);
+
+    const saved = JSON.parse(
+      localStorage.getItem('talenttrust-user-preferences') || '{}'
+    );
+    expect(saved.formDensity).toBe('compact');
+  });
+
   it('restores preferences from localStorage on remount (simulated reload)', () => {
     // Pre-seed localStorage as if a previous session saved dark + NGN
     localStorage.setItem(
       'talenttrust-user-preferences',
-      JSON.stringify({ theme: 'dark', amountFormat: 'ngn', toastDensity: 'compact', quietMode: true })
+      JSON.stringify({ theme: 'dark', amountFormat: 'ngn', toastDensity: 'compact', formDensity: 'compact', quietMode: true })
     );
 
     renderWithProvider(<SettingsPanel isOpen={true} onClose={() => {}} />);
@@ -155,6 +178,10 @@ describe('SettingsPanel', () => {
     // Toast density: compact should be checked
     const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
     expect(within(densityGroup).getByRole('radio', { name: /compact/i }).getAttribute('aria-checked')).toBe('true');
+
+    // Form density: compact should be checked
+    const formDensityGroup = screen.getByRole('radiogroup', { name: /form density/i });
+    expect(within(formDensityGroup).getByRole('radio', { name: /compact/i }).getAttribute('aria-checked')).toBe('true');
 
     // Quiet mode: on
     expect(screen.getByRole('switch', { name: /quiet mode/i }).getAttribute('aria-checked')).toBe('true');
@@ -317,6 +344,10 @@ describe('SettingsPanel', () => {
     // Toast density radiogroup
     const densityGroup = screen.getByRole('radiogroup', { name: /toast density/i });
     expect(densityGroup).toBeInTheDocument();
+    
+    // Form density radiogroup
+    const formDensityGroup = screen.getByRole('radiogroup', { name: /form density/i });
+    expect(formDensityGroup).toBeInTheDocument();
     
     // Quiet mode switch
     const quietSwitch = screen.getByRole('switch', { name: /quiet mode/i });
