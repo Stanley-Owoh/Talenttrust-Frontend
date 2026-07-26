@@ -1,3 +1,5 @@
+ 'use client';
+
 export type ReputationEvent = {
   id: string;
   type: string;
@@ -12,6 +14,11 @@ export type ReputationProfileProps = {
   history?: ReputationEvent[];
   /** Maximum possible score value. Used for aria-valuemax on the meter role. */
   maxScore?: number;
+  /**
+   * When false, filter/sort stay local and are not written to the URL.
+   * Defaults to true so shareable links work on the reputation page.
+   */
+  syncUrl?: boolean;
 };
 
 export type ReputationBand = {
@@ -54,53 +61,159 @@ export function resolveReputationLevel(score: number, maxScore: number): string 
 const reputationSummary =
   'Reputation represents verified trust signals and activity history, not sensitive personal metadata. Privacy-friendly defaults keep your profile safe.';
 
+import React, { useMemo, useState } from 'react';
+import { ConfirmDialog } from './ConfirmDialog';
+import { useToast } from './toast/toast-provider';
+
 export default function ReputationProfile({
   name,
   score,
   level,
   history = [],
   maxScore = 5,
+  syncUrl = true,
 }: ReputationProfileProps) {
+  let showSuccess: ReturnType<typeof useToast>['showSuccess'] | null = null;
+  try {
+    ({ showSuccess } = useToast());
+  } catch {
+    showSuccess = null;
+  }
   const hasReputation = typeof score === 'number' && score >= 0;
   const showPartial = hasReputation && history.length === 0;
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [events, setEvents] = useState(history);
+  const [announcement, setAnnouncement] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const selectedCount = selectedIds.length;
+  const allSelected = events.length > 0 && selectedCount === events.length;
+  const hasPartialSelection = selectedCount > 0 && selectedCount < events.length;
+
+  const selectedEvents = useMemo(
+    () => events.filter((event) => selectedIds.includes(event.id)),
+    [events, selectedIds],
+  );
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const availableTypes = useMemo(() => getAvailableHistoryTypes(history), [history]);
+  const typeOptions = useMemo(() => [DEFAULT_TYPE, ...availableTypes], [availableTypes]);
+
+  const [selectedType, setSelectedType] = useState<string>(() =>
+    syncUrl ? getValidType(searchParams.get('type'), availableTypes) : DEFAULT_TYPE
+  );
+  const [sortDir, setSortDir] = useState<ReputationSortDir>(() =>
+    syncUrl ? getValidDir(searchParams.get('dir')) : DEFAULT_DIR
+  );
+
+  // Restore filter/sort from the URL on load and on back/forward navigation.
+  useEffect(() => {
+    if (!syncUrl) return;
+    setSelectedType(getValidType(searchParams.get('type'), availableTypes));
+    setSortDir(getValidDir(searchParams.get('dir')));
+  }, [searchParams, availableTypes, syncUrl]);
+
+  // Debounced write of filter/sort into the URL (shareable + reload-safe).
+  useEffect(() => {
+    if (!syncUrl) return;
+
+    const state = { type: selectedType, sort: 'date' as const, dir: sortDir };
+    if (isReputationUrlInSync((key) => searchParams.get(key), state, availableTypes)) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const query = buildReputationQueryString(searchParams, state);
+      router.replace(query ? `?${query}` : '?');
+    }, REPUTATION_URL_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedType, sortDir, router, searchParams, availableTypes, syncUrl]);
+
+  const filteredHistory = useMemo(
+    () => filterAndSortHistory(history, selectedType, sortDir),
+    [history, selectedType, sortDir]
+  );
 
   const resolvedLevel = level !== undefined
     ? level
     : (hasReputation ? resolveReputationLevel(score, maxScore) : 'Community Member');
 
+  const announce = (message: string) => {
+    setAnnouncement(message);
+  };
+
+  const clearSelection = () => {
+    setSelectedIds([]);
+    announce('Selection cleared.');
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((current) => (
+      current.includes(id)
+        ? current.filter((selectedId) => selectedId !== id)
+        : [...current, id]
+    ));
+  };
+
+  const toggleAll = () => {
+    setSelectedIds((current) => (
+      current.length === events.length ? [] : events.map((event) => event.id)
+    ));
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedEvents.length === 0) return;
+    setConfirmOpen(true);
+  };
+
+  const confirmDeleteSelected = () => {
+    const count = selectedEvents.length;
+    setEvents((current) => current.filter((event) => !selectedIds.includes(event.id)));
+    setSelectedIds([]);
+    setConfirmOpen(false);
+    announce(`Deleted ${count} reputation ${count === 1 ? 'item' : 'items'}.`);
+    showSuccess?.({
+      title: 'Bulk delete complete',
+      description: `Deleted ${count} reputation ${count === 1 ? 'item' : 'items'}.`,
+      duration: 3000,
+    });
+  };
+
+  const handleExportSelected = () => {
+    if (selectedEvents.length === 0) return;
+    const payload = selectedEvents.map((event) => ({
+      id: event.id,
+      type: event.type,
+      summary: event.summary,
+      date: event.date,
+    }));
+    void payload;
+    announce(`Exported ${selectedEvents.length} reputation ${selectedEvents.length === 1 ? 'item' : 'items'}.`);
+  };
+
   return (
     <section className="w-full max-w-5xl mx-auto space-y-8 px-4 py-10 sm:px-6 lg:px-8" aria-labelledby="profile-heading">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8">
         <h2 className="sr-only" id="profile-heading">Reputation profile for {name}</h2>
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-2xl font-semibold text-white">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--foreground)] text-2xl font-semibold text-[var(--background)]">
               {name.slice(0, 1).toUpperCase()}
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500">Reputation profile</p>
-              <h1 className="text-2xl font-semibold text-slate-950">{name}</h1>
+              <p className="text-sm font-medium text-[var(--muted-foreground)]">Reputation profile</p>
+              <h1 className="text-2xl font-semibold text-[var(--foreground)]">{name}</h1>
             </div>
           </div>
-          <div className="flex flex-col gap-2 rounded-3xl bg-slate-50 p-4 text-slate-700 sm:p-5">
-            <p className="text-sm font-medium text-slate-500">Privacy-friendly defaults</p>
+          <div className="flex flex-col gap-2 rounded-3xl bg-[var(--muted)] p-4 text-[var(--muted-foreground)] sm:p-5">
+            <p className="text-sm font-medium text-[var(--muted-foreground)]">Privacy-friendly defaults</p>
             <p className="text-sm leading-6">Only summary trust signals are shown by default. Sensitive metadata remains hidden.</p>
           </div>
         </div>
 
-        {/**
-          * Reputation score meter with accessible semantics.
-          *
-          * The score is rendered within a span with role="meter" to expose
-          * the measured value to assistive technologies. The meter includes
-          * aria-valuenow, aria-valuemin (0), and aria-valuemax (configurable
-          * maxScore, defaulting to 5) so screen readers understand the score
-          * as a quantified range value rather than plain text.
-          *
-          * When score is absent or null, the "No reputation yet" text is shown
-          * without a meter role.
-          */}
-         <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
             <p className="text-sm font-medium text-slate-500" id="reputation-score-label">Reputation score</p>
             <p className="mt-3 text-3xl font-semibold text-slate-950" aria-labelledby="reputation-score-label">
@@ -120,9 +233,9 @@ export default function ReputationProfile({
               ) : 'No reputation yet'}
             </p>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-            <p className="text-sm font-medium text-slate-500" id="reputation-level-label">Level</p>
-            <p className="mt-3 text-xl font-semibold text-slate-950" aria-labelledby="reputation-level-label">
+           <div className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5">
+             <p className="text-sm font-medium text-[var(--muted-foreground)]" id="reputation-level-label">Level</p>
+             <p className="mt-3 text-xl font-semibold text-[var(--foreground)]" aria-labelledby="reputation-level-label">
               {hasReputation ? (
                 <>
                   <span className="sr-only">Level </span>{resolvedLevel}
@@ -130,15 +243,15 @@ export default function ReputationProfile({
               ) : 'Pending'}
             </p>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-            <p className="text-sm font-medium text-slate-500">Explanation</p>
-            <p className="mt-3 text-sm leading-6 text-slate-700">{reputationSummary}</p>
+           <div className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5">
+             <p className="text-sm font-medium text-[var(--muted-foreground)]">Explanation</p>
+             <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">{reputationSummary}</p>
           </div>
         </div>
 
         {hasReputation && (
-          <div className="mt-6 border-t border-slate-200 pt-6">
-            <h2 className="text-sm font-semibold text-slate-900" id="reputation-legend-title">
+           <div className="mt-6 border-t border-[var(--border)] pt-6">
+             <h2 className="text-sm font-semibold text-[var(--foreground)]" id="reputation-legend-title">
               Reputation Level Legend
             </h2>
             <ul
@@ -153,13 +266,12 @@ export default function ReputationProfile({
                 return (
                   <li
                     key={band.label}
-                    className={`rounded-2xl border p-3 transition-colors ${
-                      isActive
+                    className={`rounded-2xl border p-3 transition-colors ${isActive
                         ? 'border-indigo-200 bg-indigo-50/50 text-indigo-900 font-semibold'
                         : 'border-slate-200 bg-slate-50/50 text-slate-600'
-                    }`}
+                      }`}
                   >
-                    <p className="font-bold text-xs uppercase tracking-wider text-slate-400">
+                    <p className="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
                       {band.min.toFixed(1)} - {band.max.toFixed(1)}
                     </p>
                     <p className="mt-1 text-sm">{band.label}</p>
@@ -171,73 +283,183 @@ export default function ReputationProfile({
         )}
 
         {showPartial && (
-          <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
-            <p className="font-semibold">Partial reputation data</p>
-            <p className="mt-1 text-sm leading-6">
+           <div className="mt-6 rounded-3xl border-[var(--status-warning-bg)] bg-[var(--status-warning-bg)] p-4 text-[var(--status-warning-foreground)]">
+             <p className="font-semibold">Partial reputation data</p>
+             <p className="mt-1 text-sm leading-6">
               A score exists but history is currently hidden until verified actions are available. This keeps your profile safe and private.
             </p>
           </div>
         )}
       </div>
 
-      {/**
-       * Reputation history section.
-       *
-       * Semantic notes:
-       * - Uses `<ol>` (ordered list) because reputation history is inherently
-       *   chronological — the order of events is meaningful.
-       * - Each event date is wrapped in a `<time>` element whose `dateTime`
-       *   attribute carries a machine-readable ISO-8601 value, improving
-       *   assistive-technology support and SEO date parsing.
-       * - When the date string is not a valid ISO date the `dateTime` attribute
-       *   is omitted, keeping the markup valid.
-       */}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-slate-950">Reputation history</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <h2 className="text-xl font-semibold text-[var(--foreground)]">Reputation history</h2>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
               History is shown as safe, aggregated events with no wallet or personal metadata by default.
             </p>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600">
-            {history.length ? 'Visible' : 'Private by default'}
-          </span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            {history.length > 0 && (
+              <>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="history-type-filter" className="text-sm font-medium text-slate-700">
+                    Filter:
+                  </label>
+                  <select
+                    id="history-type-filter"
+                    data-testid="reputation-type-filter"
+                    className="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    value={selectedType}
+                    onChange={(e) => setSelectedType(e.target.value)}
+                  >
+                    {typeOptions.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="history-sort-dir" className="text-sm font-medium text-slate-700">
+                    Sort:
+                  </label>
+                  <select
+                    id="history-sort-dir"
+                    data-testid="reputation-sort-dir"
+                    className="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    value={sortDir}
+                    onChange={(e) => setSortDir(e.target.value as ReputationSortDir)}
+                  >
+                    <option value="desc">Newest first</option>
+                    <option value="asc">Oldest first</option>
+                  </select>
+                </div>
+                <div aria-live="polite" className="sr-only">
+                  Showing {filteredHistory.length}{' '}
+                  {filteredHistory.length === 1 ? 'event' : 'events'}
+                  {selectedType !== DEFAULT_TYPE ? ` of type ${selectedType}` : ''}
+                  , {sortDir === 'asc' ? 'oldest first' : 'newest first'}
+                </div>
+              </>
+            )}
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600">
+              {history.length ? 'Visible' : 'Private by default'}
+            </span>
+          </div>
         </div>
 
-        {history.length === 0 ? (
+        <p aria-live="polite" aria-atomic="true" className="sr-only">
+          {announcement}
+        </p>
+
+        {events.length === 0 ? (
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-slate-700">
             <p className="font-semibold text-slate-900">No reputation history available yet.</p>
             <p className="mt-2 text-sm leading-6">
               Reputation history appears once you complete verified actions. Your profile remains safe and privacy-friendly until then.
             </p>
           </div>
+        ) : filteredHistory.length === 0 ? (
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-slate-700">
+            <p className="font-semibold text-slate-900">No events match this filter.</p>
+            <p className="mt-2 text-sm leading-6">
+              Try choosing a different event type, or select All to see the full reputation history.
+            </p>
+          </div>
         ) : (
-          <ol className="space-y-4">
-            {history.map((event) => {
-              // Determine whether the date string is a parseable ISO date.
-              // If it is, expose the ISO value via dateTime for machine readability.
-              const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
-              return (
-                <li key={event.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-500">{event.type}</p>
-                      <p className="mt-1 text-base font-semibold text-slate-950">{event.summary}</p>
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-slate-800">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(node) => {
+                    if (node) {
+                      node.indeterminate = hasPartialSelection;
+                    }
+                  }}
+                  onChange={toggleAll}
+                  aria-label="Select all reputation items"
+                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                />
+                Select all
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportSelected}
+                  disabled={selectedCount === 0}
+                  className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Export selected
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteSelected}
+                  disabled={selectedCount === 0}
+                  className="rounded-2xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Delete selected
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  disabled={selectedCount === 0}
+                  className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Clear selection
+                </button>
+              </div>
+            </div>
+            <ol className="space-y-4">
+              {events.map((event) => {
+                const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
+                const isSelected = selectedIds.includes(event.id);
+                return (
+                  <li key={event.id} className={`rounded-3xl border p-5 ${isSelected ? 'border-slate-900 bg-slate-100' : 'border-slate-200 bg-slate-50'}`}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <label className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelection(event.id)}
+                          aria-label={`Select reputation item ${event.type}: ${event.summary}`}
+                          className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                        />
+                        <span>
+                          <span className="block text-sm font-medium text-slate-500">{event.type}</span>
+                          <span className="mt-1 block text-base font-semibold text-slate-950">{event.summary}</span>
+                        </span>
+                      </label>
+                      <time
+                        className="text-sm text-slate-500 sm:text-right"
+                        {...(isValidDate ? { dateTime: event.date } : {})}
+                      >
+                        {event.date}
+                      </time>
                     </div>
-                    <time
-                      className="text-sm text-slate-500"
-                      {...(isValidDate ? { dateTime: event.date } : {})}
-                    >
-                      {event.date}
-                    </time>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        tone="destructive"
+        title="Delete selected reputation items?"
+        description={`This will permanently delete ${selectedCount} selected reputation ${selectedCount === 1 ? 'item' : 'items'}. This action cannot be undone.`}
+        confirmLabel="Delete selected"
+        cancelLabel="Cancel"
+        onConfirm={confirmDeleteSelected}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </section>
   );
-}
+});
+
+export default ReputationProfile;

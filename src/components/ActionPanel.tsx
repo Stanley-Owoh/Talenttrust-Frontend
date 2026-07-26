@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useToast } from '@/components/toast/toast-provider';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -156,12 +156,10 @@ const ActionPanel = ({
       onDispute?.('Dispute opened from action panel.');
     }
     setConfirmAction(null);
-    triggerElementRef.current?.focus();
   };
 
   const handleCancel = () => {
     setConfirmAction(null);
-    triggerElementRef.current?.focus();
   };
 
   // Inline dispute form state.
@@ -177,6 +175,7 @@ const ActionPanel = ({
   /** Opens the inline dispute form and moves focus to the textarea. */
   const handleOpenDisputeForm = (event: React.MouseEvent<HTMLButtonElement>) => {
     triggerElementRef.current = event.currentTarget;
+    disputeTriggerRef.current = event.currentTarget;
     setDisputeReason('');
     setDisputeReasonError('');
     setDisputeFormOpen(true);
@@ -185,7 +184,7 @@ const ActionPanel = ({
   const previousDisputeFormOpenRef = useRef(false);
 
   // Move focus into the textarea when the form becomes visible, or restore focus when it closes.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (disputeFormOpen) {
       disputeTextareaRef.current?.focus();
     } else if (previousDisputeFormOpenRef.current) {
@@ -229,21 +228,23 @@ const ActionPanel = ({
     return () => clearTimeout(timeoutId);
   }, [disputeReason, disputeFormOpen]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const wasDialogOpen = previousConfirmActionRef.current !== null;
 
-    if (wasDialogOpen && confirmAction === null) {
-      const triggerButton = triggerElementRef.current;
+    if (!wasDialogOpen || confirmAction !== null || isLoading) {
+      previousConfirmActionRef.current = confirmAction;
+      return;
+    }
 
-      if (triggerButton && document.contains(triggerButton) && !triggerButton.disabled) {
-        triggerButton.focus();
-      } else {
-        panelRef.current?.focus();
-      }
+    const triggerButton = triggerElementRef.current;
+    if (triggerButton && document.contains(triggerButton) && !triggerButton.disabled) {
+      triggerButton.focus();
+    } else {
+      panelRef.current?.focus();
     }
 
     previousConfirmActionRef.current = confirmAction;
-  }, [confirmAction]);
+  }, [confirmAction, isLoading]);
 
   /** Closes the inline form and returns focus to the button that opened it. */
   const closeDisputeForm = () => {

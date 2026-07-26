@@ -35,7 +35,12 @@ export function useDialogFocusTrap({
 
     triggerRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    initialFocusRef.current?.focus();
+
+    if (initialFocusRef.current instanceof HTMLElement) {
+      initialFocusRef.current.focus();
+    } else if (dialogRef.current instanceof HTMLElement) {
+      dialogRef.current.focus();
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {

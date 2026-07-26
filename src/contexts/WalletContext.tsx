@@ -124,6 +124,8 @@ export function WalletProvider({
   const [address, setAddress] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState('');
+  const announcementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Safely obtain toast functions; fallback to no-ops if provider is absent
   // (e.g. during unit tests that render WalletProvider without ToastProvider).
   const useSafeToast = () => {
@@ -136,9 +138,20 @@ export function WalletProvider({
   const { showSuccess, showError } = useSafeToast();
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isConnectingRef = useRef(false);
   const STORAGE_KEY = 'wallet_connected_address';
 
+  const announceResult = useCallback((message: string) => {
+    if (announcementTimerRef.current) {
+      clearTimeout(announcementTimerRef.current);
+    }
 
+    setAnnouncement('');
+    announcementTimerRef.current = setTimeout(() => {
+      setAnnouncement(message);
+      announcementTimerRef.current = null;
+    }, 150);
+  }, []);
 
   const disconnect = useCallback(() => {
     setAddress(null);
@@ -172,6 +185,14 @@ export function WalletProvider({
     if (stored) {
       setAddress(stored);
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (announcementTimerRef.current) {
+        clearTimeout(announcementTimerRef.current);
+      }
+    };
   }, []);
 
   // Idle auto‑disconnect handling
@@ -211,6 +232,8 @@ export function WalletProvider({
    *   4. Validate and persist the returned Stellar public key.
    */
   const connect = useCallback(async () => {
+    if (isConnectingRef.current) return;
+    isConnectingRef.current = true;
     setIsConnecting(true);
     setError(null);
     try {
@@ -223,6 +246,7 @@ export function WalletProvider({
       // once the real wallet integration is in place.
       setAddress(MOCKED_STELLAR_ADDRESS);
       setItem(STORAGE_KEY, MOCKED_STELLAR_ADDRESS);
+      announceResult('Wallet connected');
     } catch (_err) {
       const message = 'Failed to connect wallet';
       /**
@@ -241,13 +265,18 @@ export function WalletProvider({
         title: 'Wallet connection failed',
         description: message,
       });
+      announceResult('Wallet connection failed');
     } finally {
+      isConnectingRef.current = false;
       setIsConnecting(false);
     }
-  }, []);
+  }, [showError]);
 
   return (
     <WalletContext.Provider value={{ address, isConnecting, error, connect, disconnect }}>
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="wallet-announcer">
+        {announcement}
+      </div>
       {children}
     </WalletContext.Provider>
   );

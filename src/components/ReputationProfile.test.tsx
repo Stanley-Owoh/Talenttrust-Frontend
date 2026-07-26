@@ -26,12 +26,21 @@
  */
 
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import ReputationProfile, {
   ReputationEvent,
   ReputationProfileProps,
 } from './ReputationProfile';
 import { assertNoA11yViolations } from '@/test-utils/a11y';
+
+jest.mock('./toast/toast-provider', () => ({
+  useToast: () => ({
+    showSuccess: jest.fn(),
+    showError: jest.fn(),
+    dismissToast: jest.fn(),
+    toasts: [],
+  }),
+}));
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
@@ -59,8 +68,9 @@ const HISTORY_EVENTS: ReputationEvent[] = [
 ];
 
 // Convenience wrapper so every render call uses the exported prop type.
+// syncUrl is off here so unit tests stay isolated from next/navigation URL writes.
 function renderProfile(props: ReputationProfileProps) {
-  return render(<ReputationProfile {...props} />);
+  return render(<ReputationProfile syncUrl={false} {...props} />);
 }
 
 function getLevelText() {
@@ -256,8 +266,10 @@ describe('ReputationProfile – full reputation (score + history)', () => {
   });
 
   it('renders each event type label', () => {
-    HISTORY_EVENTS.forEach((ev) => {
-      expect(screen.getByText(ev.type)).toBeInTheDocument();
+    const ol = document.querySelector('ol');
+    const items = ol ? within(ol).getAllByRole('listitem') : [];
+    HISTORY_EVENTS.forEach((ev, idx) => {
+      expect(within(items[idx]).getByText(ev.type)).toBeInTheDocument();
     });
   });
 
@@ -268,17 +280,83 @@ describe('ReputationProfile – full reputation (score + history)', () => {
   });
 
   it('renders each event date', () => {
+    const ol = document.querySelector('ol');
     HISTORY_EVENTS.forEach((ev) => {
-      expect(screen.getByText(ev.date)).toBeInTheDocument();
+      expect(within(ol!).getByText(ev.date)).toBeInTheDocument();
     });
   });
 
-  it('renders events in DOM order matching the history array', () => {
+  it('renders events newest-first by default (matching history array order)', () => {
     const ol = document.querySelector('ol');
     const items = ol ? within(ol).getAllByRole('listitem') : [];
     HISTORY_EVENTS.forEach((ev, idx) => {
       expect(within(items[idx]).getByText(ev.summary)).toBeInTheDocument();
     });
+  });
+
+  it('selects all reputation items from the bulk toolbar', () => {
+    fireEvent.click(screen.getByRole('checkbox', { name: /select all reputation items/i }));
+
+    HISTORY_EVENTS.forEach((event) => {
+      expect(
+        screen.getByRole('checkbox', {
+          name: `Select reputation item ${event.type}: ${event.summary}`,
+        }),
+      ).toBeChecked();
+    });
+  });
+
+  it('supports partial selection and bulk clear', () => {
+    fireEvent.click(screen.getByRole('checkbox', {
+      name: `Select reputation item ${HISTORY_EVENTS[0].type}: ${HISTORY_EVENTS[0].summary}`,
+    }));
+
+    expect(
+      screen.getByRole('checkbox', {
+        name: `Select reputation item ${HISTORY_EVENTS[0].type}: ${HISTORY_EVENTS[0].summary}`,
+      }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /select all reputation items/i }),
+    ).not.toBeChecked();
+
+    fireEvent.click(screen.getByRole('button', { name: /clear selection/i }));
+
+    expect(
+      screen.getByRole('checkbox', {
+        name: `Select reputation item ${HISTORY_EVENTS[0].type}: ${HISTORY_EVENTS[0].summary}`,
+      }),
+    ).not.toBeChecked();
+  });
+
+  it('confirms destructive bulk delete and clears the selected rows', async () => {
+    fireEvent.click(screen.getByRole('checkbox', {
+      name: /select all reputation items/i,
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: /delete selected/i }));
+
+    expect(
+      screen.getByRole('alertdialog', { name: /delete selected reputation items\?/i }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(screen.getByRole('alertdialog', { name: /delete selected reputation items\?/i })).getByRole('button', { name: /delete selected/i }));
+
+    expect(await screen.findByText(/Deleted 3 reputation items\./i)).toBeInTheDocument();
+    expect(screen.getByText(/No reputation history available yet\./i)).toBeInTheDocument();
+    expect(screen.queryAllByRole('checkbox', { name: /select reputation item/i })).toHaveLength(0);
+  });
+
+  it('announces export results for a partial bulk selection', () => {
+    fireEvent.click(screen.getByRole('checkbox', {
+      name: `Select reputation item ${HISTORY_EVENTS[0].type}: ${HISTORY_EVENTS[0].summary}`,
+    }));
+    fireEvent.click(screen.getByRole('checkbox', {
+      name: `Select reputation item ${HISTORY_EVENTS[1].type}: ${HISTORY_EVENTS[1].summary}`,
+    }));
+    fireEvent.click(screen.getByRole('button', { name: /export selected/i }));
+
+    expect(screen.getByText(/Exported 2 reputation items\./i)).toBeInTheDocument();
   });
 });
 
@@ -673,7 +751,146 @@ describe('ReputationProfile – reputation score meter (issue #245)', () => {
     });
   });
 
-  describe('reputation level legend and derived level', () => {
+  describe('ReputationProfile – high-contrast theme tokens (a11y/reputation-31)', () => {
+  const THEME_HISTORY: ReputationEvent[] = [
+    { id: 'ev-1', type: 'Verification', summary: 'Completed identity verification', date: '2026-04-24' },
+  ];
+
+  it('uses CSS variable tokens for card backgrounds instead of fixed bg-white', () => {
+    const { container } = renderProfile({
+      name: 'Token User',
+      score: 50,
+      history: THEME_HISTORY,
+    });
+    const cards = container.querySelectorAll('.rounded-3xl.border');
+    cards.forEach((card) => {
+      const cls = card.className;
+      expect(cls).not.toMatch(/\bbg-white\b/);
+      expect(cls).toMatch(/var\(--card\)/);
+    });
+  });
+
+  it('uses CSS variable tokens for surface backgrounds instead of fixed bg-slate-50', () => {
+    const { container } = renderProfile({
+      name: 'Surface User',
+      score: 50,
+      history: THEME_HISTORY,
+    });
+    const surfaceElements = container.querySelectorAll('.rounded-3xl.border\\[var\\(--border\\)\\]');
+    surfaceElements.forEach((el) => {
+      const cls = el.className;
+      expect(cls).not.toMatch(/bg-slate-\d+/);
+    });
+  });
+
+  it('uses CSS variable tokens for text instead of fixed text-slate-*', () => {
+    const { container } = renderProfile({
+      name: 'Text Token User',
+      score: 50,
+      history: THEME_HISTORY,
+    });
+    // Headings should use var(--foreground)
+    const headings = container.querySelectorAll('h1, h2');
+    headings.forEach((h) => {
+      const cls = h.className;
+      if (cls.includes('sr-only')) return;
+      expect(cls).not.toMatch(/text-slate-\d+/);
+    });
+    // Labels should use var(--muted-foreground)
+    const labels = container.querySelectorAll('#reputation-score-label, #reputation-level-label');
+    labels.forEach((label) => {
+      expect(label.className).not.toMatch(/text-slate-\d+/);
+    });
+  });
+
+  it('uses CSS variable tokens for borders instead of fixed border-slate-200', () => {
+    const { container } = renderProfile({
+      name: 'Border User',
+      score: 50,
+      history: THEME_HISTORY,
+    });
+    const bordered = container.querySelectorAll('.border');
+    bordered.forEach((el) => {
+      const cls = el.className;
+      if (cls.includes('border-t')) return;
+      if (cls.includes('rounded-full')) return;
+      expect(cls).not.toMatch(/\bborder-slate-200\b/);
+    });
+  });
+
+  it('uses theme-aware tokens for the amber partial-data banner', () => {
+    renderProfile({
+      name: 'Amber Banner User',
+      score: 50,
+      history: [],
+    });
+    const warningBanner = screen.getByText(/Partial reputation data/i).closest('div');
+    expect(warningBanner).not.toBeNull();
+    expect(warningBanner!.className).toMatch(/var\(--status-warning/);
+  });
+
+  it('uses theme-aware tokens for active legend band', () => {
+    renderProfile({
+      name: 'Legend Active User',
+      score: 3.5,
+      history: [],
+    });
+    const legendList = document.getElementById('reputation-legend');
+    expect(legendList).not.toBeNull();
+    const items = legendList!.querySelectorAll('li');
+    expect(items.length).toBeGreaterThan(0);
+    // At least one item should be active with var(--legend-active*) tokens
+    const activeItems = Array.from(items).filter(
+      (item) => item.className.includes('var(--legend-active')
+    );
+    expect(activeItems.length).toBe(1);
+  });
+
+  it('uses theme-aware tokens for inactive legend bands', () => {
+    renderProfile({
+      name: 'Legend Inactive User',
+      score: 0,
+      history: [],
+    });
+    const legendList = document.getElementById('reputation-legend');
+    expect(legendList).not.toBeNull();
+    const items = legendList!.querySelectorAll('li');
+    expect(items.length).toBeGreaterThan(0);
+    // Items that are not active should use var(--border) and var(--muted-foreground)
+    const inactiveItems = Array.from(items).filter(
+      (item) => !item.className.includes('var(--legend-active')
+    );
+    expect(inactiveItems.length).toBe(items.length - 1);
+    inactiveItems.forEach((item) => {
+      expect(item.className).toMatch(/var\(--border\)/);
+    });
+  });
+
+  it('avatar uses var(--foreground) background with var(--background) text', () => {
+    renderProfile({
+      name: 'Avatar User',
+      score: 50,
+      history: THEME_HISTORY,
+    });
+    const avatar = screen.getByText('A', { selector: 'div' });
+    expect(avatar).toBeInTheDocument();
+    expect(avatar.className).toMatch(/var\(--foreground\)/);
+    expect(avatar.className).toMatch(/var\(--background\)/);
+  });
+
+  it('legend band range text uses var(--muted-foreground)', () => {
+    renderProfile({
+      name: 'Legend Range User',
+      score: 3.5,
+      history: [],
+    });
+    const rangeText = document.querySelector('#reputation-legend li p.font-bold');
+    expect(rangeText).not.toBeNull();
+    expect(rangeText!.className).toMatch(/var\(--muted-foreground\)/);
+  });
+});
+
+describe('reputation level legend and derived level', () => {
     it('does not render the legend when there is no score', () => {
       renderProfile({ name: 'No Score User', score: undefined });
       expect(screen.queryByText(/Reputation Level Legend/i)).not.toBeInTheDocument();
@@ -869,3 +1086,96 @@ describe('ReputationProfile – reputation score meter (issue #245)', () => {
       expect(document.querySelector('ol')).toBeNull();
     });
   });
+// ---------------------------------------------------------------------------
+// 12. History filter + sort (local, syncUrl=false)
+// ---------------------------------------------------------------------------
+
+describe('ReputationProfile – history filtering and sorting', () => {
+  const FILTER_EVENTS: ReputationEvent[] = [
+    {
+      id: 'ev-1',
+      type: 'Verification',
+      summary: 'Completed identity verification',
+      date: '2026-04-24',
+    },
+    {
+      id: 'ev-2',
+      type: 'On-chain review',
+      summary: 'Received positive trust signal',
+      date: '2026-04-23',
+    },
+    {
+      id: 'ev-3',
+      type: 'On-chain review',
+      summary: 'Another trust signal',
+      date: '2026-04-20',
+    },
+  ];
+
+  it('renders filter with All and available types sorted', () => {
+    renderProfile({ name: 'Filter User', score: 80, history: FILTER_EVENTS });
+    const select = screen.getByLabelText(/Filter:/i);
+    const options = within(select).getAllByRole('option');
+    expect(options).toHaveLength(3);
+    expect(options[0]).toHaveTextContent('All');
+    expect(options[1]).toHaveTextContent('On-chain review');
+    expect(options[2]).toHaveTextContent('Verification');
+  });
+
+  it('filter narrows entries and All restores them', () => {
+    renderProfile({ name: 'Filter User', score: 80, history: FILTER_EVENTS });
+    const select = screen.getByLabelText(/Filter:/i);
+
+    fireEvent.change(select, { target: { value: 'Verification' } });
+    let items = within(document.querySelector('ol')!).getAllByRole('listitem');
+    expect(items).toHaveLength(1);
+    expect(screen.getByText('Completed identity verification')).toBeInTheDocument();
+    expect(screen.queryByText('Received positive trust signal')).not.toBeInTheDocument();
+
+    fireEvent.change(select, { target: { value: 'All' } });
+    items = within(document.querySelector('ol')!).getAllByRole('listitem');
+    expect(items).toHaveLength(3);
+  });
+
+  it('shows empty guidance when filter matches nothing', () => {
+    const { rerender } = renderProfile({
+      name: 'Filter User',
+      score: 80,
+      history: FILTER_EVENTS,
+    });
+    fireEvent.change(screen.getByLabelText(/Filter:/i), {
+      target: { value: 'Verification' },
+    });
+
+    // History updates while a now-absent type remains selected.
+    rerender(
+      <ReputationProfile
+        syncUrl={false}
+        name="Filter User"
+        score={80}
+        history={[FILTER_EVENTS[1], FILTER_EVENTS[2]]}
+      />
+    );
+
+    expect(screen.getByText(/No events match this filter/i)).toBeInTheDocument();
+    expect(document.querySelector('ol')).not.toBeInTheDocument();
+  });
+
+  it('sorts oldest first when sort direction changes', () => {
+    renderProfile({ name: 'Sort User', score: 80, history: FILTER_EVENTS });
+    fireEvent.change(screen.getByLabelText(/Sort:/i), {
+      target: { value: 'asc' },
+    });
+    const items = within(document.querySelector('ol')!).getAllByRole('listitem');
+    expect(within(items[0]).getByText('Another trust signal')).toBeInTheDocument();
+    expect(within(items[2]).getByText('Completed identity verification')).toBeInTheDocument();
+  });
+
+  it('announces result count via aria-live', () => {
+    renderProfile({ name: 'Filter User', score: 80, history: FILTER_EVENTS });
+    fireEvent.change(screen.getByLabelText(/Filter:/i), {
+      target: { value: 'On-chain review' },
+    });
+    expect(screen.getByText(/Showing 2 events of type On-chain review/i)).toBeInTheDocument();
+  });
+});

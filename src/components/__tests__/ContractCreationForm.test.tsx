@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import {
   ContractCreationForm,
@@ -13,6 +14,43 @@ jest.mock('@/lib/stellarAddress', () => ({
   isValidStellarAddress: jest.fn(),
 }));
 
+const VALID_ADDRESS = 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H';
+const INVALID_ADDRESS = 'INVALID123';
+
+function createFocusTestHarness() {
+  const onCancel = jest.fn();
+  const onSubmit = jest.fn();
+
+  function Harness() {
+    const [isOpen, setIsOpen] = React.useState(false);
+
+    return (
+      <>
+        <button type="button" onClick={() => setIsOpen(true)}>
+          Open contract dialog
+        </button>
+        <button type="button" onClick={() => setIsOpen(false)}>
+          Close externally
+        </button>
+        {isOpen && (
+          <ContractCreationForm
+            onSubmit={(contract) => {
+              onSubmit(contract);
+              setIsOpen(false);
+            }}
+            onCancel={() => {
+              onCancel();
+              setIsOpen(false);
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  return { Harness, onCancel, onSubmit };
+}
+
 describe('ContractCreationForm', () => {
   const mockOnSubmit = jest.fn();
   const mockOnCancel = jest.fn();
@@ -21,10 +59,6 @@ describe('ContractCreationForm', () => {
     onSubmit: mockOnSubmit,
     onCancel: mockOnCancel,
   };
-
-  // Valid Stellar address for testing
-  const VALID_ADDRESS = 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H';
-  const INVALID_ADDRESS = 'INVALID123';
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -508,6 +542,115 @@ describe('ContractCreationForm', () => {
       await waitFor(() => {
         expect(stellarAddress.isValidStellarAddress).toHaveBeenCalledWith(VALID_ADDRESS);
       });
+    });
+  });
+
+  describe('Focus management', () => {
+    it('moves initial focus to the first form field when opened', async () => {
+      const dialogOnCancel = jest.fn();
+      const user = userEvent.setup();
+
+      function Harness() {
+        const [isOpen, setIsOpen] = React.useState(false);
+
+        return (
+          <>
+            <button type="button" onClick={() => setIsOpen(true)}>
+              Open contract dialog
+            </button>
+            {isOpen && (
+              <ContractCreationForm
+                onCancel={dialogOnCancel}
+                onSubmit={jest.fn()}
+              />
+            )}
+          </>
+        );
+      }
+
+      render(<Harness />);
+
+      const trigger = screen.getByRole('button', { name: 'Open contract dialog' });
+      await user.click(trigger);
+
+      expect(screen.getByLabelText(/contract name/i)).toHaveFocus();
+    });
+
+    it('invokes onCancel when Escape is pressed', async () => {
+      const dialogOnCancel = jest.fn();
+      const user = userEvent.setup();
+
+      function Harness() {
+        const [isOpen, setIsOpen] = React.useState(false);
+
+        return (
+          <>
+            <button type="button" onClick={() => setIsOpen(true)}>
+              Open contract dialog
+            </button>
+            {isOpen && (
+              <ContractCreationForm
+                onCancel={dialogOnCancel}
+                onSubmit={jest.fn()}
+              />
+            )}
+          </>
+        );
+      }
+
+      render(<Harness />);
+
+      await user.click(screen.getByRole('button', { name: 'Open contract dialog' }));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      await user.keyboard('{Escape}');
+
+      expect(dialogOnCancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('traps Tab focus within the dialog while open', async () => {
+      const user = userEvent.setup();
+      const { Harness } = createFocusTestHarness();
+      render(<Harness />);
+
+      await user.click(screen.getByRole('button', { name: 'Open contract dialog' }));
+      const dialog = screen.getByRole('dialog');
+      const contractNameInput = screen.getByLabelText(/contract name/i);
+
+      contractNameInput.focus();
+      await user.tab();
+      expect(screen.getByLabelText(/total value/i)).toHaveFocus();
+
+      const focusable = dialog.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      const focusableArray = Array.from(focusable);
+      const lastFocusable = focusableArray[focusableArray.length - 1];
+      lastFocusable.focus();
+      await user.tab();
+
+      expect(contractNameInput).toHaveFocus();
+    });
+
+    it('cycles Shift+Tab from the first control back to the last control', async () => {
+      const user = userEvent.setup();
+      const { Harness } = createFocusTestHarness();
+      render(<Harness />);
+
+      await user.click(screen.getByRole('button', { name: 'Open contract dialog' }));
+      const contractNameInput = screen.getByLabelText(/contract name/i);
+
+      contractNameInput.focus();
+      await user.tab({ shift: true });
+
+      const dialog = screen.getByRole('dialog');
+      const focusable = dialog.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      const focusableArray = Array.from(focusable);
+      const lastFocusable = focusableArray[focusableArray.length - 1];
+
+      expect(lastFocusable).toHaveFocus();
     });
   });
 });

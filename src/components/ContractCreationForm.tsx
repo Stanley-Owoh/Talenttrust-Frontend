@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useCallback, FormEvent } from 'react';
+import React, { useState, useCallback, FormEvent, useRef } from 'react';
 import { FormField } from './FormField';
 import { ErrorSummary } from './ErrorSummary';
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 import { isValidStellarAddress } from '@/lib/stellarAddress';
 import { sanitizeUserText } from '@/lib/sanitizeUserText';
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 import type { Contract } from '@/types/domain';
 
 export const MAX_CONTRACT_NAME_LENGTH = 200;
@@ -39,6 +41,17 @@ export const ContractCreationForm: React.FC<ContractCreationFormProps> = ({
   onSubmit,
   onCancel,
 }) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const firstFieldRef = useRef<HTMLInputElement>(null);
+
+  useDialogFocusTrap({
+    isOpen: true,
+    dialogRef,
+    initialFocusRef: firstFieldRef,
+    onEscape: onCancel,
+    restoreFocus: true,
+  });
+
   const [contractName, setContractName] = useState('');
   const [totalValue, setTotalValue] = useState('');
   const [currency, setCurrency] = useState('USD');
@@ -47,6 +60,17 @@ export const ContractCreationForm: React.FC<ContractCreationFormProps> = ({
     { label: '', address: '' },
   ]);
   const [errors, setErrors] = useState<Array<{ fieldId: string; message: string }>>([]);
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const firstInputRef = useRef<HTMLInputElement>(null);
+
+  useDialogFocusTrap({
+    isOpen: true,
+    dialogRef,
+    initialFocusRef: firstInputRef,
+    onEscape: onCancel,
+    restoreFocus: true,
+  });
 
   /**
    * Validates the form data and returns an array of error objects.
@@ -164,6 +188,7 @@ export const ContractCreationForm: React.FC<ContractCreationFormProps> = ({
         }));
       
       const contract: Contract = {
+        id: crypto.randomUUID(),
         contractName: sanitizeUserText(contractName, MAX_CONTRACT_NAME_LENGTH),
         parties: validParties,
         totalValue: parseFloat(totalValue),
@@ -213,6 +238,7 @@ export const ContractCreationForm: React.FC<ContractCreationFormProps> = ({
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
       role="dialog"
       aria-labelledby="create-contract-title"
@@ -233,6 +259,7 @@ export const ContractCreationForm: React.FC<ContractCreationFormProps> = ({
             required
           >
             <input
+              ref={firstFieldRef}
               type="text"
               value={contractName}
               onChange={e => setContractName(e.target.value)}

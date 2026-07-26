@@ -16,7 +16,9 @@ An accessible, dismissible banner is surfaced above the milestones list when the
 - **Keyboard accessibility**:
   - The banner container has `role="status"` to announce updates to screen readers.
   - Links inside the banner target the specific milestone element ID (`#milestone-${id}`) to allow users to jump or scroll directly to the milestone card.
+  - Dismiss and in-list links use `focus-visible` rings so keyboard focus is visible without changing layout.
   - Focus is programmatically restored to the scrollable milestones list container when the banner is dismissed, preventing loss of keyboard focus (WCAG 2.1.1).
+  - Enter and Space activate the dismiss control; Tab reaches links, dismiss, then the scroll region.
 
 ## Implementation Details
 
@@ -40,6 +42,11 @@ Run tests with:
 npx jest src/components/__tests__/MilestonesList.test.tsx
 ```
 
+## Reduced-Motion & High-Contrast Support (WCAG 2.1 AA / WCAG 2.3.3)
+
+- **prefers-reduced-motion**: Halts pulse/shimmer loading skeleton animations (`MilestonesListSkeleton`) and collapses state transitions so elements snap instantly into place without non-essential motion.
+- **forced-colors (High Contrast Mode)**: Enforces explicit 1px high-contrast borders around status badge pills (`.status-badge`), summary chips (`[role="listitem"]`), filter radio options, and progress bar tracks (`[role="progressbar"]`), ensuring full visual separation and legibility when forced-colors mode is enabled by the OS or browser.
+
 ## URL Status Filtering
 
 The milestones page synchronizes the active status filter with the URL query parameter `?status=`.
@@ -47,3 +54,4 @@ The milestones page synchronizes the active status filter with the URL query par
 - **Initial State**: Read from the `?status=` URL query parameter using `useSearchParams`. Defaults to `'All'` if omitted or invalid.
 - **Filter Changes**: When a user selects a filter option, `router.replace` updates the URL query string without creating extra history entries.
 - **Accessibility**: Preserves the `aria-live` announcement for screen readers on filter change.
+
