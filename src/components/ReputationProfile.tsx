@@ -1,3 +1,9 @@
+'use client';
+
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { validateReputationEvent } from '@/lib/validateReputationEvent';
+import type { ValidationError } from '@/lib/validateLogin';
+
 export type ReputationEvent = {
   id: string;
   type: string;
@@ -12,6 +18,8 @@ export type ReputationProfileProps = {
   history?: ReputationEvent[];
   /** Maximum possible score value. Used for aria-valuemax on the meter role. */
   maxScore?: number;
+  /** Called when the user saves an edited reputation event. */
+  onSave?: (event: ReputationEvent) => void;
 };
 
 export type ReputationBand = {
@@ -60,6 +68,7 @@ export default function ReputationProfile({
   level,
   history = [],
   maxScore = 5,
+  onSave,
 }: ReputationProfileProps) {
   const hasReputation = typeof score === 'number' && score >= 0;
   const showPartial = hasReputation && history.length === 0;
@@ -67,6 +76,71 @@ export default function ReputationProfile({
   const resolvedLevel = level !== undefined
     ? level
     : (hasReputation ? resolveReputationLevel(score, maxScore) : 'Community Member');
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editedValues, setEditedValues] = useState<{ type: string; summary: string; date: string }>({
+    type: '',
+    summary: '',
+    date: '',
+  });
+  const [editErrors, setEditErrors] = useState<ValidationError[]>([]);
+  const [announcement, setAnnouncement] = useState('');
+  const editTypeRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingId !== null) {
+      editTypeRef.current?.focus();
+    }
+  }, [editingId]);
+
+  const startEditing = useCallback((event: ReputationEvent) => {
+    setEditingId(event.id);
+    setEditedValues({ type: event.type, summary: event.summary, date: event.date });
+    setEditErrors([]);
+    setAnnouncement('');
+  }, []);
+
+  const cancelEditing = useCallback(() => {
+    setEditingId(null);
+    setEditedValues({ type: '', summary: '', date: '' });
+    setEditErrors([]);
+    setAnnouncement('');
+  }, []);
+
+  const handleSave = useCallback(
+    (eventId: string) => {
+      const errors = validateReputationEvent(editedValues);
+      if (errors.length > 0) {
+        setEditErrors(errors);
+        setAnnouncement(`Validation error: ${errors.map((e) => e.message).join('. ')}`);
+        return;
+      }
+
+      const updated: ReputationEvent = { id: eventId, ...editedValues };
+      onSave?.(updated);
+      setEditingId(null);
+      setEditedValues({ type: '', summary: '', date: '' });
+      setEditErrors([]);
+      setAnnouncement('Reputation event updated successfully.');
+    },
+    [editedValues, onSave],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent, eventId: string) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelEditing();
+      } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        handleSave(eventId);
+      }
+    },
+    [cancelEditing, handleSave],
+  );
+
+  const fieldError = (fieldId: string): string | undefined =>
+    editErrors.find((e) => e.fieldId === fieldId)?.message;
 
   return (
     <section className="w-full max-w-5xl mx-auto space-y-8 px-4 py-10 sm:px-6 lg:px-8" aria-labelledby="profile-heading">
@@ -88,19 +162,7 @@ export default function ReputationProfile({
           </div>
         </div>
 
-        {/**
-          * Reputation score meter with accessible semantics.
-          *
-          * The score is rendered within a span with role="meter" to expose
-          * the measured value to assistive technologies. The meter includes
-          * aria-valuenow, aria-valuemin (0), and aria-valuemax (configurable
-          * maxScore, defaulting to 5) so screen readers understand the score
-          * as a quantified range value rather than plain text.
-          *
-          * When score is absent or null, the "No reputation yet" text is shown
-          * without a meter role.
-          */}
-         <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
             <p className="text-sm font-medium text-slate-500" id="reputation-score-label">Reputation score</p>
             <p className="mt-3 text-3xl font-semibold text-slate-950" aria-labelledby="reputation-score-label">
@@ -180,18 +242,6 @@ export default function ReputationProfile({
         )}
       </div>
 
-      {/**
-       * Reputation history section.
-       *
-       * Semantic notes:
-       * - Uses `<ol>` (ordered list) because reputation history is inherently
-       *   chronological — the order of events is meaningful.
-       * - Each event date is wrapped in a `<time>` element whose `dateTime`
-       *   attribute carries a machine-readable ISO-8601 value, improving
-       *   assistive-technology support and SEO date parsing.
-       * - When the date string is not a valid ISO date the `dateTime` attribute
-       *   is omitted, keeping the markup valid.
-       */}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
@@ -215,28 +265,136 @@ export default function ReputationProfile({
         ) : (
           <ol className="space-y-4">
             {history.map((event) => {
-              // Determine whether the date string is a parseable ISO date.
-              // If it is, expose the ISO value via dateTime for machine readability.
+              const isEditing = editingId === event.id;
               const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
+
+              if (isEditing) {
+                return (
+                  <li
+                    key={event.id}
+                    className="rounded-3xl border border-indigo-200 bg-indigo-50/30 p-5"
+                    onKeyDown={(e) => handleKeyDown(e, event.id)}
+                  >
+                    <div className="flex flex-col gap-3">
+                      <div>
+                        <label htmlFor={`edit-type-${event.id}`} className="block text-sm font-medium text-slate-700">
+                          Type
+                        </label>
+                        <input
+                          ref={editTypeRef}
+                          id={`edit-type-${event.id}`}
+                          type="text"
+                          value={editedValues.type}
+                          onChange={(e) => setEditedValues((v) => ({ ...v, type: e.target.value }))}
+                          className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          aria-invalid={!!fieldError('type')}
+                          aria-describedby={fieldError('type') ? `edit-type-error-${event.id}` : undefined}
+                        />
+                        {fieldError('type') && (
+                          <p id={`edit-type-error-${event.id}`} className="mt-1 text-sm text-red-600">
+                            {fieldError('type')}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label htmlFor={`edit-summary-${event.id}`} className="block text-sm font-medium text-slate-700">
+                          Summary
+                        </label>
+                        <input
+                          id={`edit-summary-${event.id}`}
+                          type="text"
+                          value={editedValues.summary}
+                          onChange={(e) => setEditedValues((v) => ({ ...v, summary: e.target.value }))}
+                          className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          aria-invalid={!!fieldError('summary')}
+                          aria-describedby={fieldError('summary') ? `edit-summary-error-${event.id}` : undefined}
+                        />
+                        {fieldError('summary') && (
+                          <p id={`edit-summary-error-${event.id}`} className="mt-1 text-sm text-red-600">
+                            {fieldError('summary')}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label htmlFor={`edit-date-${event.id}`} className="block text-sm font-medium text-slate-700">
+                          Date
+                        </label>
+                        <input
+                          id={`edit-date-${event.id}`}
+                          type="text"
+                          value={editedValues.date}
+                          onChange={(e) => setEditedValues((v) => ({ ...v, date: e.target.value }))}
+                          className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          aria-invalid={!!fieldError('date')}
+                          aria-describedby={fieldError('date') ? `edit-date-error-${event.id}` : undefined}
+                        />
+                        {fieldError('date') && (
+                          <p id={`edit-date-error-${event.id}`} className="mt-1 text-sm text-red-600">
+                            {fieldError('date')}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleSave(event.id)}
+                          className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditing}
+                          className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                );
+              }
+
               return (
                 <li key={event.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
+                    <div className="flex-1">
                       <p className="text-sm font-medium text-slate-500">{event.type}</p>
                       <p className="mt-1 text-base font-semibold text-slate-950">{event.summary}</p>
                     </div>
-                    <time
-                      className="text-sm text-slate-500"
-                      {...(isValidDate ? { dateTime: event.date } : {})}
-                    >
-                      {event.date}
-                    </time>
+                    <div className="flex items-center gap-3">
+                      <time
+                        className="text-sm text-slate-500"
+                        {...(isValidDate ? { dateTime: event.date } : {})}
+                      >
+                        {event.date}
+                      </time>
+                      {onSave && (
+                        <button
+                          type="button"
+                          onClick={() => startEditing(event)}
+                          className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                          aria-label={`Edit ${event.type} event`}
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </li>
               );
             })}
           </ol>
         )}
+      </div>
+
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {announcement}
       </div>
     </section>
   );
