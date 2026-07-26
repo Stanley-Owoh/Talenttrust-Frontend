@@ -8,6 +8,7 @@ import MilestoneFilter, { type MilestoneStatusFilter } from '../../components/mi
 import { MilestoneCreationForm } from '../../components/milestones/MilestoneCreationForm';
 import { listMilestones, saveMilestone } from '@/lib/repository';
 import { getItem, setItem } from '@/lib/safeStorage';
+import { exportMilestonesToCSV, exportMilestonesToJSON } from '@/lib/exportMilestones';
 import type { Milestone } from '@/types/domain';
 
 export const SAMPLE_DISMISSED_KEY = 'talenttrust-milestones-sample-dismissed';
@@ -202,13 +203,35 @@ const MilestonesContent: React.FC = () => {
               onChange={setStatusFilter}
               resultCount={filtered.length}
             />
-            <button
-              type="button"
-              onClick={handleAddMilestone}
-              className="flex-shrink-0 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-            >
-              Add Milestone
-            </button>
+            <div className="flex items-center gap-2">
+              {filtered.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => exportMilestonesToCSV(filtered)}
+                    className="rounded-2xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                    aria-label="Export milestones as CSV"
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => exportMilestonesToJSON(filtered)}
+                    className="rounded-2xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                    aria-label="Export milestones as JSON"
+                  >
+                    Export JSON
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={handleAddMilestone}
+                className="flex-shrink-0 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+              >
+                Add Milestone
+              </button>
+            </div>
           </div>
 
           {filtered.length === 0 ? (
