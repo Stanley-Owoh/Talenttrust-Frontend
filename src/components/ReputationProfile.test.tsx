@@ -673,7 +673,146 @@ describe('ReputationProfile – reputation score meter (issue #245)', () => {
     });
   });
 
-  describe('reputation level legend and derived level', () => {
+  describe('ReputationProfile – high-contrast theme tokens (a11y/reputation-31)', () => {
+  const THEME_HISTORY: ReputationEvent[] = [
+    { id: 'ev-1', type: 'Verification', summary: 'Completed identity verification', date: '2026-04-24' },
+  ];
+
+  it('uses CSS variable tokens for card backgrounds instead of fixed bg-white', () => {
+    const { container } = renderProfile({
+      name: 'Token User',
+      score: 50,
+      history: THEME_HISTORY,
+    });
+    const cards = container.querySelectorAll('.rounded-3xl.border');
+    cards.forEach((card) => {
+      const cls = card.className;
+      expect(cls).not.toMatch(/\bbg-white\b/);
+      expect(cls).toMatch(/var\(--card\)/);
+    });
+  });
+
+  it('uses CSS variable tokens for surface backgrounds instead of fixed bg-slate-50', () => {
+    const { container } = renderProfile({
+      name: 'Surface User',
+      score: 50,
+      history: THEME_HISTORY,
+    });
+    const surfaceElements = container.querySelectorAll('.rounded-3xl.border\\[var\\(--border\\)\\]');
+    surfaceElements.forEach((el) => {
+      const cls = el.className;
+      expect(cls).not.toMatch(/bg-slate-\d+/);
+    });
+  });
+
+  it('uses CSS variable tokens for text instead of fixed text-slate-*', () => {
+    const { container } = renderProfile({
+      name: 'Text Token User',
+      score: 50,
+      history: THEME_HISTORY,
+    });
+    // Headings should use var(--foreground)
+    const headings = container.querySelectorAll('h1, h2');
+    headings.forEach((h) => {
+      const cls = h.className;
+      if (cls.includes('sr-only')) return;
+      expect(cls).not.toMatch(/text-slate-\d+/);
+    });
+    // Labels should use var(--muted-foreground)
+    const labels = container.querySelectorAll('#reputation-score-label, #reputation-level-label');
+    labels.forEach((label) => {
+      expect(label.className).not.toMatch(/text-slate-\d+/);
+    });
+  });
+
+  it('uses CSS variable tokens for borders instead of fixed border-slate-200', () => {
+    const { container } = renderProfile({
+      name: 'Border User',
+      score: 50,
+      history: THEME_HISTORY,
+    });
+    const bordered = container.querySelectorAll('.border');
+    bordered.forEach((el) => {
+      const cls = el.className;
+      if (cls.includes('border-t')) return;
+      if (cls.includes('rounded-full')) return;
+      expect(cls).not.toMatch(/\bborder-slate-200\b/);
+    });
+  });
+
+  it('uses theme-aware tokens for the amber partial-data banner', () => {
+    renderProfile({
+      name: 'Amber Banner User',
+      score: 50,
+      history: [],
+    });
+    const warningBanner = screen.getByText(/Partial reputation data/i).closest('div');
+    expect(warningBanner).not.toBeNull();
+    expect(warningBanner!.className).toMatch(/var\(--status-warning/);
+  });
+
+  it('uses theme-aware tokens for active legend band', () => {
+    renderProfile({
+      name: 'Legend Active User',
+      score: 3.5,
+      history: [],
+    });
+    const legendList = document.getElementById('reputation-legend');
+    expect(legendList).not.toBeNull();
+    const items = legendList!.querySelectorAll('li');
+    expect(items.length).toBeGreaterThan(0);
+    // At least one item should be active with var(--legend-active*) tokens
+    const activeItems = Array.from(items).filter(
+      (item) => item.className.includes('var(--legend-active')
+    );
+    expect(activeItems.length).toBe(1);
+  });
+
+  it('uses theme-aware tokens for inactive legend bands', () => {
+    renderProfile({
+      name: 'Legend Inactive User',
+      score: 0,
+      history: [],
+    });
+    const legendList = document.getElementById('reputation-legend');
+    expect(legendList).not.toBeNull();
+    const items = legendList!.querySelectorAll('li');
+    expect(items.length).toBeGreaterThan(0);
+    // Items that are not active should use var(--border) and var(--muted-foreground)
+    const inactiveItems = Array.from(items).filter(
+      (item) => !item.className.includes('var(--legend-active')
+    );
+    expect(inactiveItems.length).toBe(items.length - 1);
+    inactiveItems.forEach((item) => {
+      expect(item.className).toMatch(/var\(--border\)/);
+    });
+  });
+
+  it('avatar uses var(--foreground) background with var(--background) text', () => {
+    renderProfile({
+      name: 'Avatar User',
+      score: 50,
+      history: THEME_HISTORY,
+    });
+    const avatar = screen.getByText('A', { selector: 'div' });
+    expect(avatar).toBeInTheDocument();
+    expect(avatar.className).toMatch(/var\(--foreground\)/);
+    expect(avatar.className).toMatch(/var\(--background\)/);
+  });
+
+  it('legend band range text uses var(--muted-foreground)', () => {
+    renderProfile({
+      name: 'Legend Range User',
+      score: 3.5,
+      history: [],
+    });
+    const rangeText = document.querySelector('#reputation-legend li p.font-bold');
+    expect(rangeText).not.toBeNull();
+    expect(rangeText!.className).toMatch(/var\(--muted-foreground\)/);
+  });
+});
+
+describe('reputation level legend and derived level', () => {
     it('does not render the legend when there is no score', () => {
       renderProfile({ name: 'No Score User', score: undefined });
       expect(screen.queryByText(/Reputation Level Legend/i)).not.toBeInTheDocument();

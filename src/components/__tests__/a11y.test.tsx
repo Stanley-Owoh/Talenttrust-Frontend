@@ -164,6 +164,74 @@ describe('a11y: ReputationProfile', () => {
   });
 });
 
+describe('a11y: ReputationProfile dark-theme contrast', () => {
+  afterEach(() => {
+    setTheme('light');
+  });
+
+  it('no-reputation state has no violations in dark mode', async () => {
+    setTheme('dark');
+    await testA11y(<ReputationProfile name="Guest User" history={[]} />);
+  });
+
+  it('full reputation with history has no violations in dark mode', async () => {
+    setTheme('dark');
+    await testA11y(
+      <ReputationProfile
+        name="Verified User"
+        score={88}
+        level="Trusted Contributor"
+        history={[
+          { id: '1', type: 'Verification', summary: 'Completed identity verification', date: '2026-04-24' },
+          { id: '2', type: 'On-chain review', summary: 'Received positive trust signal', date: '2026-04-23' },
+          { id: '3', type: 'Referral', summary: 'Referred two new users', date: '2026-04-20' },
+        ]}
+      />
+    );
+  });
+
+  it('partial reputation has no violations in dark mode', async () => {
+    setTheme('dark');
+    await testA11y(
+      <ReputationProfile name="Partial User" score={42} level="Active Member" history={[]} />
+    );
+  });
+
+  it('null score state has no violations in dark mode', async () => {
+    setTheme('dark');
+    await testA11y(
+      <ReputationProfile name="Legacy User" score={null} history={[]} />
+    );
+  });
+
+  it('uses CSS variable tokens instead of fixed Tailwind color classes', () => {
+    setTheme('dark');
+    const { container } = renderWithA11y(
+      <ReputationProfile
+        name="Token Check"
+        score={50}
+        level="Contributor"
+        history={[{ id: '1', type: 'Test', summary: 'Test event', date: '2026-01-01' }]}
+      />
+    );
+    // The outer card should use var(--card), not bg-white
+    const outerCards = container.querySelectorAll('.rounded-3xl.border');
+    outerCards.forEach((card) => {
+      expect(card.className).not.toMatch(/\bbg-white\b/);
+    });
+    // History labels should use var(--muted-foreground), not text-slate-500
+    const labels = container.querySelectorAll('.text-sm.font-medium');
+    labels.forEach((label) => {
+      expect(label.className).not.toMatch(/text-slate-\d+/);
+    });
+    // The heading should use var(--foreground), not text-slate-950
+    const headings = container.querySelectorAll('.text-xl.font-semibold, .text-2xl.font-semibold');
+    headings.forEach((heading) => {
+      expect(heading.className).not.toMatch(/text-slate-\d+/);
+    });
+  });
+});
+
 describe('a11y: EmptyState', () => {
   it('basic text-only state has no violations', async () => {
     await testA11y(
@@ -581,6 +649,69 @@ describe('a11y: prefers-reduced-motion — toast panels', () => {
     // not deferred behind an animation frame, so it snaps into view.
     const toastPanel = container.querySelector('[role="alert"]');
     expect(toastPanel).toBeInTheDocument();
+  });
+});
+
+describe('a11y: prefers-reduced-motion — ReputationProfile', () => {
+  let restoreMatchMedia: () => void;
+
+  beforeEach(() => {
+    restoreMatchMedia = mockReducedMotion();
+  });
+
+  afterEach(() => {
+    restoreMatchMedia();
+  });
+
+  it('matchMedia returns true for the reduced-motion query', () => {
+    expect(window.matchMedia('(prefers-reduced-motion: reduce)').matches).toBe(true);
+    expect(window.matchMedia('(prefers-color-scheme: dark)').matches).toBe(false);
+  });
+
+  it('full reputation state has no axe violations under reduced motion', async () => {
+    await testA11y(
+      <ReputationProfile
+        name="Verified User"
+        score={88}
+        level="Trusted Contributor"
+        history={[
+          { id: '1', type: 'Verification', summary: 'Completed identity verification', date: '2026-04-24' },
+          { id: '2', type: 'On-chain review', summary: 'Received positive trust signal', date: '2026-04-23' },
+          { id: '3', type: 'Referral', summary: 'Referred two new users', date: '2026-04-20' },
+        ]}
+      />
+    );
+  });
+
+  it('no-reputation state has no axe violations under reduced motion', async () => {
+    await testA11y(<ReputationProfile name="Guest User" history={[]} />);
+  });
+
+  it('partial reputation state has no axe violations under reduced motion', async () => {
+    await testA11y(
+      <ReputationProfile name="Partial User" score={42} level="Active Member" history={[]} />
+    );
+  });
+
+  it('null score state has no axe violations under reduced motion', async () => {
+    await testA11y(<ReputationProfile name="Legacy User" score={null} history={[]} />);
+  });
+
+  it('legend bands retain transition-colors class under reduced motion', () => {
+    const { container } = renderWithA11y(
+      <ReputationProfile
+        name="Transition Check"
+        score={50}
+        history={[{ id: '1', type: 'Test', summary: 'Test event', date: '2026-01-01' }]}
+      />
+    );
+    // The legend items should keep transition-colors even under reduced motion;
+    // the global CSS rule collapses the duration to 0.01ms.
+    const legendItems = container.querySelectorAll('#reputation-legend li');
+    expect(legendItems.length).toBeGreaterThan(0);
+    legendItems.forEach((item) => {
+      expect(item.className).toContain('transition-colors');
+    });
   });
 });
 
