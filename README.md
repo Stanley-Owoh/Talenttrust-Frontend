@@ -42,7 +42,7 @@ This repository keeps user-facing and implementation notes inside the `docs/` fo
 - `docs/components/ReputationPage.md` — Reputation page implementation and rendering states
 - `docs/components/ReputationProfile.md` — Reputation component API reference (props, helpers, examples)
 - `docs/data-model.md` — Data model and persistence guide
-- `docs/forms-data-flow.md` — Forms data-flow diagram (fetch -> transform -> render) and implementation notes
+- `docs/milestones-data-flow.md` — Milestones data flow diagram (fetch → filter → render → create)
 - `docs/persistence.md` — Persistence API and local storage patterns
 - `docs/preferences.md` — Preferences provider and currency/locale helpers
 - `docs/contexts/wallet-session.md` — Wallet session lifecycle and idle disconnect guidance
