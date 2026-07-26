@@ -5,6 +5,7 @@ import {
   ErrorInfo,
   ReactNode,
   createContext,
+  forwardRef,
   useCallback,
   useContext,
   useEffect,
@@ -74,6 +75,13 @@ const DURATION_MAP: Readonly<Record<ToastDuration, number | null>> = {
 const MAX_VISIBLE_TOASTS = 4;
 
 /**
+ * CSS selector matching all natively focusable elements.
+ * Used for focus-trapping within the toast viewport.
+ */
+const FOCUSABLE_SELECTORS =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
  * Generates a unique toast ID without mutating refs during render.
  * Uses crypto.randomUUID() when available, with a timestamp-based fallback.
  * This ensures collision-free IDs even under React StrictMode double-invocation.
@@ -109,23 +117,16 @@ function getToastStyles(variant: ToastVariant) {
   };
 }
 
-function ToastViewport({
-  toasts,
-  onDismiss,
-  onPauseTimer,
-  onResumeTimer,
-  density,
-}: {
+const ToastViewport = forwardRef<HTMLDivElement, {
   toasts: ToastRecord[];
   onDismiss: (id: string) => void;
   onPauseTimer: (id: string) => void;
   onResumeTimer: (id: string) => void;
   density: 'relaxed' | 'compact';
-}) {
-  const isEmpty = toasts.length === 0;
-
+}>(({ toasts, onDismiss, onPauseTimer, onResumeTimer, density }, ref) => {
   return (
     <div
+      ref={ref}
       role="region"
       aria-atomic="false"
       aria-label="Notifications"
@@ -229,7 +230,7 @@ function ToastViewport({
     )}
     </div>
   );
-}
+});
 
 function ToastAnnouncer({ toasts }: { toasts: ToastRecord[] }) {
   const latestSuccess = [...toasts].reverse().find((toast) => toast.variant === 'success');
@@ -385,6 +386,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastRecord[]>([]);
   const toastTimersRef = useRef<Record<string, ToastTimerState>>({});
 
+  /** Ref tracking the element that had focus before the most recent toast was created. */
+  const toastTriggerRef = useRef<HTMLElement | null>(null);
+  /** Ref attached to the toast viewport DOM node for querying focusable children. */
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const prevToastCountRef = useRef(0);
+  /** Tracks the most recently clicked element (via capture-phase listener).
+   *  Clicking a button does not move focus in jsdom, so `document.activeElement`
+   *  inside `createToast` may be stale. This ref gives us the actual trigger. */
+  const lastClickedRef = useRef<HTMLElement | null>(null);
+  /** Set to true while a React effect is programmatically moving focus into a toast,
+   *  so the toast's `onFocus`-triggered timer-pause is skipped. */
+  const programmaticFocusRef = useRef(false);
+
   const dismissToast = useCallback((id: string) => {
     setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== id));
   }, []);
@@ -448,6 +462,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Programmatic focus from the focus-management effect should not pause
+    // the auto-dismiss timer, otherwise the toast would never auto-dismiss.
+    if (programmaticFocusRef.current) return;
+
     timer.pauseCount += 1;
 
     if (timer.pauseCount === 1 && timer.timeoutId !== null) {
@@ -484,6 +502,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const createToast = useCallback(
     (variant: ToastVariant, toast: ToastInput, durationMs: number | null) => {
+      toastTriggerRef.current = (() => {
+        // Prefer the last clicked element — clicking a button does not move
+        // focus in jsdom, so `document.activeElement` may be stale.
+        const clicked = lastClickedRef.current;
+        if (clicked && document.contains(clicked)) {
+          return clicked;
+        }
+        return document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      })();
+
       const id = generateToastId();
 
       setToasts((currentToasts) => {
@@ -566,6 +594,113 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  /** Capture-phase click listener — tracks the most recently clicked element
+   *  so `createToast` can save it as the trigger even in jsdom (where
+   *  `fireEvent.click` never moves focus). */
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (e.target instanceof HTMLElement) {
+        lastClickedRef.current = e.target;
+      }
+    };
+    document.addEventListener('click', handleClick, true);
+    return () => document.removeEventListener('click', handleClick, true);
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // Focus management
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    const prev = prevToastCountRef.current;
+    prevToastCountRef.current = toasts.length;
+
+    // A new toast was added — move focus to its first interactive element.
+    if (toasts.length > prev && toasts.length > 0) {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+
+      const allToasts = viewport.querySelectorAll<HTMLElement>(
+        '[role="status"], [role="alert"]',
+      );
+      const newestToast = allToasts[allToasts.length - 1];
+      if (!newestToast) return;
+
+      const firstBtn = newestToast.querySelector<HTMLElement>(
+        'button:not([disabled])',
+      );
+      if (firstBtn && document.contains(firstBtn)) {
+        programmaticFocusRef.current = true;
+        firstBtn.focus();
+        programmaticFocusRef.current = false;
+      }
+    }
+
+    // All toasts just cleared — restore focus to the saved trigger.
+    if (toasts.length === 0 && prev > 0) {
+      const trigger = toastTriggerRef.current;
+      toastTriggerRef.current = null;
+      if (!trigger) return;
+
+      // Only restore if:
+      //   1. Focus is still inside the viewport (user was interacting with a toast), OR
+      //   2. Focus is on <body>, which happens in jsdom when the focused toast element
+      //      is removed from the DOM — treat this as "focus was lost" and restore.
+      const active = document.activeElement;
+      const focusLost =
+        viewportRef.current?.contains(active) ||
+        active === document.body ||
+        active === null;
+      if (!focusLost) return;
+
+      if (document.contains(trigger)) {
+        trigger.focus();
+      } else {
+        // Trigger element was removed from the DOM (e.g. route change).
+        document.querySelector<HTMLElement>('main')?.focus();
+      }
+    }
+  }, [toasts.length]);
+
+  /**
+   * Soft keyboard-trap: when focus enters the toast viewport, Tab/Shift+Tab
+   * cycles among all focusable elements inside it (dismiss buttons, action
+   * buttons) rather than escaping behind the fixed-position overlay.
+   *
+   * We trap at the viewport level (not per-toast) so the user can Tab
+   * through all visible toasts. Per-toast trapping would prevent keyboard
+   * navigation between stacked toasts, which is a worse UX.
+   */
+  useEffect(() => {
+    if (toasts.length === 0) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+
+      const focusable = Array.from(
+        viewport.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS),
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [toasts.length > 0]);
+
   const value = useMemo(
     () => ({
       dismissToast,
@@ -582,6 +717,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <ToastErrorBoundary>
         <ToastAnnouncer toasts={toasts} />
         <ToastViewport
+          ref={viewportRef}
           density={preferences.toastDensity}
           onDismiss={dismissToast}
           onPauseTimer={pauseToastTimer}
