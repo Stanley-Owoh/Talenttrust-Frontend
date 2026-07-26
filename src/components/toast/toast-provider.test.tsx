@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { StrictMode } from 'react';
 import { PreferencesProvider } from '@/lib/preferences';
 import { ToastProvider, useToast, ToastErrorBoundary } from './toast-provider';
+import { ToastSkeleton } from './toast-skeleton';
 import * as errorReporter from '@/lib/errorReporter';
 
 function ToastHarness() {
@@ -311,6 +312,118 @@ describe('ToastProvider', () => {
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
+  });
+});
+
+describe('loading skeleton', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.clearAllTimers();
+    });
+    jest.useRealTimers();
+  });
+
+  it('renders skeleton in the viewport when no toasts are present', () => {
+    render(
+      <ToastProvider>
+        <div />
+      </ToastProvider>,
+    );
+
+    const skeleton = document.querySelector('[aria-hidden="true"]');
+    expect(skeleton).toBeInTheDocument();
+    expect(skeleton!.className).toContain('animate-pulse');
+  });
+
+  it('viewport has aria-busy when skeleton is visible', () => {
+    render(
+      <ToastProvider>
+        <div />
+      </ToastProvider>,
+    );
+
+    const viewport = screen.getByLabelText('Notifications');
+    expect(viewport).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('skeleton is replaced by toast content when a toast appears', () => {
+    render(
+      <ToastProvider>
+        <ToastHarness />
+      </ToastProvider>,
+    );
+
+    expect(screen.getByLabelText('Notifications')).toHaveAttribute('aria-busy', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: /trigger success/i }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('Milestone released');
+    expect(screen.getByLabelText('Notifications')).not.toHaveAttribute('aria-busy');
+  });
+
+  it('viewport is not busy when toasts are already present', () => {
+    function PreFilledHarness() {
+      const { showSuccess } = useToast();
+      return (
+        <button
+          onClick={() => showSuccess({ title: 'Exists' })}
+          type="button"
+        >
+          Add
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <PreFilledHarness />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /add/i }));
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.getByLabelText('Notifications')).not.toHaveAttribute('aria-busy');
+  });
+
+  it('skeleton wrapper div is aria-hidden', () => {
+    render(
+      <ToastProvider>
+        <div />
+      </ToastProvider>,
+    );
+
+    const skeleton = document.querySelector('[aria-hidden="true"]');
+    expect(skeleton).toBeInTheDocument();
+  });
+
+  it('ToastSkeleton renders with correct toast-like structure', () => {
+    const { container } = render(<ToastSkeleton />);
+
+    const skeletonDiv = container.firstChild as HTMLElement;
+    expect(skeletonDiv).toHaveAttribute('aria-hidden', 'true');
+    expect(skeletonDiv.className).toContain('rounded-2xl');
+    expect(skeletonDiv.className).toContain('animate-pulse');
+    expect(skeletonDiv.querySelector('.rounded-full')).toBeInTheDocument();
+    expect(skeletonDiv.querySelector('.rounded-md')).toBeInTheDocument();
+  });
+
+  it('error boundary fallback replaces skeleton when toast render throws', () => {
+    const ThrowingSkeleton = () => {
+      throw new Error('Skeleton render error');
+    };
+
+    render(
+      <ToastErrorBoundary>
+        <ThrowingSkeleton />
+      </ToastErrorBoundary>
+    );
+
+    expect(screen.getByText('Notifications failed to load')).toBeInTheDocument();
   });
 });
 

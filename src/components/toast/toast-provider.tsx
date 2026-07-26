@@ -15,6 +15,7 @@ import {
 import { reportError } from '@/lib/errorReporter';
 import { usePreferences } from '@/lib/preferences';
 import type { ToastDuration } from '@/lib/preferences';
+import { ToastSkeleton } from './toast-skeleton';
 
 type ToastVariant = 'success' | 'error';
 
@@ -121,16 +122,22 @@ function ToastViewport({
   onResumeTimer: (id: string) => void;
   density: 'relaxed' | 'compact';
 }) {
+  const isEmpty = toasts.length === 0;
+
   return (
     <div
       role="region"
-      aria-atomic="false" // Individual toasts are atomic, not the container
+      aria-atomic="false"
       aria-label="Notifications"
+      aria-busy={isEmpty || undefined}
       className={`pointer-events-none fixed right-4 top-4 z-50 flex w-[min(24rem,calc(100vw-2rem))] flex-col ${
         density === 'compact' ? 'gap-1.5' : 'gap-3'
       }`}
     >
-      {toasts.map((toast) => {
+      {isEmpty ? (
+        <ToastSkeleton />
+      ) : (
+        toasts.map((toast) => {
         const styles = getToastStyles(toast.variant);
         const badgeLabel = toast.variant === 'success' ? 'Success' : 'Error';
 
@@ -199,7 +206,8 @@ function ToastViewport({
             </div>
           </div>
         );
-      })}
+      })
+    )}
     </div>
   );
 }
