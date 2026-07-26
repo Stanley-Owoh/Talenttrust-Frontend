@@ -20,6 +20,7 @@ import {
   listContracts,
   saveContract,
   upsertContract,
+  updateContract,
   updateMilestone,
   listMilestones,
   saveMilestone,
@@ -214,6 +215,48 @@ describe('contract upsert', () => {
     expect(result[0]).toEqual(upserted);
     expect(result[1]).toEqual(contractB);
     expect(result[2]).toEqual(duplicateA2);
+  });
+});
+
+describe('updateContract', () => {
+  it('replaces the contract found by its original name, in place', () => {
+    saveContract(contractA);
+    saveContract(contractB);
+
+    const edited: Contract = { ...contractA, status: 'Completed' };
+    expect(updateContract(contractA.contractName, edited)).toBe(true);
+
+    const result = listContracts();
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual(edited);
+    expect(result[1]).toEqual(contractB);
+  });
+
+  it('renames a contract without creating a duplicate', () => {
+    saveContract(contractA);
+
+    const renamed: Contract = { ...contractA, contractName: 'Renamed Alpha' };
+    expect(updateContract(contractA.contractName, renamed)).toBe(true);
+
+    const result = listContracts();
+    expect(result).toHaveLength(1);
+    expect(result[0].contractName).toBe('Renamed Alpha');
+  });
+
+  it('returns false and changes nothing when no contract matches the original name', () => {
+    saveContract(contractA);
+
+    expect(updateContract('Missing Contract', contractB)).toBe(false);
+    expect(listContracts()).toEqual([contractA]);
+  });
+
+  it('leaves milestones untouched', () => {
+    saveContract(contractA);
+    saveMilestone(milestoneA);
+
+    updateContract(contractA.contractName, { ...contractA, status: 'Paid' });
+
+    expect(listMilestones()).toEqual([milestoneA]);
   });
 });
 

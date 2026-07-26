@@ -3,7 +3,8 @@
 import React, { useState, useCallback } from 'react';
 import EmptyState from '../../components/EmptyState';
 import { ContractCreationForm } from '../../components/ContractCreationForm';
-import { listContracts, saveContract } from '@/lib/repository';
+import EditableContractRow from '../../components/EditableContractRow';
+import { listContracts, saveContract, updateContract } from '@/lib/repository';
 import type { Contract } from '@/types/domain';
 
 const ContractsPage: React.FC = () => {
@@ -36,6 +37,15 @@ const ContractsPage: React.FC = () => {
     setShowForm(false);
   }, []);
 
+  /**
+   * Persists an inline row edit (keyed by the row's original name so renames
+   * update in place) and refreshes the list from storage.
+   */
+  const handleInlineSave = useCallback((originalName: string, updated: Contract) => {
+    updateContract(originalName, updated);
+    setContracts(listContracts());
+  }, []);
+
   return (
     <main className="min-h-screen p-8">
       <h1 className="text-2xl font-bold mb-6">Contracts</h1>
@@ -61,18 +71,13 @@ const ContractsPage: React.FC = () => {
               Create Contract
             </button>
           </div>
-          {/* TODO: Replace with a proper ContractSummary list component. */}
           <ul className="space-y-4">
             {contracts.map((contract, idx) => (
-              <li
+              <EditableContractRow
                 key={`${contract.contractName}-${idx}`}
-                className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                <p className="font-semibold text-slate-900">{contract.contractName}</p>
-                <p className="text-sm text-slate-500">
-                  {contract.status} · Created {contract.createdAt}
-                </p>
-              </li>
+                contract={contract}
+                onSave={handleInlineSave}
+              />
             ))}
           </ul>
         </>
