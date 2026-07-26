@@ -8,6 +8,8 @@ export type Theme = 'light' | 'dark' | 'system';
 export type AmountFormat = 'usd' | 'ngn' | 'compact';
 export type ToastDensity = 'relaxed' | 'compact';
 export type FormDensity = 'comfortable' | 'compact';
+export type MilestonesDensity = 'comfortable' | 'compact';
+export type WalletDensity = 'comfortable' | 'compact';
 /**
  * Controls the default auto-dismiss duration for toasts when the caller does
  * not supply an explicit `duration`.
@@ -51,6 +53,8 @@ export interface UserPreferences {
   amountFormat: AmountFormat;
   toastDensity: ToastDensity;
   formDensity: FormDensity;
+  milestonesDensity: MilestonesDensity;
+  walletDensity: WalletDensity;
   quietMode: boolean;
   toastDuration: ToastDuration;
   /**
@@ -65,6 +69,8 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   amountFormat: 'usd',
   toastDensity: 'relaxed',
   formDensity: 'comfortable',
+  milestonesDensity: 'comfortable',
+  walletDensity: 'comfortable',
   quietMode: false,
   toastDuration: 'normal',
   idleDisconnectMs: 0,
@@ -81,6 +87,8 @@ const KNOWN_KEYS: ReadonlySet<keyof UserPreferences> = new Set([
   'amountFormat',
   'toastDensity',
   'formDensity',
+  'milestonesDensity',
+  'walletDensity',
   'quietMode',
   'toastDuration',
   'idleDisconnectMs',
@@ -104,6 +112,8 @@ const ALLOWED_THEMES: ReadonlySet<Theme> = new Set(['light', 'dark', 'system']);
 const ALLOWED_AMOUNT_FORMATS: ReadonlySet<AmountFormat> = new Set(['usd', 'ngn', 'compact']);
 const ALLOWED_TOAST_DENSITIES: ReadonlySet<ToastDensity> = new Set(['relaxed', 'compact']);
 const ALLOWED_FORM_DENSITIES: ReadonlySet<FormDensity> = new Set(['comfortable', 'compact']);
+const ALLOWED_MILESTONES_DENSITIES: ReadonlySet<MilestonesDensity> = new Set(['comfortable', 'compact']);
+const ALLOWED_WALLET_DENSITIES: ReadonlySet<WalletDensity> = new Set(['comfortable', 'compact']);
 const ALLOWED_TOAST_DURATIONS: ReadonlySet<ToastDuration> = new Set(['short', 'normal', 'long', 'persistent']);
 
 interface PreferencesContextType {
@@ -156,6 +166,8 @@ export function sanitizePreferences(raw: unknown): UserPreferences {
   let amountFormat: AmountFormat = DEFAULT_PREFERENCES.amountFormat;
   let toastDensity: ToastDensity = DEFAULT_PREFERENCES.toastDensity;
   let formDensity: FormDensity = DEFAULT_PREFERENCES.formDensity;
+  let milestonesDensity: MilestonesDensity = DEFAULT_PREFERENCES.milestonesDensity;
+  let walletDensity: WalletDensity = DEFAULT_PREFERENCES.walletDensity;
   let quietMode: boolean = DEFAULT_PREFERENCES.quietMode;
   let toastDuration: ToastDuration = DEFAULT_PREFERENCES.toastDuration;
   let idleDisconnectMs: number = DEFAULT_PREFERENCES.idleDisconnectMs;
@@ -195,6 +207,16 @@ export function sanitizePreferences(raw: unknown): UserPreferences {
           formDensity = value as FormDensity;
         }
         break;
+      case 'milestonesDensity':
+        if (typeof value === 'string' && ALLOWED_MILESTONES_DENSITIES.has(value as MilestonesDensity)) {
+          milestonesDensity = value as MilestonesDensity;
+        }
+        break;
+      case 'walletDensity':
+        if (typeof value === 'string' && ALLOWED_WALLET_DENSITIES.has(value as WalletDensity)) {
+          walletDensity = value as WalletDensity;
+        }
+        break;
       case 'quietMode':
         if (typeof value === 'boolean') {
           quietMode = value;
@@ -219,7 +241,7 @@ export function sanitizePreferences(raw: unknown): UserPreferences {
     }
   }
 
-  return { theme, amountFormat, toastDensity, formDensity, quietMode, toastDuration, idleDisconnectMs };
+  return { theme, amountFormat, toastDensity, formDensity, milestonesDensity, walletDensity, quietMode, toastDuration, idleDisconnectMs };
 }
 
 /**

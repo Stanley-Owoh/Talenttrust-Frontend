@@ -12,6 +12,18 @@ export const WalletConnectButton = () => {
   const { address, isConnecting, error, connect, disconnect } = useWallet();
   const { showError } = useToast();
   const { connectButtonRef, connectedElementRef } = useWalletFocus(address, isConnecting);
+  const { preferences, updatePreference } = usePreferences();
+
+  const isCompact = preferences.walletDensity === 'compact';
+
+  const containerGap = isCompact ? 'gap-1.5' : 'gap-2';
+  const containerPadding = isCompact ? 'p-0.5' : 'p-1';
+  const addressPadding = isCompact ? 'px-2 py-1' : 'px-3 py-1.5';
+  const btnPadding = isCompact ? 'p-1' : 'p-1.5';
+
+  const toggleDensity = () => {
+    updatePreference('walletDensity', isCompact ? 'comfortable' : 'compact');
+  };
 
   const { copied, copy } = useCopyToClipboard({
     delay: 2000,
@@ -69,8 +81,8 @@ export const WalletConnectButton = () => {
   if (address) {
     const densityLabel = isCompact ? 'Switch to comfortable view' : 'Switch to compact view';
     return (
-      <div ref={connectedElementRef} tabIndex={-1} className="flex items-center gap-2 rounded-xl bg-slate-100 p-1 ring-1 ring-slate-200">
-        <div className="flex items-center gap-2 px-3 py-1.5">
+      <div ref={connectedElementRef} tabIndex={-1} className={`flex items-center ${containerGap} rounded-xl bg-slate-100 ${containerPadding} ring-1 ring-slate-200`}>
+        <div className={`flex items-center ${containerGap} ${addressPadding}`}>
           <div className="h-2 w-2 rounded-full bg-green-500" aria-hidden="true" />
           <span className="text-sm font-medium text-slate-700 font-mono">
             {truncateAddress(address)}

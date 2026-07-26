@@ -5,8 +5,6 @@ import MilestonesPage, { SAMPLE_MILESTONES, SAMPLE_DISMISSED_KEY } from '../page
 import { listMilestones, saveMilestone } from '@/lib/repository';
 import type { Milestone } from '@/types/domain';
 
-const mockShowError = jest.fn();
-
 // ---------------------------------------------------------------------------
 // useCopyToClipboard mock — MilestoneCard uses useCopyToClipboard for IDs
 // These mutable variables let tests control the hook's return value and
@@ -57,12 +55,6 @@ jest.mock('@/lib/repository', () => ({
   listMilestones: jest.fn(),
   saveMilestone: jest.fn(),
   updateMilestone: jest.fn(() => true),
-}));
-
-jest.mock('@/components/toast/toast-provider', () => ({
-  useToast: () => ({
-    showError: mockShowError,
-  }),
 }));
 
 const mockedListMilestones = jest.mocked(listMilestones);
@@ -122,7 +114,8 @@ beforeEach(() => {
     advanceTimers: true,
   });
   mockedListMilestones.mockReturnValue([]);
-  mockedSaveMilestone.mockImplementation(() => {});
+  mockedSaveMilestone.mockReturnValue(true);
+  mockShowError.mockReset();
   mockCopied = false;
   mockCopySuccess = true;
   mockUseCopyToClipboard.mockImplementation((options) => ({

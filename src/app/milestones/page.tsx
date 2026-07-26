@@ -6,9 +6,11 @@ import EmptyState from '../../components/EmptyState';
 import MilestonesList from '../../components/MilestonesList';
 import MilestoneFilter, { type MilestoneStatusFilter } from '../../components/milestones/MilestoneFilter';
 import { MilestoneCreationForm } from '../../components/milestones/MilestoneCreationForm';
+import MilestonesErrorBoundary from '../../components/milestones/MilestonesErrorBoundary';
 import { listMilestones, saveMilestone, updateMilestone } from '@/lib/repository';
 import { getItem, setItem } from '@/lib/safeStorage';
 import { exportMilestonesToCSV, exportMilestonesToJSON } from '@/lib/exportMilestones';
+import { useToast } from '@/components/toast/toast-provider';
 import type { Milestone } from '@/types/domain';
 
 export const SAMPLE_DISMISSED_KEY = 'talenttrust-milestones-sample-dismissed';
