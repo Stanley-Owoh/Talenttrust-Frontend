@@ -26,7 +26,7 @@
  */
 
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import ReputationProfile, {
   ReputationEvent,
   ReputationProfileProps,
@@ -59,8 +59,9 @@ const HISTORY_EVENTS: ReputationEvent[] = [
 ];
 
 // Convenience wrapper so every render call uses the exported prop type.
+// syncUrl is off here so unit tests stay isolated from next/navigation URL writes.
 function renderProfile(props: ReputationProfileProps) {
-  return render(<ReputationProfile {...props} />);
+  return render(<ReputationProfile syncUrl={false} {...props} />);
 }
 
 function getLevelText() {
@@ -256,8 +257,10 @@ describe('ReputationProfile – full reputation (score + history)', () => {
   });
 
   it('renders each event type label', () => {
-    HISTORY_EVENTS.forEach((ev) => {
-      expect(screen.getByText(ev.type)).toBeInTheDocument();
+    const ol = document.querySelector('ol');
+    const items = ol ? within(ol).getAllByRole('listitem') : [];
+    HISTORY_EVENTS.forEach((ev, idx) => {
+      expect(within(items[idx]).getByText(ev.type)).toBeInTheDocument();
     });
   });
 
@@ -268,12 +271,13 @@ describe('ReputationProfile – full reputation (score + history)', () => {
   });
 
   it('renders each event date', () => {
+    const ol = document.querySelector('ol');
     HISTORY_EVENTS.forEach((ev) => {
-      expect(screen.getByText(ev.date)).toBeInTheDocument();
+      expect(within(ol!).getByText(ev.date)).toBeInTheDocument();
     });
   });
 
-  it('renders events in DOM order matching the history array', () => {
+  it('renders events newest-first by default (matching history array order)', () => {
     const ol = document.querySelector('ol');
     const items = ol ? within(ol).getAllByRole('listitem') : [];
     HISTORY_EVENTS.forEach((ev, idx) => {
@@ -772,3 +776,97 @@ describe('ReputationProfile – reputation score meter (issue #245)', () => {
       await assertNoA11yViolations(container);
     });
   });
+
+// ---------------------------------------------------------------------------
+// 12. History filter + sort (local, syncUrl=false)
+// ---------------------------------------------------------------------------
+
+describe('ReputationProfile – history filtering and sorting', () => {
+  const FILTER_EVENTS: ReputationEvent[] = [
+    {
+      id: 'ev-1',
+      type: 'Verification',
+      summary: 'Completed identity verification',
+      date: '2026-04-24',
+    },
+    {
+      id: 'ev-2',
+      type: 'On-chain review',
+      summary: 'Received positive trust signal',
+      date: '2026-04-23',
+    },
+    {
+      id: 'ev-3',
+      type: 'On-chain review',
+      summary: 'Another trust signal',
+      date: '2026-04-20',
+    },
+  ];
+
+  it('renders filter with All and available types sorted', () => {
+    renderProfile({ name: 'Filter User', score: 80, history: FILTER_EVENTS });
+    const select = screen.getByLabelText(/Filter:/i);
+    const options = within(select).getAllByRole('option');
+    expect(options).toHaveLength(3);
+    expect(options[0]).toHaveTextContent('All');
+    expect(options[1]).toHaveTextContent('On-chain review');
+    expect(options[2]).toHaveTextContent('Verification');
+  });
+
+  it('filter narrows entries and All restores them', () => {
+    renderProfile({ name: 'Filter User', score: 80, history: FILTER_EVENTS });
+    const select = screen.getByLabelText(/Filter:/i);
+
+    fireEvent.change(select, { target: { value: 'Verification' } });
+    let items = within(document.querySelector('ol')!).getAllByRole('listitem');
+    expect(items).toHaveLength(1);
+    expect(screen.getByText('Completed identity verification')).toBeInTheDocument();
+    expect(screen.queryByText('Received positive trust signal')).not.toBeInTheDocument();
+
+    fireEvent.change(select, { target: { value: 'All' } });
+    items = within(document.querySelector('ol')!).getAllByRole('listitem');
+    expect(items).toHaveLength(3);
+  });
+
+  it('shows empty guidance when filter matches nothing', () => {
+    const { rerender } = renderProfile({
+      name: 'Filter User',
+      score: 80,
+      history: FILTER_EVENTS,
+    });
+    fireEvent.change(screen.getByLabelText(/Filter:/i), {
+      target: { value: 'Verification' },
+    });
+
+    // History updates while a now-absent type remains selected.
+    rerender(
+      <ReputationProfile
+        syncUrl={false}
+        name="Filter User"
+        score={80}
+        history={[FILTER_EVENTS[1], FILTER_EVENTS[2]]}
+      />
+    );
+
+    expect(screen.getByText(/No events match this filter/i)).toBeInTheDocument();
+    expect(document.querySelector('ol')).not.toBeInTheDocument();
+  });
+
+  it('sorts oldest first when sort direction changes', () => {
+    renderProfile({ name: 'Sort User', score: 80, history: FILTER_EVENTS });
+    fireEvent.change(screen.getByLabelText(/Sort:/i), {
+      target: { value: 'asc' },
+    });
+    const items = within(document.querySelector('ol')!).getAllByRole('listitem');
+    expect(within(items[0]).getByText('Another trust signal')).toBeInTheDocument();
+    expect(within(items[2]).getByText('Completed identity verification')).toBeInTheDocument();
+  });
+
+  it('announces result count via aria-live', () => {
+    renderProfile({ name: 'Filter User', score: 80, history: FILTER_EVENTS });
+    fireEvent.change(screen.getByLabelText(/Filter:/i), {
+      target: { value: 'On-chain review' },
+    });
+    expect(screen.getByText(/Showing 2 events of type On-chain review/i)).toBeInTheDocument();
+  });
+});

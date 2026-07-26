@@ -1,3 +1,20 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  DEFAULT_DIR,
+  DEFAULT_TYPE,
+  REPUTATION_URL_DEBOUNCE_MS,
+  buildReputationQueryString,
+  filterAndSortHistory,
+  getAvailableHistoryTypes,
+  getValidDir,
+  getValidType,
+  isReputationUrlInSync,
+  type ReputationSortDir,
+} from '@/lib/reputationUrlState';
+
 export type ReputationEvent = {
   id: string;
   type: string;
@@ -12,6 +29,11 @@ export type ReputationProfileProps = {
   history?: ReputationEvent[];
   /** Maximum possible score value. Used for aria-valuemax on the meter role. */
   maxScore?: number;
+  /**
+   * When false, filter/sort stay local and are not written to the URL.
+   * Defaults to true so shareable links work on the reputation page.
+   */
+  syncUrl?: boolean;
 };
 
 export type ReputationBand = {
@@ -60,9 +82,52 @@ export default function ReputationProfile({
   level,
   history = [],
   maxScore = 5,
+  syncUrl = true,
 }: ReputationProfileProps) {
   const hasReputation = typeof score === 'number' && score >= 0;
   const showPartial = hasReputation && history.length === 0;
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const availableTypes = useMemo(() => getAvailableHistoryTypes(history), [history]);
+  const typeOptions = useMemo(() => [DEFAULT_TYPE, ...availableTypes], [availableTypes]);
+
+  const [selectedType, setSelectedType] = useState<string>(() =>
+    syncUrl ? getValidType(searchParams.get('type'), availableTypes) : DEFAULT_TYPE
+  );
+  const [sortDir, setSortDir] = useState<ReputationSortDir>(() =>
+    syncUrl ? getValidDir(searchParams.get('dir')) : DEFAULT_DIR
+  );
+
+  // Restore filter/sort from the URL on load and on back/forward navigation.
+  useEffect(() => {
+    if (!syncUrl) return;
+    setSelectedType(getValidType(searchParams.get('type'), availableTypes));
+    setSortDir(getValidDir(searchParams.get('dir')));
+  }, [searchParams, availableTypes, syncUrl]);
+
+  // Debounced write of filter/sort into the URL (shareable + reload-safe).
+  useEffect(() => {
+    if (!syncUrl) return;
+
+    const state = { type: selectedType, sort: 'date' as const, dir: sortDir };
+    if (isReputationUrlInSync((key) => searchParams.get(key), state, availableTypes)) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const query = buildReputationQueryString(searchParams, state);
+      router.replace(query ? `?${query}` : '?');
+    }, REPUTATION_URL_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedType, sortDir, router, searchParams, availableTypes, syncUrl]);
+
+  const filteredHistory = useMemo(
+    () => filterAndSortHistory(history, selectedType, sortDir),
+    [history, selectedType, sortDir]
+  );
 
   const resolvedLevel = level !== undefined
     ? level
@@ -193,16 +258,61 @@ export default function ReputationProfile({
        *   is omitted, keeping the markup valid.
        */}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-slate-950">Reputation history</h2>
             <p className="mt-1 text-sm text-slate-500">
               History is shown as safe, aggregated events with no wallet or personal metadata by default.
             </p>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600">
-            {history.length ? 'Visible' : 'Private by default'}
-          </span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            {history.length > 0 && (
+              <>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="history-type-filter" className="text-sm font-medium text-slate-700">
+                    Filter:
+                  </label>
+                  <select
+                    id="history-type-filter"
+                    data-testid="reputation-type-filter"
+                    className="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    value={selectedType}
+                    onChange={(e) => setSelectedType(e.target.value)}
+                  >
+                    {typeOptions.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="history-sort-dir" className="text-sm font-medium text-slate-700">
+                    Sort:
+                  </label>
+                  <select
+                    id="history-sort-dir"
+                    data-testid="reputation-sort-dir"
+                    className="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    value={sortDir}
+                    onChange={(e) => setSortDir(e.target.value as ReputationSortDir)}
+                  >
+                    <option value="desc">Newest first</option>
+                    <option value="asc">Oldest first</option>
+                  </select>
+                </div>
+                <div aria-live="polite" className="sr-only">
+                  Showing {filteredHistory.length}{' '}
+                  {filteredHistory.length === 1 ? 'event' : 'events'}
+                  {selectedType !== DEFAULT_TYPE ? ` of type ${selectedType}` : ''}
+                  , {sortDir === 'asc' ? 'oldest first' : 'newest first'}
+                </div>
+              </>
+            )}
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600">
+              {history.length ? 'Visible' : 'Private by default'}
+            </span>
+          </div>
         </div>
 
         {history.length === 0 ? (
@@ -212,9 +322,16 @@ export default function ReputationProfile({
               Reputation history appears once you complete verified actions. Your profile remains safe and privacy-friendly until then.
             </p>
           </div>
+        ) : filteredHistory.length === 0 ? (
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-slate-700">
+            <p className="font-semibold text-slate-900">No events match this filter.</p>
+            <p className="mt-2 text-sm leading-6">
+              Try choosing a different event type, or select All to see the full reputation history.
+            </p>
+          </div>
         ) : (
           <ol className="space-y-4">
-            {history.map((event) => {
+            {filteredHistory.map((event) => {
               // Determine whether the date string is a parseable ISO date.
               // If it is, expose the ISO value via dateTime for machine readability.
               const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
