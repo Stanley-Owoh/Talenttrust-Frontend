@@ -67,7 +67,7 @@ export const WalletConnectButton = () => {
         <span className="text-sm font-medium">Connection Error</span>
         <button
           onClick={connect}
-          className="ml-2 text-sm font-semibold underline hover:text-red-700"
+          className="ml-2 rounded text-sm font-semibold underline hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1"
           aria-label="Retry wallet connection"
         >
           Retry

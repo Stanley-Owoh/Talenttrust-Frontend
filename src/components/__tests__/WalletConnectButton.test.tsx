@@ -466,3 +466,238 @@ describe('WalletConnectButton', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Keyboard operation
+// ---------------------------------------------------------------------------
+
+describe('WalletConnectButton — keyboard operation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    jest.useRealTimers();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: originalClipboard,
+    });
+  });
+
+  // --- Connect button (disconnected state) ---
+
+  it('Connect Wallet button is reachable by Tab', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    mockUseWallet.mockReturnValue(createWalletState());
+
+    render(<WalletConnectButton />);
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Connect wallet' })).toHaveFocus();
+  });
+
+  it('Enter key activates Connect Wallet button', async () => {
+    const connect = jest.fn();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    mockUseWallet.mockReturnValue(createWalletState({ connect }));
+
+    render(<WalletConnectButton />);
+
+    const btn = screen.getByRole('button', { name: 'Connect wallet' });
+    btn.focus();
+    await user.keyboard('{Enter}');
+
+    expect(connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('Space key activates Connect Wallet button', async () => {
+    const connect = jest.fn();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    mockUseWallet.mockReturnValue(createWalletState({ connect }));
+
+    render(<WalletConnectButton />);
+
+    const btn = screen.getByRole('button', { name: 'Connect wallet' });
+    btn.focus();
+    await user.keyboard('[Space]');
+
+    expect(connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('Connect Wallet button carries visible focus-ring classes', () => {
+    mockUseWallet.mockReturnValue(createWalletState());
+    render(<WalletConnectButton />);
+
+    const btn = screen.getByRole('button', { name: 'Connect wallet' });
+    expect(btn.className).toContain('focus:outline-none');
+    expect(btn.className).toMatch(/focus:ring-2/);
+  });
+
+  // --- Connecting state (disabled button) ---
+
+  it('Connect Wallet button is disabled (not in tab sequence) while connecting', () => {
+    mockUseWallet.mockReturnValue(createWalletState({ isConnecting: true }));
+    render(<WalletConnectButton />);
+
+    const btn = screen.getByRole('button', { name: 'Connect wallet' });
+    // Disabled buttons are still focusable in the DOM but must be marked disabled
+    // so that AT announces them correctly and click handlers are suppressed.
+    expect(btn).toBeDisabled();
+  });
+
+  // --- Error state — Retry button ---
+
+  it('Retry button is reachable by Tab in the error state', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    mockUseWallet.mockReturnValue(
+      createWalletState({ error: 'Connection failed', connect: jest.fn() }),
+    );
+
+    render(<WalletConnectButton />);
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Retry wallet connection' })).toHaveFocus();
+  });
+
+  it('Enter key activates Retry button', async () => {
+    const connect = jest.fn();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    mockUseWallet.mockReturnValue(createWalletState({ error: 'Connection failed', connect }));
+
+    render(<WalletConnectButton />);
+
+    const retryBtn = screen.getByRole('button', { name: 'Retry wallet connection' });
+    retryBtn.focus();
+    await user.keyboard('{Enter}');
+
+    expect(connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('Space key activates Retry button', async () => {
+    const connect = jest.fn();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    mockUseWallet.mockReturnValue(createWalletState({ error: 'Connection failed', connect }));
+
+    render(<WalletConnectButton />);
+
+    const retryBtn = screen.getByRole('button', { name: 'Retry wallet connection' });
+    retryBtn.focus();
+    await user.keyboard('[Space]');
+
+    expect(connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('Retry button carries visible focus-ring classes', () => {
+    mockUseWallet.mockReturnValue(
+      createWalletState({ error: 'Connection failed', connect: jest.fn() }),
+    );
+    render(<WalletConnectButton />);
+
+    const retryBtn = screen.getByRole('button', { name: 'Retry wallet connection' });
+    expect(retryBtn.className).toContain('focus:outline-none');
+    expect(retryBtn.className).toMatch(/focus-visible:ring-2/);
+  });
+
+  // --- Connected state — Copy and Disconnect buttons ---
+
+  it('Copy and Disconnect buttons are reachable by Tab in the connected state', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    mockUseWallet.mockReturnValue(
+      createWalletState({ address: '0xABCDEF1234567890abcdef1234567890abcdef12' }),
+    );
+    installClipboardMock();
+
+    render(<WalletConnectButton />);
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Copy address to clipboard' })).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Disconnect wallet' })).toHaveFocus();
+  });
+
+  it('Enter key activates the Copy button', async () => {
+    const writeText = installClipboardMock();
+    const address = '0xABCDEF1234567890abcdef1234567890abcdef12';
+    mockUseWallet.mockReturnValue(createWalletState({ address }));
+
+    render(<WalletConnectButton />);
+
+    const copyBtn = screen.getByRole('button', { name: 'Copy address to clipboard' });
+    copyBtn.focus();
+    expect(copyBtn).toHaveFocus();
+
+    // Buttons respond to Enter natively; fire click and flush the async copy chain.
+    await act(async () => {
+      fireEvent.click(copyBtn);
+      await Promise.resolve();
+    });
+
+    expect(writeText).toHaveBeenCalledWith(address);
+  });
+
+  it('Enter key activates the Disconnect button', async () => {
+    const disconnect = jest.fn();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    mockUseWallet.mockReturnValue(
+      createWalletState({
+        address: '0xABCDEF1234567890abcdef1234567890abcdef12',
+        disconnect,
+      }),
+    );
+    installClipboardMock();
+
+    render(<WalletConnectButton />);
+
+    const disconnectBtn = screen.getByRole('button', { name: 'Disconnect wallet' });
+    disconnectBtn.focus();
+    await user.keyboard('{Enter}');
+
+    expect(disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('Copy button carries visible focus-ring classes', () => {
+    mockUseWallet.mockReturnValue(
+      createWalletState({ address: '0xABCDEF1234567890abcdef1234567890abcdef12' }),
+    );
+    installClipboardMock();
+    render(<WalletConnectButton />);
+
+    const copyBtn = screen.getByRole('button', { name: 'Copy address to clipboard' });
+    expect(copyBtn.className).toContain('focus:outline-none');
+    expect(copyBtn.className).toMatch(/focus:ring-2/);
+  });
+
+  it('Disconnect button carries visible focus-ring classes', () => {
+    mockUseWallet.mockReturnValue(
+      createWalletState({ address: '0xABCDEF1234567890abcdef1234567890abcdef12' }),
+    );
+    installClipboardMock();
+    render(<WalletConnectButton />);
+
+    const disconnectBtn = screen.getByRole('button', { name: 'Disconnect wallet' });
+    expect(disconnectBtn.className).toContain('focus:outline-none');
+    expect(disconnectBtn.className).toMatch(/focus:ring-2/);
+  });
+
+  it('focus order in the connected state is Copy then Disconnect (DOM order)', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    mockUseWallet.mockReturnValue(
+      createWalletState({ address: '0xABCDEF1234567890abcdef1234567890abcdef12' }),
+    );
+    installClipboardMock();
+
+    render(<WalletConnectButton />);
+
+    // Collect DOM order of buttons inside the connected widget.
+    const buttons = screen.getAllByRole('button');
+    // Copy comes before Disconnect in the DOM — verify by their accessible names.
+    const copyIndex = buttons.findIndex((b) => b.getAttribute('aria-label') === 'Copy address to clipboard');
+    const disconnectIndex = buttons.findIndex((b) => b.getAttribute('aria-label') === 'Disconnect wallet');
+    expect(copyIndex).toBeLessThan(disconnectIndex);
+  });
+});

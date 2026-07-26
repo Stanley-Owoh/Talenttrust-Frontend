@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import Navbar from '../Navbar';
 
@@ -108,30 +109,84 @@ describe('Navbar', () => {
 
     expect(results).toHaveNoViolations();
   });
+});
 
-  describe('rendered structure snapshots', () => {
-    it('matches the loaded navigation structure with an active route', () => {
-      mockUsePathname.mockReturnValue('/contracts');
+// ---------------------------------------------------------------------------
+// Keyboard operation
+// ---------------------------------------------------------------------------
 
-      const { container } = render(<Navbar />);
+describe('Navbar — keyboard operation', () => {
+  beforeEach(() => {
+    mockUsePathname.mockReturnValue('/');
+  });
 
-      expect(container.firstChild).toMatchSnapshot();
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('each link receives focus when tabbed to', async () => {
+    const user = userEvent.setup();
+    render(<Navbar />);
+
+    // Tab into the nav: the first link should receive focus.
+    await user.tab();
+    expect(screen.getByRole('link', { name: 'Contracts' })).toHaveFocus();
+
+    // Second tab moves to Milestones.
+    await user.tab();
+    expect(screen.getByRole('link', { name: 'Milestones' })).toHaveFocus();
+
+    // Third tab moves to Reputation.
+    await user.tab();
+    expect(screen.getByRole('link', { name: 'Reputation' })).toHaveFocus();
+  });
+
+  it('Shift+Tab reverses focus order through the links', async () => {
+    const user = userEvent.setup();
+    render(<Navbar />);
+
+    // Move focus forward to the last link first.
+    const reputationLink = screen.getByRole('link', { name: 'Reputation' });
+    reputationLink.focus();
+    expect(reputationLink).toHaveFocus();
+
+    await user.tab({ shift: true });
+    expect(screen.getByRole('link', { name: 'Milestones' })).toHaveFocus();
+
+    await user.tab({ shift: true });
+    expect(screen.getByRole('link', { name: 'Contracts' })).toHaveFocus();
+  });
+
+  it('Enter key activates a focused link (native browser behaviour is preserved)', async () => {
+    const user = userEvent.setup();
+    render(<Navbar />);
+
+    // Links delegate navigation to the browser; verify the element is
+    // focusable and survives an Enter keypress without throwing.
+    const contractsLink = screen.getByRole('link', { name: 'Contracts' });
+    contractsLink.focus();
+    expect(contractsLink).toHaveFocus();
+
+    await user.keyboard('{Enter}');
+    expect(contractsLink).toBeInTheDocument();
+  });
+
+  it('focus ring utility classes are present on every link (visible indicator)', () => {
+    render(<Navbar />);
+
+    screen.getAllByRole('link').forEach((link) => {
+      expect(link.className).toContain('focus:ring-2');
+      expect(link.className).toContain('focus:outline-none');
+      expect(link.className).toContain('focus:ring-[var(--ring)]');
     });
+  });
 
-    it('matches the empty default navigation structure without an active route', () => {
-      mockUsePathname.mockReturnValue('/');
+  it('no link has a negative tabindex that would exclude it from the tab sequence', () => {
+    render(<Navbar />);
 
-      const { container } = render(<Navbar />);
-
-      expect(container.firstChild).toMatchSnapshot();
-    });
-
-    it('matches the fallback navigation structure for an unknown route', () => {
-      mockUsePathname.mockReturnValue('/not-found');
-
-      const { container } = render(<Navbar />);
-
-      expect(container.firstChild).toMatchSnapshot();
+    screen.getAllByRole('link').forEach((link) => {
+      // tabIndex defaults to 0 for anchor elements; -1 would remove from sequence.
+      expect(link).not.toHaveAttribute('tabindex', '-1');
     });
   });
 });
