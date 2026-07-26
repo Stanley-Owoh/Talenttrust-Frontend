@@ -6,6 +6,7 @@ import { ErrorSummary } from './ErrorSummary';
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 import { isValidStellarAddress } from '@/lib/stellarAddress';
 import { sanitizeUserText } from '@/lib/sanitizeUserText';
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 import type { Contract } from '@/types/domain';
 
 export const MAX_CONTRACT_NAME_LENGTH = 200;
@@ -40,6 +41,17 @@ export const ContractCreationForm: React.FC<ContractCreationFormProps> = ({
   onSubmit,
   onCancel,
 }) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const firstFieldRef = useRef<HTMLInputElement>(null);
+
+  useDialogFocusTrap({
+    isOpen: true,
+    dialogRef,
+    initialFocusRef: firstFieldRef,
+    onEscape: onCancel,
+    restoreFocus: true,
+  });
+
   const [contractName, setContractName] = useState('');
   const [totalValue, setTotalValue] = useState('');
   const [currency, setCurrency] = useState('USD');
@@ -247,7 +259,7 @@ export const ContractCreationForm: React.FC<ContractCreationFormProps> = ({
             required
           >
             <input
-              ref={firstInputRef}
+              ref={firstFieldRef}
               type="text"
               value={contractName}
               onChange={e => setContractName(e.target.value)}

@@ -428,6 +428,54 @@ describe('ContractsPage', () => {
     });
   });
 
+  describe('Contract Creation Form Focus Management', () => {
+    it('moves focus to the Contract Name field when the form opens', async () => {
+      mockListContracts.mockReturnValue([]);
+      render(<ContractsPage />);
+
+      fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
+
+      expect(screen.getByLabelText(/contract name/i)).toHaveFocus();
+    });
+
+    it('closes the dialog when Escape is pressed', async () => {
+      mockListContracts.mockReturnValue([]);
+      const user = userEvent.setup();
+      render(<ContractsPage />);
+
+      await user.click(screen.getByRole('button', { name: /create contract/i }));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      await user.keyboard('{Escape}');
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('traps Tab focus within the dialog while open', async () => {
+      mockListContracts.mockReturnValue([]);
+      const user = userEvent.setup();
+      render(<ContractsPage />);
+
+      await user.click(screen.getByRole('button', { name: /create contract/i }));
+      const dialog = screen.getByRole('dialog');
+      const contractNameInput = screen.getByLabelText(/contract name/i);
+
+      contractNameInput.focus();
+      await user.tab();
+      expect(screen.getByLabelText(/total value/i)).toHaveFocus();
+
+      const focusable = dialog.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      const focusableArray = Array.from(focusable);
+      const lastFocusable = focusableArray[focusableArray.length - 1];
+      lastFocusable.focus();
+      await user.tab();
+
+      expect(contractNameInput).toHaveFocus();
+    });
+  });
+
   describe('Form Requirements', () => {
     it('requires at least two parties', async () => {
       mockListContracts.mockReturnValue([]);
