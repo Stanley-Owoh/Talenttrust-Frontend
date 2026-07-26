@@ -61,7 +61,6 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
    */
   const buildPersistedContract = useCallback(
     (data: ContractData, status: Contract['status']): Contract => ({
-      id,
       contractName: data.name,
       parties: data.parties,
       totalValue: data.totalValue,
@@ -70,7 +69,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       createdAt: data.createdAt,
       milestoneCount: data.milestones.length,
     }),
-    [id],
+    [],
   );
 
   /**
@@ -193,12 +192,6 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
     // Replace with summary navigation.
   };
 
-  const handlePrint = useCallback(() => {
-    if (typeof window !== 'undefined' && window.print) {
-      window.print();
-    }
-  }, []);
-
   const status = contractData?.status || 'Active';
 
   return (
@@ -216,25 +209,12 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
             />
             <h1 className="mt-2 text-3xl font-semibold text-slate-900">Contract #{id}</h1>
           </div>
-          <div className="flex items-center gap-3 no-print">
-            <button
-              type="button"
-              onClick={handlePrint}
-              aria-label="Print contract"
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              <svg className="h-4 w-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              Print contract
-            </button>
-            <Link
-              href="/contracts"
-              className="inline-flex items-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              Back to contracts
-            </Link>
-          </div>
+          <Link
+            href="/contracts"
+            className="inline-flex items-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400"
+          >
+            Back to contracts
+          </Link>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">

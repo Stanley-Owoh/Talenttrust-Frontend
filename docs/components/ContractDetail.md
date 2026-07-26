@@ -109,26 +109,8 @@ Left column order (top → bottom):
 2. `ContractProgress` — escrow progress bar, paid/outstanding fund cards
 3. `MilestonesList` — scrollable per-milestone detail rows
 
-## Print View and Archiving
-
-The contract detail page includes a print action and dedicated `@media print` stylesheet rules to allow archiving contracts as clean, legible one-page records.
-
-### Print Action
-
-- A **"Print contract"** button is located in the header of `src/app/contracts/[id]/page.tsx`.
-- Triggering the button executes `window.print()`.
-- The print button is wrapped in the `no-print` CSS class and excluded from print output (`display: none !important`).
-
-### Print Stylesheet (`@media print` in `src/app/globals.css`)
-
-- **Element Exclusion:** Hides interactive and non-record controls, including navigation bars (`header`, `nav`), `ActionPanel` (`aside`), mobile action menus, theme controls, breadcrumbs, and non-print buttons.
-- **Address Expansion:** Overrides CSS truncation (`.truncate`) so full wallet/party addresses are displayed without clipping.
-- **High-Contrast Status Badges:** Forces `StatusBadge` elements (`[role="status"]`) to render with high-contrast black text on a white background with a solid 1.5px black border for maximum legibility when printed or exported as PDF.
-- **Single-Page Optimization:** Removes heavy drop-shadows (`box-shadow: none`), resets page margins/padding, and collapses grid layouts to present a clean, continuous flow suitable for a single-page document.
-
 ## Accessibility
 
-- Status badges use high contrast color combinations (with print-specific black/white borders for high contrast when printed).
+- Status badges use high contrast color combinations.
 - Buttons include descriptive `aria-label` attributes, visible focus rings, and disabled-state descriptions.
 - Section headers use semantic landmarks and visible labels.
-

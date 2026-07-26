@@ -113,22 +113,6 @@ describe('ContractDetailPage', () => {
     expect(screen.getByRole('link', { name: /back to contracts/i })).toHaveAttribute('href', '/contracts');
     expect(within(getContractSummarySection()).getByLabelText('Status: Active')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /submit milestone for approval/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /print contract/i })).toBeInTheDocument();
-  });
-
-  it('triggers window.print when the "Print contract" button is clicked', async () => {
-    const user = userEvent.setup();
-    const printSpy = jest.spyOn(window, 'print').mockImplementation(() => {});
-
-    await renderPage();
-
-    const printButton = await screen.findByRole('button', { name: /print contract/i });
-    expect(printButton).toBeInTheDocument();
-
-    await user.click(printButton);
-
-    expect(printSpy).toHaveBeenCalledTimes(1);
-    printSpy.mockRestore();
   });
 
   it('persists the confirmed release flow, updates UI state, and moves focus back to the panel', async () => {
