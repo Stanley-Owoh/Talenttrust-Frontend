@@ -40,6 +40,7 @@ This repository keeps user-facing and implementation notes inside the `docs/` fo
 - `docs/components/Accessibility.md` — Accessibility testing, a11y helpers, and issue #383 notes
 - `docs/components/ReputationPage.md` — Reputation page implementation and rendering states
 - `docs/data-model.md` — Data model and persistence guide
+- `docs/forms-data-flow.md` — Forms data-flow diagram (fetch -> transform -> render) and implementation notes
 - `docs/persistence.md` — Persistence API and local storage patterns
 - `docs/preferences.md` — Preferences provider and currency/locale helpers
 - `docs/contexts/wallet-session.md` — Wallet session lifecycle and idle disconnect guidance
