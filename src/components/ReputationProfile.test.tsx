@@ -990,6 +990,102 @@ describe('reputation level legend and derived level', () => {
     });
   });
 
+  describe('ReputationProfile – edge cases and error resilience', () => {
+    it('renders without crashing with empty string name', () => {
+      renderProfile({ name: '', history: [] });
+      expect(screen.getByText(/No reputation yet/i)).toBeInTheDocument();
+    });
+
+    it('renders without crashing with name containing special characters', () => {
+      renderProfile({ name: '<script>alert("xss")</script>', history: [] });
+      expect(screen.getByText(/No reputation yet/i)).toBeInTheDocument();
+    });
+
+    it('renders without crashing with a very long name', () => {
+      const longName = 'A'.repeat(1000);
+      renderProfile({ name: longName, history: [] });
+      expect(screen.getByText(/No reputation yet/i)).toBeInTheDocument();
+    });
+
+    it('renders score with many decimal places', () => {
+      renderProfile({ name: 'Precision User', score: 3.141592653589793, history: [] });
+      const meter = screen.getByRole('meter');
+      expect(meter).toHaveAttribute('aria-valuenow', '3.141592653589793');
+      expect(getLevelText()).toBe('Trusted Partner');
+    });
+
+    it('renders without crashing with a very large score', () => {
+      renderProfile({ name: 'Large Score User', score: 999999, maxScore: 1000000 });
+      const meter = screen.getByRole('meter');
+      expect(meter).toHaveAttribute('aria-valuenow', '999999');
+      expect(getLevelText()).toBe('Expert');
+    });
+
+    it('renders without crashing with a very large maxScore', () => {
+      renderProfile({ name: 'Large Max User', score: 50000, maxScore: 100000 });
+      const meter = screen.getByRole('meter');
+      expect(meter).toHaveAttribute('aria-valuemax', '100000');
+    });
+
+    it('renders history events with missing optional fields gracefully', () => {
+      const sparseHistory = [
+        { id: 'ev-1', type: 'Test', summary: 'Has all fields', date: '2026-04-24' },
+        { id: 'ev-2', type: '', summary: '', date: '' },
+        { id: 'ev-3', type: 'Minimal', summary: 'Only required', date: '' },
+      ];
+      renderProfile({ name: 'Sparse User', score: 50, history: sparseHistory });
+      const items = document.querySelectorAll('ol li');
+      expect(items).toHaveLength(3);
+    });
+
+    it('renders history with duplicate IDs without crashing', () => {
+      const dupHistory = [
+        { id: 'same-id', type: 'Event 1', summary: 'First', date: '2026-04-24' },
+        { id: 'same-id', type: 'Event 2', summary: 'Second', date: '2026-04-25' },
+      ];
+      renderProfile({ name: 'Dup User', score: 50, history: dupHistory });
+      const items = document.querySelectorAll('ol li');
+      expect(items).toHaveLength(2);
+    });
+
+    it('renders without crashing when history contains non-ISO date strings', () => {
+      const nonIsoHistory = [
+        { id: 'ev-1', type: 'Manual', summary: 'Old event', date: 'January 15, 2024' },
+        { id: 'ev-2', type: 'Manual', summary: 'Relative date', date: 'yesterday' },
+      ];
+      renderProfile({ name: 'NonIso User', score: 50, history: nonIsoHistory });
+      const timeEls = document.querySelectorAll('time');
+      expect(timeEls).toHaveLength(2);
+      expect(timeEls[0].hasAttribute('dateTime')).toBe(true);
+      expect(timeEls[1].hasAttribute('dateTime')).toBe(false);
+    });
+
+    it('renders without crashing when score is 0 and history is undefined', () => {
+      renderProfile({ name: 'Zero Undefined User', score: 0 });
+      const meter = screen.getByRole('meter');
+      expect(meter).toHaveAttribute('aria-valuenow', '0');
+      expect(screen.getByText(/Private by default/i)).toBeInTheDocument();
+    });
+
+    it('mutually exclusive: success state does not render empty state elements', () => {
+      renderProfile({ name: 'Exclusive User', score: 70, history: [{ id: 'ev-1', type: 'Test', summary: 'Test', date: '2026-04-24' }] });
+      expect(screen.queryByText(/No reputation yet/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Pending/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Partial reputation data/i)).not.toBeInTheDocument();
+    });
+
+    it('mutually exclusive: empty state does not render success state elements', () => {
+      renderProfile({ name: 'Exclusive Empty', history: [] });
+      expect(screen.queryByRole('meter')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Reputation Level Legend/i)).not.toBeInTheDocument();
+    });
+
+    it('mutually exclusive: partial state does not render full history list', () => {
+      renderProfile({ name: 'Exclusive Partial', score: 50, history: [] });
+      expect(screen.getByText(/Partial reputation data/i)).toBeInTheDocument();
+      expect(document.querySelector('ol')).toBeNull();
+    });
+  });
 // ---------------------------------------------------------------------------
 // 12. History filter + sort (local, syncUrl=false)
 // ---------------------------------------------------------------------------
