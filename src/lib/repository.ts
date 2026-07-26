@@ -199,6 +199,39 @@ export function upsertContract(contract: Contract): boolean {
   return writeStore({ ...store, contracts });
 }
 
+/**
+ * Deletes a contract by name from the persisted list.
+ *
+ * When a contract with the given `contractName` is found, it is removed and
+ * the remaining contracts are persisted. If no contract with that name exists,
+ * the store remains unchanged.
+ *
+ * The helper returns a success flag so calling UI code can surface a toast or
+ * fallback message when persistence fails.
+ *
+ * @param contractName - The name of the contract to delete.
+ * @returns `true` when the contract is deleted successfully; otherwise `false`.
+ *
+ * @example
+ * ```ts
+ * const deleted = deleteContract('Design Sprint');
+ * if (!deleted) console.warn('Could not delete contract.');
+ * ```
+ */
+export function deleteContract(contractName: string): boolean {
+  const store = readStore();
+  const filteredContracts = store.contracts.filter(
+    (contract) => contract.contractName !== contractName,
+  );
+
+  // If no contracts were removed, return false (nothing to delete)
+  if (filteredContracts.length === store.contracts.length) {
+    return false;
+  }
+
+  return writeStore({ ...store, contracts: filteredContracts });
+}
+
 // ---------------------------------------------------------------------------
 // Public API — Milestones
 // ---------------------------------------------------------------------------
