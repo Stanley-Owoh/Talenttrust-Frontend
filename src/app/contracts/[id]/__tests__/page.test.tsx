@@ -133,6 +133,10 @@ describe('ContractDetailPage', () => {
     await user.click(within(dialog).getByRole('button', { name: /^release funds$/i }));
 
     await waitFor(() => {
+      expect(within(getContractSummarySection()).getByLabelText('Status: Completed')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
       expect(mockedUpsertContract).toHaveBeenCalledWith({
         contractName: contractData.name,
         parties: contractData.parties,
@@ -143,6 +147,50 @@ describe('ContractDetailPage', () => {
         milestoneCount: contractData.milestones.length,
         version: 0,
       });
+    });
+  });
+
+  it('rolls back the optimistic UI state when persistence fails', async () => {
+    const user = userEvent.setup();
+    mockedUpsertContract.mockReturnValue(false);
+
+    await renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /release funds to the contractor/i }));
+    await user.click(within(screen.getByRole('alertdialog', { name: /confirm release funds/i })).getByRole('button', { name: /^release funds$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status', { name: 'Status: Completed' })).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('status', { name: 'Status: Active' })).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Unable to update contract')).toBeInTheDocument();
+  });
+
+  it('ignores overlapping confirmations while a status update is already pending', async () => {
+    const user = userEvent.setup();
+    let callCount = 0;
+
+    mockedUpsertContract.mockImplementation(() => {
+      callCount += 1;
+      return callCount === 1;
+    });
+
+    await renderPage();
+
+    const releaseButton = await screen.findByRole('button', { name: /release funds to the contractor/i });
+
+    await user.click(releaseButton);
+    await user.click(within(screen.getByRole('alertdialog', { name: /confirm release funds/i })).getByRole('button', { name: /^release funds$/i }));
+    await user.click(releaseButton);
+
+    expect(mockedUpsertContract).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => {
+      expect(screen.getByText('Funds released')).toBeInTheDocument();
     });
   });
 

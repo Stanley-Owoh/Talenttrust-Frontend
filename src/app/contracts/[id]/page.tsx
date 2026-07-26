@@ -46,7 +46,10 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isPersistingStatus, setIsPersistingStatus] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<ContractData['status'] | null>(null);
   const isMountedRef = useRef(true);
+  const isPersistingStatusRef = useRef(false);
   const { showError, showSuccess } = useToast();
 
   /**
@@ -76,10 +79,60 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
     [],
   );
 
-  const persistStatus = useOptimisticContractStatus(
-    contractData,
-    setContractData,
-    buildPersistedContract,
+  /**
+   * Persists a contract status transition and mirrors the result into page state.
+   *
+   * The write is intentionally client-side because repository persistence is
+   * backed by `localStorage`. Success and failure are surfaced through toasts so
+   * the confirmed ActionPanel flows provide immediate feedback.
+   *
+   * @param nextStatus - The status to persist to the repository.
+   * @param successTitle - The toast title shown after a successful write.
+   * @param successDescription - The toast description shown after success.
+   */
+  const persistContractStatus = useCallback(
+    (
+      nextStatus: ContractData['status'],
+      successTitle: string,
+      successDescription: string,
+    ) => {
+      if (!contractData || isPersistingStatusRef.current) {
+        return;
+      }
+
+      const previousStatus = contractData.status;
+
+      isPersistingStatusRef.current = true;
+      setIsPersistingStatus(true);
+      setPendingStatus(nextStatus);
+      setErrorMessage(null);
+      setContractData((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+
+      const persisted = upsertContract(buildPersistedContract(contractData, nextStatus));
+
+      if (!persisted) {
+        const message = 'The contract status could not be persisted. Please try again.';
+        setContractData((prev) => (prev ? { ...prev, status: previousStatus } : prev));
+        setPendingStatus(null);
+        setErrorMessage(message);
+        isPersistingStatusRef.current = false;
+        showError({
+          title: 'Unable to update contract',
+          description: message,
+        });
+        setIsPersistingStatus(false);
+        return;
+      }
+
+      setPendingStatus(null);
+      isPersistingStatusRef.current = false;
+      showSuccess({
+        title: successTitle,
+        description: successDescription,
+      });
+      setIsPersistingStatus(false);
+    },
+    [buildPersistedContract, contractData, showError, showSuccess],
   );
 
   useEffect(() => {
@@ -170,7 +223,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
     // Replace with summary navigation.
   };
 
-  const status = contractData?.status || 'Active';
+  const status = pendingStatus ?? contractData?.status ?? 'Active';
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
