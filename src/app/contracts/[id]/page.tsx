@@ -14,7 +14,11 @@ import ContractStatusAnnouncer from '@/components/ContractStatusAnnouncer';
 import SafeBoundary from '@/components/SafeBoundary';
 import { resolveContractData, ContractData } from '@/lib/contractResolver';
 import { useToast } from '@/components/toast/toast-provider';
-import { upsertContract, listMilestonesByContract } from '@/lib/repository';
+import {
+  upsertContract,
+  listMilestonesByContract,
+  updateMilestone,
+} from '@/lib/repository';
 import { isValidContractId } from '@/lib/validateContractId';
 import type { Contract, Milestone } from '@/types/domain';
 
@@ -29,10 +33,15 @@ import type { Contract, Milestone } from '@/types/domain';
  * @param contractId - The contract id to filter persisted milestones by.
  * @returns The merged, de-duplicated milestone list for this contract.
  */
-function mergeContractMilestones(baseMilestones: Milestone[], contractId: string): Milestone[] {
+function mergeContractMilestones(
+  baseMilestones: Milestone[],
+  contractId: string,
+): Milestone[] {
   const merged = new Map<string, Milestone>();
   baseMilestones.forEach((milestone) => merged.set(milestone.id, milestone));
-  listMilestonesByContract(contractId).forEach((milestone) => merged.set(milestone.id, milestone));
+  listMilestonesByContract(contractId).forEach((milestone) =>
+    merged.set(milestone.id, milestone),
+  );
   return Array.from(merged.values());
 }
 
@@ -90,7 +99,8 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       successDescription: string,
     ) => {
       if (!contractData) {
-        const message = 'Contract details are unavailable, so the status could not be updated.';
+        const message =
+          'Contract details are unavailable, so the status could not be updated.';
         setErrorMessage(message);
         showError({
           title: 'Unable to update contract',
@@ -102,10 +112,13 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       setIsPersistingStatus(true);
       setErrorMessage(null);
 
-      const persisted = upsertContract(buildPersistedContract(contractData, nextStatus));
+      const persisted = upsertContract(
+        buildPersistedContract(contractData, nextStatus),
+      );
 
       if (!persisted) {
-        const message = 'The contract status could not be persisted. Please try again.';
+        const message =
+          'The contract status could not be persisted. Please try again.';
         setErrorMessage(message);
         showError({
           title: 'Unable to update contract',
@@ -142,7 +155,9 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       } catch (error) {
         if (isMountedRef.current) {
           setErrorMessage(
-            error instanceof Error ? error.message : 'Failed to load contract. Please try again.'
+            error instanceof Error
+              ? error.message
+              : 'Failed to load contract. Please try again.',
           );
         }
       } finally {
@@ -192,11 +207,26 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
     // Replace with summary navigation.
   };
 
+  const handleUpdateMilestone = useCallback((milestone: Milestone) => {
+    const persisted = updateMilestone(milestone.id, milestone);
+
+    if (!persisted) {
+      return false;
+    }
+
+    setMilestones((current) =>
+      current.map((item) => (item.id === milestone.id ? milestone : item)),
+    );
+    return true;
+  }, []);
+
   const status = contractData?.status || 'Active';
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
-      {contractData ? <ContractStatusAnnouncer status={contractData.status} /> : null}
+      {contractData ? (
+        <ContractStatusAnnouncer status={contractData.status} />
+      ) : null}
       <div className="mx-auto max-w-screen-2xl space-y-6">
         <div className="flex items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div>
@@ -207,7 +237,9 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
                 { label: `#${id}` },
               ]}
             />
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Contract #{id}</h1>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-900">
+              Contract #{id}
+            </h1>
           </div>
           <Link
             href="/contracts"
@@ -247,7 +279,11 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
               {isLoading ? (
                 <MilestonesListSkeleton />
               ) : contractData ? (
-                <MilestonesList milestones={milestones} contractCurrency={contractData.currency} />
+                <MilestonesList
+                  milestones={milestones}
+                  contractCurrency={contractData.currency}
+                  onUpdateMilestone={handleUpdateMilestone}
+                />
               ) : null}
             </SafeBoundary>
           </div>

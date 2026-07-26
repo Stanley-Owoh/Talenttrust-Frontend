@@ -1,12 +1,25 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  Suspense,
+} from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import EmptyState from '../../components/EmptyState';
 import MilestonesList from '../../components/MilestonesList';
-import MilestoneFilter, { type MilestoneStatusFilter } from '../../components/milestones/MilestoneFilter';
+import MilestoneFilter, {
+  type MilestoneStatusFilter,
+} from '../../components/milestones/MilestoneFilter';
 import { MilestoneCreationForm } from '../../components/milestones/MilestoneCreationForm';
-import { listMilestones, saveMilestone } from '@/lib/repository';
+import {
+  listMilestones,
+  saveMilestone,
+  updateMilestone,
+} from '@/lib/repository';
 import { getItem, setItem } from '@/lib/safeStorage';
 import type { Milestone } from '@/types/domain';
 
@@ -55,7 +68,13 @@ export const SAMPLE_MILESTONES: Milestone[] = [
   },
 ];
 
-const VALID_STATUSES: MilestoneStatusFilter[] = ['All', 'Pending', 'Completed', 'Paid', 'Disputed'];
+const VALID_STATUSES: MilestoneStatusFilter[] = [
+  'All',
+  'Pending',
+  'Completed',
+  'Paid',
+  'Disputed',
+];
 
 function getValidStatus(param: string | null): MilestoneStatusFilter {
   return param && (VALID_STATUSES as string[]).includes(param)
@@ -71,7 +90,8 @@ const MilestonesContent: React.FC = () => {
   const startFromScratchRef = useRef<HTMLButtonElement | null>(null);
 
   const initialStatus = getValidStatus(searchParams.get('status'));
-  const [statusFilter, setStatusFilter] = useState<MilestoneStatusFilter>(initialStatus);
+  const [statusFilter, setStatusFilter] =
+    useState<MilestoneStatusFilter>(initialStatus);
   const [showForm, setShowForm] = useState(false);
 
   // Sync state if searchParams change externally (e.g. back/forward navigation)
@@ -83,7 +103,10 @@ const MilestonesContent: React.FC = () => {
   // Sync statusFilter state changes to URL without adding browser history entries
   useEffect(() => {
     const currentUrlStatus = searchParams.get('status');
-    if (currentUrlStatus !== statusFilter && !(currentUrlStatus === null && statusFilter === 'All')) {
+    if (
+      currentUrlStatus !== statusFilter &&
+      !(currentUrlStatus === null && statusFilter === 'All')
+    ) {
       const params = new URLSearchParams(searchParams.toString());
       params.set('status', statusFilter);
       router.replace(`?${params.toString()}`);
@@ -143,6 +166,19 @@ const MilestonesContent: React.FC = () => {
 
   const handleCancelForm = useCallback(() => {
     setShowForm(false);
+  }, []);
+
+  const handleUpdateMilestone = useCallback((milestone: Milestone) => {
+    const persisted = updateMilestone(milestone.id, milestone);
+
+    if (!persisted) {
+      return false;
+    }
+
+    setMilestones((current) =>
+      current.map((item) => (item.id === milestone.id ? milestone : item)),
+    );
+    return true;
   }, []);
 
   return (
@@ -220,7 +256,10 @@ const MilestonesContent: React.FC = () => {
               onAction={handleAddMilestone}
             />
           ) : (
-            <MilestonesList milestones={filtered} />
+            <MilestonesList
+              milestones={filtered}
+              onUpdateMilestone={handleUpdateMilestone}
+            />
           )}
         </>
       )}
