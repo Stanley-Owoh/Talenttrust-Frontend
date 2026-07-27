@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 
 export interface WalletBulkToolbarProps {
   /** Total number of currently selected items */
@@ -26,17 +26,24 @@ export const WalletBulkToolbar: React.FC<WalletBulkToolbarProps> = ({
   onDelete,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const mountedRef = useRef(true);
 
-  // Handle Escape key to clear selection
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && selectedCount > 0) {
-        onClearSelection();
-      }
+    return () => {
+      mountedRef.current = false;
     };
+  }, []);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape' && selectedCount > 0 && mountedRef.current) {
+      onClearSelection();
+    }
+  }, [selectedCount, onClearSelection]);
+
+  useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedCount, onClearSelection]);
+  }, [handleKeyDown]);
 
   if (selectedCount <= 0) {
     return null;

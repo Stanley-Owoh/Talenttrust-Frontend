@@ -38,12 +38,6 @@ const MilestonesList = ({
   const [displayCount, setDisplayCount] = useState(pageSize);
   const [isDensityAnnounced, setIsDensityAnnounced] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
-  const [displayCount, setDisplayCount] = useState(pageSize);
-  /**
-   * Gates the density live-region announcement so it stays silent on mount
-   * and only speaks after the user actively toggles density.
-   */
-  const [isDensityAnnounced, setIsDensityAnnounced] = useState(false);
   /**
    * Tracks which row is currently in inline edit mode. Mutually exclusive —
    * opening one row closes any other row that was being edited so we never
