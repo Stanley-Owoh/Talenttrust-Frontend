@@ -130,6 +130,7 @@ const ToastViewport = forwardRef<HTMLDivElement, {
   onResumeTimer: (id: string) => void;
   density: 'relaxed' | 'compact';
 }>(({ toasts, onDismiss, onPauseTimer, onResumeTimer, density }, ref) => {
+  const isEmpty = toasts.length === 0;
   return (
     <div
       ref={ref}
