@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import CreateContractForm from '../CreateContractForm';
 
@@ -41,6 +42,44 @@ function renderForm() {
 }
 
 // ---------------------------------------------------------------------------
+// Test harness for focus-management tests
+// ---------------------------------------------------------------------------
+
+function createFocusTestHarness() {
+  const dialogOnCancel = jest.fn();
+  const dialogOnSuccess = jest.fn();
+
+  function Harness() {
+    const [isOpen, setIsOpen] = React.useState(false);
+
+    return (
+      <>
+        <button type="button" onClick={() => setIsOpen(true)}>
+          Open contract form
+        </button>
+        <button type="button" onClick={() => setIsOpen(false)}>
+          External close
+        </button>
+        {isOpen && (
+          <CreateContractForm
+            onSuccess={(contract) => {
+              dialogOnSuccess(contract);
+              setIsOpen(false);
+            }}
+            onCancel={() => {
+              dialogOnCancel();
+              setIsOpen(false);
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  return { Harness, dialogOnCancel, dialogOnSuccess };
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -58,6 +97,14 @@ describe('CreateContractForm', () => {
     expect(screen.getByLabelText(/currency/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /create contract/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+  });
+
+  it('renders as a modal dialog with correct ARIA attributes', () => {
+    renderForm();
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveAttribute('aria-labelledby', 'create-contract-heading');
   });
 
   it('matches the empty-state form structure', () => {
@@ -395,5 +442,131 @@ describe('CreateContractForm', () => {
     expect(screen.queryByText('Contract name is required')).not.toBeInTheDocument();
     expect(screen.queryByText('Freelancer address is required')).not.toBeInTheDocument();
     expect(screen.queryByText('Total value must be a positive number')).not.toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Focus management
+  // ---------------------------------------------------------------------------
+
+  describe('focus management', () => {
+    it('sets initial focus to the contract name field when opened', async () => {
+      const user = userEvent.setup();
+      const { Harness } = createFocusTestHarness();
+      render(<Harness />);
+
+      await user.click(screen.getByRole('button', { name: 'Open contract form' }));
+
+      expect(screen.getByLabelText(/contract name/i)).toHaveFocus();
+    });
+
+    it('invokes onCancel when Escape is pressed', async () => {
+      const user = userEvent.setup();
+      const { Harness, dialogOnCancel } = createFocusTestHarness();
+      render(<Harness />);
+
+      await user.click(screen.getByRole('button', { name: 'Open contract form' }));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      await user.keyboard('{Escape}');
+
+      expect(dialogOnCancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('traps Tab focus within the dialog while open', async () => {
+      const user = userEvent.setup();
+      const { Harness } = createFocusTestHarness();
+      render(<Harness />);
+
+      await user.click(screen.getByRole('button', { name: 'Open contract form' }));
+      const dialog = screen.getByRole('dialog');
+
+      // First get all focusable elements inside the dialog
+      const focusable = dialog.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      const focusableArray = Array.from(focusable) as HTMLElement[];
+      expect(focusableArray.length).toBeGreaterThan(0);
+
+      const firstFocusable = focusableArray[0];
+      const lastFocusable = focusableArray[focusableArray.length - 1];
+
+      // Focus the last element, then Tab — should wrap to the first
+      lastFocusable.focus();
+      await user.tab();
+
+      expect(firstFocusable).toHaveFocus();
+    });
+
+    it('cycles Shift+Tab from the first control back to the last control', async () => {
+      const user = userEvent.setup();
+      const { Harness } = createFocusTestHarness();
+      render(<Harness />);
+
+      await user.click(screen.getByRole('button', { name: 'Open contract form' }));
+      const dialog = screen.getByRole('dialog');
+      const contractNameInput = screen.getByLabelText(/contract name/i);
+
+      contractNameInput.focus();
+      await user.tab({ shift: true });
+
+      const focusable = dialog.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      const focusableArray = Array.from(focusable);
+      const lastFocusable = focusableArray[focusableArray.length - 1];
+
+      expect(lastFocusable).toHaveFocus();
+    });
+
+    it('restores focus to the trigger after closing with Escape', async () => {
+      const user = userEvent.setup();
+      const { Harness, dialogOnCancel } = createFocusTestHarness();
+      render(<Harness />);
+
+      const trigger = screen.getByRole('button', { name: 'Open contract form' });
+      await user.click(trigger);
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      await user.keyboard('{Escape}');
+
+      expect(dialogOnCancel).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
+
+    it('restores focus to the trigger after cancel button closes the dialog', async () => {
+      const user = userEvent.setup();
+      const { Harness } = createFocusTestHarness();
+      render(<Harness />);
+
+      const trigger = screen.getByRole('button', { name: 'Open contract form' });
+      await user.click(trigger);
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
+
+    it('restores focus to the trigger after successful submission', async () => {
+      const user = userEvent.setup();
+      const { Harness, dialogOnSuccess } = createFocusTestHarness();
+      render(<Harness />);
+
+      const trigger = screen.getByRole('button', { name: 'Open contract form' });
+      await user.click(trigger);
+
+      // Fill valid form data
+      await user.type(screen.getByLabelText(/contract name/i), 'Test Contract');
+      await user.type(screen.getByLabelText(/freelancer stellar address/i), VALID_ADDRESS);
+      await user.type(screen.getByLabelText(/total value/i), '1000');
+
+      await user.click(screen.getByRole('button', { name: /create contract/i }));
+
+      expect(dialogOnSuccess).toHaveBeenCalled();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
   });
 });
