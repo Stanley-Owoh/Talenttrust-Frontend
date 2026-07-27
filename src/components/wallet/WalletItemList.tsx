@@ -40,7 +40,7 @@ export const WalletItemList: React.FC<WalletItemListProps> = ({
   }
 
   return (
-    <div className="w-full overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="w-full overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900" data-wallet-table>
       <table className="w-full text-left text-sm" aria-label="Wallet items table">
         <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
           <tr>
@@ -71,6 +71,7 @@ export const WalletItemList: React.FC<WalletItemListProps> = ({
               <tr
                 key={item.id}
                 data-testid={`wallet-item-row-${item.id}`}
+                data-selected={isSelected || undefined}
                 className={`transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40 ${
                   isSelected ? 'bg-blue-50/40 dark:bg-slate-800/60' : ''
                 }`}
@@ -99,6 +100,7 @@ export const WalletItemList: React.FC<WalletItemListProps> = ({
                 </td>
                 <td className="px-4 py-4">
                   <span
+                    data-wallet-status={item.status}
                     className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                       item.status === 'Active'
                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
