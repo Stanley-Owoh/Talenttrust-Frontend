@@ -5,21 +5,23 @@ import { FormField } from '@/components/FormField';
 import { ErrorSummary } from '@/components/ErrorSummary';
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 import { sanitizeUserText } from '@/lib/sanitizeUserText';
+import {
+  validateMilestone,
+  MAX_MILESTONE_TITLE_LENGTH,
+  ALLOWED_CURRENCIES,
+  ALLOWED_STATUSES,
+} from '@/lib/validateMilestone';
 import type { Milestone } from '@/types/domain';
 
-export const MAX_MILESTONE_TITLE_LENGTH = 200;
+// Re-export so existing imports of MAX_MILESTONE_TITLE_LENGTH from this module
+// continue to work without breaking changes.
+export { MAX_MILESTONE_TITLE_LENGTH };
 
 /** Status options available when creating a milestone. */
-const STATUS_OPTIONS: Milestone['status'][] = [
-  'Pending',
-  'Active',
-  'Completed',
-  'Paid',
-  'Disputed',
-];
+const STATUS_OPTIONS = ALLOWED_STATUSES as unknown as Milestone['status'][];
 
 /** Currency options available when creating a milestone. */
-const CURRENCY_OPTIONS = ['USD', 'EUR', 'GBP', 'XLM'] as const;
+const CURRENCY_OPTIONS = ALLOWED_CURRENCIES;
 
 export interface MilestoneCreationFormProps {
   /**
@@ -73,36 +75,13 @@ export const MilestoneCreationForm: React.FC<MilestoneCreationFormProps> = ({
   const [errors, setErrors] = useState<Array<{ fieldId: string; message: string }>>([]);
 
   /**
-   * Validates form fields and returns an array of error objects.
-   * An empty array means the form is valid.
+   * Delegates to the pure `validateMilestone` helper and returns the resulting
+   * errors array. Keeping the call-site here (rather than inlining the logic)
+   * means the form stays thin while the rules live in a testable module.
    */
   const validateForm = useCallback((): Array<{ fieldId: string; message: string }> => {
-    const errs: Array<{ fieldId: string; message: string }> = [];
-
-    const sanitizedTitle = sanitizeUserText(title, MAX_MILESTONE_TITLE_LENGTH);
-    const unboundedTitle = sanitizeUserText(title, Number.MAX_SAFE_INTEGER);
-    if (!sanitizedTitle) {
-      errs.push({ fieldId: 'milestone-title', message: 'Title is required' });
-    } else if (unboundedTitle.length > MAX_MILESTONE_TITLE_LENGTH) {
-      errs.push({
-        fieldId: 'milestone-title',
-        message: `Title must be no more than ${MAX_MILESTONE_TITLE_LENGTH} characters`,
-      });
-    }
-
-    const numericPayout = parseFloat(payout);
-    if (!payout.trim()) {
-      errs.push({ fieldId: 'milestone-payout', message: 'Payout amount is required' });
-    } else if (isNaN(numericPayout) || numericPayout <= 0) {
-      errs.push({ fieldId: 'milestone-payout', message: 'Payout must be a positive number' });
-    }
-
-    if (!currency.trim()) {
-      errs.push({ fieldId: 'milestone-currency', message: 'Currency is required' });
-    }
-
-    return errs;
-  }, [title, payout, currency]);
+    return validateMilestone({ title, payout, currency, dueDate, status });
+  }, [title, payout, currency, dueDate, status]);
 
   /**
    * Handles form submission: validates, then calls `onSubmit` with the
@@ -223,7 +202,7 @@ export const MilestoneCreationForm: React.FC<MilestoneCreationFormProps> = ({
             </FormField>
           </div>
 
-          <FormField label="Status" id="milestone-status">
+          <FormField label="Status" id="milestone-status" error={getFieldError('milestone-status')}>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as Milestone['status'])}
@@ -241,6 +220,7 @@ export const MilestoneCreationForm: React.FC<MilestoneCreationFormProps> = ({
             label="Due Date"
             id="milestone-dueDate"
             helperText="Optional — e.g., Jun 1, 2025"
+            error={getFieldError('milestone-dueDate')}
           >
             <input
               type="text"
@@ -255,13 +235,13 @@ export const MilestoneCreationForm: React.FC<MilestoneCreationFormProps> = ({
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+              className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+              className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
             >
               Add Milestone
             </button>

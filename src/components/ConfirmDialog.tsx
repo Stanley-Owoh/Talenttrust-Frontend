@@ -21,6 +21,14 @@ export interface ConfirmDialogProps {
   onConfirm: () => void;
   /** Callback when the user cancels or closes the dialog */
   onCancel: () => void;
+  /** Whether the dialog is in a loading state */
+  isLoading?: boolean;
+  /** Error message to display inside the dialog */
+  error?: string;
+  /** Whether the dialog is in an empty state */
+  isEmpty?: boolean;
+  /** Whether the dialog action was successful */
+  isSuccess?: boolean;
 }
 
 /**
@@ -56,6 +64,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     dialogRef,
     initialFocusRef: cancelBtnRef,
     onEscape: onCancel,
+    // Restore focus to the element that opened the dialog (trigger button)
+    // when the dialog closes or unmounts — satisfies WCAG 2.1 SC 3.2.2.
+    restoreFocus: true,
   });
 
   useEffect(() => {
@@ -136,26 +147,39 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <h2 id={titleId} className="text-lg font-semibold mb-4">
           {title}
         </h2>
-        <p id={descriptionId} className="text-sm text-slate-700 mb-6">{description}</p>
-        <div className="flex justify-end gap-3">
+        {isSuccess ? (
+          <div role="status" className="mb-6 p-3 bg-green-100 text-green-800 rounded">Action successful.</div>
+        ) : isEmpty ? (
+          <div className="mb-6 p-3 text-gray-500 italic">No data available.</div>
+        ) : (
+          <p id={descriptionId} className="text-sm text-gray-700 mb-6">{description}</p>
+        )}
+        {error && (
+          <div role="alert" className="mb-4 p-3 bg-red-100 text-red-800 rounded">{error}</div>
+        )}
+        <div className="flex justify-end space-x-3">
+          {/* Cancel — receives initial focus; explicit focus-visible ring for keyboard users */}
           <button
             ref={cancelBtnRef}
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+            className="px-4 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
           >
             {cancelLabel}
           </button>
+          {/* Confirm — styled to its tone; consistent focus-visible ring */}
           <button
             type="button"
             onClick={onConfirm}
-            className={
+            className={[
+              'px-4 py-2 rounded text-white',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
               tone === 'destructive'
-                ? 'rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-rose-500'
-                : 'rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500'
-            }
+                ? 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500'
+                : 'bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-500',
+            ].join(' ')}
           >
-            {confirmLabel}
+            {isLoading ? 'Loading...' : confirmLabel}
           </button>
         </div>
       </div>

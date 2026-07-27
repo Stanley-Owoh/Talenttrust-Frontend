@@ -1,4 +1,7 @@
+'use client';
+
 import React from 'react';
+import { usePreferences } from '@/lib/preferences';
 
 /**
  * Props for the FormField component.
@@ -30,6 +33,19 @@ interface FormFieldProps {
  * 5. Appends a visual required indicator (`*`) which is hidden from screen readers with `aria-hidden="true"`.
  * 6. Renders the error message with `role="alert"` for direct announcements to assistive technologies.
  */
+const SPACING = {
+  comfortable: {
+    field: 'mb-4',
+    label: 'mb-1',
+    message: 'mt-1',
+  },
+  compact: {
+    field: 'mb-2',
+    label: 'mb-0.5',
+    message: 'mt-0.5',
+  },
+} as const;
+
 export const FormField: React.FC<FormFieldProps> = ({
   label,
   id,
@@ -38,6 +54,8 @@ export const FormField: React.FC<FormFieldProps> = ({
   children,
   required,
 }) => {
+  const { preferences } = usePreferences();
+  const spacing = SPACING[preferences.formDensity];
   const errorId = `${id}-error`;
   const helperId = `${id}-helper`;
   
@@ -69,10 +87,10 @@ export const FormField: React.FC<FormFieldProps> = ({
   } as React.HTMLAttributes<HTMLElement>);
 
   return (
-    <div className="mb-4 w-full">
+    <div className={`${spacing.field} w-full`}>
       <label
         htmlFor={id}
-        className="block text-sm font-medium text-gray-700 mb-1"
+        className={`block text-sm font-medium text-gray-700 ${spacing.label}`}
       >
         {label}
         {isRequired && (
@@ -83,12 +101,12 @@ export const FormField: React.FC<FormFieldProps> = ({
       </label>
       {child}
       {helperText && (
-        <p id={helperId} className="mt-1 text-sm text-gray-500">
+        <p id={helperId} className={`${spacing.message} text-sm text-gray-500`}>
           {helperText}
         </p>
       )}
       {error && (
-        <p id={errorId} className="mt-1 text-sm text-red-600 font-medium" role="alert">
+        <p id={errorId} className={`${spacing.message} text-sm text-red-600 font-medium`} role="alert">
           {error}
         </p>
       )}

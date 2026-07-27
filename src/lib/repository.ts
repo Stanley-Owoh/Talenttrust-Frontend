@@ -25,7 +25,7 @@
  *   given prefix; iterates a frozen key snapshot to avoid index-shift bugs.
  */
 
-import type { Contract } from '@/types/domain';
+import type { Contract, WalletItem } from '@/types/domain';
 import type { Milestone } from '@/components/MilestonesList';
 import { reportError } from './errorReporter';
 
@@ -39,9 +39,10 @@ export const STORAGE_KEY = 'talenttrust_app_data';
 interface AppData {
   contracts: Contract[];
   milestones: Milestone[];
+  walletItems: WalletItem[];
 }
 
-const EMPTY_DATA: AppData = { contracts: [], milestones: [] };
+const EMPTY_DATA: AppData = { contracts: [], milestones: [], walletItems: [] };
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -82,6 +83,7 @@ function readStore(): AppData {
     return {
       contracts: Array.isArray(parsed.contracts) ? parsed.contracts : [],
       milestones: Array.isArray(parsed.milestones) ? parsed.milestones : [],
+      walletItems: Array.isArray(parsed.walletItems) ? parsed.walletItems : [],
     };
   } catch (err) {
     reportError(err, '[repository] Failed to read from localStorage. Falling back to empty state.');
@@ -155,24 +157,47 @@ export function listContracts(): Contract[] {
  * });
  * ```
  */
-export function saveContract(contract: Contract): void {
+export function saveContract(contract: Contract): boolean {
   const store = readStore();
-  writeStore({ ...store, contracts: [...store.contracts, contract] });
+  return writeStore({ ...store, contracts: [...store.contracts, contract] });
 }
+
+/**
+ * Result returned by {@link upsertContract}.
+ */
+export type UpsertResult = {
+  /** Whether the write succeeded. */
+  success: boolean;
+  /** When `true`, the write was rejected because a newer version of the same
+   *  contract was already persisted. Callers should roll back any optimistic
+   *  UI update and surface a clear message. */
+  stale: boolean;
+};
 
 /**
  * Replaces an existing contract that shares the same `contractName`, or appends
  * the contract when no persisted match exists yet.
  *
- * The helper returns a success flag so calling UI code can surface a toast or
- * fallback message when persistence fails instead of assuming the write worked.
+ * The helper returns a result object so calling UI code can distinguish between
+ * a plain persistence failure and a stale-overwrite rejection, allowing it to
+ * surface a more specific message and roll back optimistic updates.
+ *
+ * **Stale-overwrite guard**
+ *
+ * Every contract carries an internal `version` field that starts at `1` for
+ * new contracts and increments on each successful upsert. Before writing, the
+ * function compares the incoming contract's version against the currently stored
+ * version. If the stored version is higher, the write is rejected with
+ * `{ success: false, stale: true }` — this prevents one tab from silently
+ * overwriting a status change made in another tab.
  *
  * @param contract - The full `Contract` record to insert or replace.
- * @returns `true` when the contract is persisted successfully; otherwise `false`.
+ * @returns An `UpsertResult` with `success` indicating whether the write
+ *   completed, and `stale` indicating a stale-overwrite rejection.
  *
  * @example
  * ```ts
- * const updated = upsertContract({
+ * const { success, stale } = upsertContract({
  *   contractName: 'Design Sprint',
  *   parties: [{ label: 'Client', address: '0xABC...' }],
  *   totalValue: 5000,
@@ -181,22 +206,120 @@ export function saveContract(contract: Contract): void {
  *   createdAt: '2025-01-01',
  *   milestoneCount: 3,
  * });
+ * if (!success && stale) {
+ *   // Optimistic update was rolled back — another tab modified this contract.
+ * }
  * ```
  */
-export function upsertContract(contract: Contract): boolean {
+export function upsertContract(contract: Contract): UpsertResult {
   const store = readStore();
   const existingIndex = store.contracts.findIndex(
     (existingContract) => existingContract.contractName === contract.contractName,
   );
 
+  if (existingIndex !== -1) {
+    const existing = store.contracts[existingIndex];
+    const existingVersion = existing.version ?? 0;
+    const incomingVersion = contract.version ?? 0;
+
+    if (incomingVersion < existingVersion) {
+      return { success: false, stale: true };
+    }
+  }
+
+  const nextVersion = (contract.version ?? 0) + 1;
+  const updatedContract: Contract = { ...contract, version: nextVersion };
+
   const contracts =
     existingIndex === -1
-      ? [...store.contracts, contract]
+      ? [...store.contracts, updatedContract]
       : store.contracts.map((existingContract, index) =>
-          index === existingIndex ? contract : existingContract,
+          index === existingIndex ? updatedContract : existingContract,
         );
 
+  const ok = writeStore({ ...store, contracts });
+  return { success: ok, stale: false };
+}
+
+/**
+ * Returns the current persistence-layer version for the contract matching
+ * `contractName`, or `0` if the contract has never been persisted or does
+ * not carry a version field.
+ *
+ * Callers use this to build a `Contract` object with the correct base
+ * version before calling {@link upsertContract}, ensuring the stale-overwrite
+ * guard compares against the right baseline.
+ *
+ * @param contractName - The name of the contract to look up.
+ * @returns The stored version number (`0` if not found).
+ */
+export function getContractVersion(contractName: string): number {
+  const store = readStore();
+  const existing = store.contracts.find(
+    (existingContract) => existingContract.contractName === contractName,
+  );
+  return existing?.version ?? 0;
+}
+
+/**
+ * Replaces the contract currently stored under `originalName` with `updated`.
+ *
+ * Unlike {@link upsertContract} (which keys on the *new* name), this locates
+ * the existing row by its original name first, so an inline edit that also
+ * renames the contract updates in place instead of creating a duplicate.
+ *
+ * @returns `true` on a successful write; `false` when no contract matches
+ *   `originalName` or when running without `localStorage`.
+ */
+export function updateContract(originalName: string, updated: Contract): boolean {
+  const store = readStore();
+  const index = store.contracts.findIndex(
+    (existingContract) => existingContract.contractName === originalName,
+  );
+
+  if (index === -1) {
+    console.warn(`[repository] updateContract: No contract found with name '${originalName}'.`);
+    return false;
+  }
+
+  const contracts = store.contracts.map((existingContract, i) =>
+    i === index ? updated : existingContract,
+  );
+
   return writeStore({ ...store, contracts });
+}
+
+/**
+ * Deletes a contract by name from the persisted list.
+ *
+ * When a contract with the given `contractName` is found, it is removed and
+ * the remaining contracts are persisted. If no contract with that name exists,
+ * the store remains unchanged.
+ *
+ * The helper returns a success flag so calling UI code can surface a toast or
+ * fallback message when persistence fails.
+ *
+ * @param contractName - The name of the contract to delete.
+ * @returns `true` when the contract is deleted successfully; otherwise `false`.
+ *
+ * @example
+ * ```ts
+ * const deleted = deleteContract('Design Sprint');
+ * if (!deleted) console.warn('Could not delete contract.');
+ * ```
+ */
+export function deleteContract(contractName: string): boolean {
+  const store = readStore();
+  const filteredContracts = store.contracts.filter(
+    (contract) => contract.contractName !== contractName,
+  );
+
+  // If no contracts were removed, return false (nothing to delete)
+  if (filteredContracts.length === store.contracts.length) {
+    return false;
+  }
+
+  return writeStore({ ...store, contracts: filteredContracts });
 }
 
 // ---------------------------------------------------------------------------
@@ -264,9 +387,9 @@ export function listMilestonesByContract(contractId: string): Milestone[] {
  * });
  * ```
  */
-export function saveMilestone(milestone: Milestone): void {
+export function saveMilestone(milestone: Milestone): boolean {
   const store = readStore();
-  writeStore({ ...store, milestones: [...store.milestones, milestone] });
+  return writeStore({ ...store, milestones: [...store.milestones, milestone] });
 }
 
 /**
@@ -394,6 +517,43 @@ export function bulkUpdateMilestoneStatus(
 export function exportMilestones(milestones: Milestone[]): string {
   return JSON.stringify(milestones, null, 2);
 }
+
+// ---------------------------------------------------------------------------
+// Public API — Wallet Items
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns all persisted wallet items.
+ *
+ * @returns A new array of `WalletItem` objects.
+ */
+export function listWalletItems(): WalletItem[] {
+  return readStore().walletItems;
+}
+
+/**
+ * Appends a wallet item to the persisted list.
+ *
+ * @param item - The `WalletItem` record to persist.
+ */
+export function saveWalletItem(item: WalletItem): void {
+  const store = readStore();
+  writeStore({ ...store, walletItems: [...store.walletItems, item] });
+}
+
+/**
+ * Deletes wallet items matching the given array of IDs.
+ *
+ * @param ids - Array of wallet item IDs to remove.
+ * @returns `true` when the operation succeeds; otherwise `false`.
+ */
+export function deleteWalletItems(ids: string[]): boolean {
+  const store = readStore();
+  const idSet = new Set(ids);
+  const updatedWalletItems = store.walletItems.filter((item) => !idSet.has(item.id));
+  return writeStore({ ...store, walletItems: updatedWalletItems });
+}
+
 
 // ---------------------------------------------------------------------------
 // Public API — Maintenance helpers

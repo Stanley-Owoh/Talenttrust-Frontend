@@ -20,6 +20,7 @@ import {
   listContracts,
   saveContract,
   upsertContract,
+  updateContract,
   updateMilestone,
   listMilestones,
   saveMilestone,
@@ -142,37 +143,45 @@ describe('contract upsert', () => {
   it('replaces a matching contract by contractName instead of appending a duplicate', () => {
     saveContract(contractA);
 
+    const version = getContractVersion(contractA.contractName);
     const updatedContract: Contract = {
       ...contractA,
       status: 'Completed',
       milestoneCount: 3,
+      version,
     };
 
-    expect(upsertContract(updatedContract)).toBe(true);
-    expect(listContracts()).toEqual([updatedContract]);
+    const result = upsertContract(updatedContract);
+    expect(result).toEqual({ success: true, stale: false });
+    expect(listContracts()[0].status).toBe('Completed');
   });
 
   it('appends the contract when no matching contractName exists yet', () => {
     saveContract(contractA);
 
-    expect(upsertContract(contractB)).toBe(true);
-    expect(listContracts()).toEqual([contractA, contractB]);
+    const version = getContractVersion(contractA.contractName);
+    const result = upsertContract({ ...contractB, version });
+    expect(result).toEqual({ success: true, stale: false });
+    expect(listContracts()).toEqual([contractA, { ...contractB, version: 1 }]);
   });
 
   it('preserves array order and does not duplicate when replacing a same-name contract in place', () => {
     saveContract(contractA);
     saveContract(contractB);
 
+    const version = getContractVersion(contractA.contractName);
     const updatedA: Contract = {
       ...contractA,
       status: 'Completed',
+      version,
     };
 
-    expect(upsertContract(updatedA)).toBe(true);
-    const result = listContracts();
-    expect(result).toHaveLength(2);
-    expect(result[0]).toEqual(updatedA);
-    expect(result[1]).toEqual(contractB);
+    const result = upsertContract(updatedA);
+    expect(result).toEqual({ success: true, stale: false });
+    const contracts = listContracts();
+    expect(contracts).toHaveLength(2);
+    expect(contracts[0].status).toBe('Completed');
+    expect(contracts[1].contractName).toBe('Beta Contract');
   });
 
   it('never disturbs persisted milestones and preserves other contracts unchanged during upsert', () => {
@@ -181,21 +190,31 @@ describe('contract upsert', () => {
     saveMilestone(milestoneA);
     saveMilestone(milestoneB);
 
+    const version = getContractVersion(contractB.contractName);
     const updatedB: Contract = {
       ...contractB,
       status: 'Completed',
+      version,
     };
 
-    expect(upsertContract(updatedB)).toBe(true);
+    expect(upsertContract(updatedB)).toEqual({ success: true, stale: false });
 
     // Other contracts and milestones remain unchanged
-    expect(listContracts()).toEqual([contractA, updatedB]);
+    const contracts = listContracts();
+    expect(contracts).toHaveLength(2);
+    expect(contracts[0].contractName).toBe('Alpha Contract');
+    expect(contracts[1].status).toBe('Completed');
     expect(listMilestones()).toEqual([milestoneA, milestoneB]);
   });
 
   it('successfully inserts a contract into an empty store', () => {
-    expect(upsertContract(contractA)).toBe(true);
-    expect(listContracts()).toEqual([contractA]);
+    // New contract — version 0 is the baseline
+    const result = upsertContract({ ...contractA, version: 0 });
+    expect(result).toEqual({ success: true, stale: false });
+    const contracts = listContracts();
+    expect(contracts).toHaveLength(1);
+    expect(contracts[0].contractName).toBe('Alpha Contract');
+    expect(contracts[0].version).toBe(1);
   });
 
   it('replaces only the first candidate and preserves array order when multiple same-name candidates exist', () => {
@@ -208,15 +227,134 @@ describe('contract upsert', () => {
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
 
-    const upserted: Contract = { ...contractA, status: 'Completed' as const };
-    expect(upsertContract(upserted)).toBe(true);
+    const version = getContractVersion(contractA.contractName);
+    const upserted: Contract = { ...contractA, status: 'Completed' as const, version };
+    const result = upsertContract(upserted);
+    expect(result).toEqual({ success: true, stale: false });
+
+    const contracts = listContracts();
+    expect(contracts).toHaveLength(3);
+    // Only the first one is replaced, order is preserved
+    expect(contracts[0].status).toBe('Completed');
+    expect(contracts[1].contractName).toBe('Beta Contract');
+    expect(contracts[2].status).toBe('Pending');
+  });
+
+  describe('stale-overwrite guard', () => {
+    it('rejects the write with stale:true when the incoming version is behind the stored version', () => {
+      // Seed the store with an initial contract via saveContract (version 0)
+      saveContract(contractA);
+      // Advance the stored version to 1 by performing one successful upsert
+      upsertContract({ ...contractA, status: 'Completed', version: 0 });
+
+      // Now attempt a stale write with version 0 while the stored version is 1
+      const staleUpdate: Contract = {
+        ...contractA,
+        status: 'Disputed',
+        version: 0,
+      };
+
+      const result = upsertContract(staleUpdate);
+      expect(result).toEqual({ success: false, stale: true });
+      // Stored contract is unchanged — still at 'Completed' from the valid upsert
+      expect(listContracts()[0].status).toBe('Completed');
+    });
+
+    it('allows the write when the incoming version matches the stored version', () => {
+      saveContract(contractA);
+
+      const version = getContractVersion(contractA.contractName);
+      const update: Contract = {
+        ...contractA,
+        status: 'Completed',
+        version,
+      };
+
+      expect(upsertContract(update)).toEqual({ success: true, stale: false });
+      expect(listContracts()[0].status).toBe('Completed');
+    });
+
+    it('allows the write when no stored contract exists yet (version 0)', () => {
+      const result = upsertContract({ ...contractA, version: 0 });
+      expect(result).toEqual({ success: true, stale: false });
+    });
+
+    it('increments the version on each successful upsert', () => {
+      saveContract(contractA);
+
+      const v1 = getContractVersion(contractA.contractName);
+      expect(v1).toBe(0);
+
+      const result1 = upsertContract({ ...contractA, status: 'Completed', version: v1 });
+      expect(result1).toEqual({ success: true, stale: false });
+
+      const v2 = getContractVersion(contractA.contractName);
+      expect(v2).toBe(1);
+
+      const result2 = upsertContract({ ...contractA, status: 'Disputed', version: v2 });
+      expect(result2).toEqual({ success: true, stale: false });
+
+      expect(getContractVersion(contractA.contractName)).toBe(2);
+    });
+  });
+});
+
+describe('getContractVersion', () => {
+  it('returns 0 when the contract has never been persisted', () => {
+    expect(getContractVersion('NonExistent')).toBe(0);
+  });
+
+  it('returns 0 for a freshly saved contract (no version set)', () => {
+    saveContract(contractA);
+    expect(getContractVersion(contractA.contractName)).toBe(0);
+  });
+
+  it('returns the version set by the last upsert', () => {
+    saveContract(contractA);
+    upsertContract({ ...contractA, status: 'Completed', version: 0 });
+    expect(getContractVersion(contractA.contractName)).toBe(1);
+  });
+});
+
+describe('updateContract', () => {
+  it('replaces the contract found by its original name, in place', () => {
+    saveContract(contractA);
+    saveContract(contractB);
+
+    const edited: Contract = { ...contractA, status: 'Completed' };
+    expect(updateContract(contractA.contractName, edited)).toBe(true);
 
     const result = listContracts();
-    expect(result).toHaveLength(3);
-    // Only the first one is replaced, order is preserved, and second duplicate is untouched
-    expect(result[0]).toEqual(upserted);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual(edited);
     expect(result[1]).toEqual(contractB);
-    expect(result[2]).toEqual(duplicateA2);
+  });
+
+  it('renames a contract without creating a duplicate', () => {
+    saveContract(contractA);
+
+    const renamed: Contract = { ...contractA, contractName: 'Renamed Alpha' };
+    expect(updateContract(contractA.contractName, renamed)).toBe(true);
+
+    const result = listContracts();
+    expect(result).toHaveLength(1);
+    expect(result[0].contractName).toBe('Renamed Alpha');
+  });
+
+  it('returns false and changes nothing when no contract matches the original name', () => {
+    saveContract(contractA);
+
+    expect(updateContract('Missing Contract', contractB)).toBe(false);
+    expect(listContracts()).toEqual([contractA]);
+  });
+
+  it('leaves milestones untouched', () => {
+    saveContract(contractA);
+    saveMilestone(milestoneA);
+
+    updateContract(contractA.contractName, { ...contractA, status: 'Paid' });
+
+    expect(listMilestones()).toEqual([milestoneA]);
   });
 });
 
@@ -509,12 +647,13 @@ describe('write failure resilience', () => {
     expect(mockReporter.mock.calls[0][1]).toMatch(/\[repository\]/);
   });
 
-  it('returns false and reports the error when upsertContract fails to persist the write', () => {
+  it('returns { success: false, stale: false } and reports the error when upsertContract fails to persist the write', () => {
     jest.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
       throw new DOMException('QuotaExceededError');
     });
 
-    expect(upsertContract(contractA)).toBe(false);
+    const result = upsertContract({ ...contractA, version: 0 });
+    expect(result).toEqual({ success: false, stale: false });
     expect(mockReporter).toHaveBeenCalledTimes(1);
     expect(mockReporter.mock.calls[0][1]).toMatch(/\[repository\]/);
   });

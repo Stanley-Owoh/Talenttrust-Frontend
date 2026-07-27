@@ -60,6 +60,43 @@ describe('CreateContractForm', () => {
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
   });
 
+  it('matches the empty-state form structure', () => {
+    const { container } = renderForm();
+
+    expect(container.firstChild).toMatchSnapshot();
+  });
+
+  it('matches the populated-state form structure', () => {
+    const { container } = renderForm();
+
+    fireEvent.change(screen.getByLabelText(/contract name/i), {
+      target: { value: 'Design Sprint' },
+    });
+    fireEvent.change(screen.getByLabelText(/freelancer stellar address/i), {
+      target: { value: VALID_ADDRESS },
+    });
+    fireEvent.change(screen.getByLabelText(/total value/i), {
+      target: { value: '5000' },
+    });
+    fireEvent.change(screen.getByLabelText(/currency/i), {
+      target: { value: 'XLM' },
+    });
+
+    expect(container.firstChild).toMatchSnapshot();
+  });
+
+  it('matches the error-state form structure after validation failures', async () => {
+    const { container } = renderForm();
+
+    fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert', { name: /there is a problem/i })).toBeInTheDocument();
+    });
+
+    expect(container.firstChild).toMatchSnapshot();
+  });
+
   it('calls onCancel when the Cancel button is clicked', () => {
     renderForm();
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
@@ -240,5 +277,123 @@ describe('CreateContractForm', () => {
     expect(hrefs).toContain('#contractName');
     expect(hrefs).toContain('#freelancerAddress');
     expect(hrefs).toContain('#totalValue');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Per-field inline validation messages
+  // ---------------------------------------------------------------------------
+
+  it('displays inline validation messages per field on empty submit', async () => {
+    renderForm();
+    fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
+
+    await waitFor(() => {
+      // Each message appears twice: once in ErrorSummary + once inline
+      expect(screen.getAllByText('Contract name is required')).toHaveLength(2);
+    });
+
+    expect(screen.getAllByText('Freelancer address is required')).toHaveLength(2);
+    expect(screen.getAllByText('Total value must be a positive number')).toHaveLength(2);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Error clearing on fix
+  // ---------------------------------------------------------------------------
+
+  it('clears contract name error when the user starts typing', async () => {
+    renderForm();
+    fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Contract name is required')).toHaveLength(2);
+    });
+
+    fireEvent.change(screen.getByLabelText(/contract name/i), {
+      target: { value: 'Website Redesign' },
+    });
+
+    expect(screen.queryByText('Contract name is required')).not.toBeInTheDocument();
+    // Other errors must still show (both ErrorSummary + inline)
+    expect(screen.getAllByText('Freelancer address is required')).toHaveLength(2);
+    expect(screen.getAllByText('Total value must be a positive number')).toHaveLength(2);
+  });
+
+  it('clears Stellar address error when the user fixes the address', async () => {
+    renderForm();
+
+    fireEvent.change(screen.getByLabelText(/contract name/i), {
+      target: { value: 'Design Sprint' },
+    });
+    fireEvent.change(screen.getByLabelText(/freelancer stellar address/i), {
+      target: { value: 'INVALID' },
+    });
+    fireEvent.change(screen.getByLabelText(/total value/i), {
+      target: { value: '1000' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
+
+    await waitFor(() => {
+      // Appears twice: ErrorSummary link + inline error (helper text also contains 'Stellar' but we match exact error)
+      expect(screen.getAllByText('Freelancer address must be a valid Stellar G... address')).toHaveLength(2);
+    });
+
+    fireEvent.change(screen.getByLabelText(/freelancer stellar address/i), {
+      target: { value: VALID_ADDRESS },
+    });
+
+    expect(screen.queryByText('Freelancer address must be a valid Stellar G... address')).not.toBeInTheDocument();
+  });
+
+  it('clears total value error when the user enters a positive number', async () => {
+    renderForm();
+
+    fireEvent.change(screen.getByLabelText(/contract name/i), {
+      target: { value: 'Design Sprint' },
+    });
+    fireEvent.change(screen.getByLabelText(/freelancer stellar address/i), {
+      target: { value: VALID_ADDRESS },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Total value must be a positive number')).toHaveLength(2);
+    });
+
+    fireEvent.change(screen.getByLabelText(/total value/i), {
+      target: { value: '500' },
+    });
+
+    expect(screen.queryByText('Total value must be a positive number')).not.toBeInTheDocument();
+  });
+
+  it('clears all errors and ErrorSummary on valid re-submission', async () => {
+    renderForm();
+    fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert', { name: /there is a problem/i })).toBeInTheDocument();
+    });
+
+    // Fix all fields
+    fireEvent.change(screen.getByLabelText(/contract name/i), {
+      target: { value: 'Website Redesign' },
+    });
+    fireEvent.change(screen.getByLabelText(/freelancer stellar address/i), {
+      target: { value: VALID_ADDRESS },
+    });
+    fireEvent.change(screen.getByLabelText(/total value/i), {
+      target: { value: '2500' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
+
+    await waitFor(() => {
+      expect(mockShowSuccess).toHaveBeenCalled();
+    });
+
+    expect(screen.queryByRole('alert', { name: /there is a problem/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Contract name is required')).not.toBeInTheDocument();
+    expect(screen.queryByText('Freelancer address is required')).not.toBeInTheDocument();
+    expect(screen.queryByText('Total value must be a positive number')).not.toBeInTheDocument();
   });
 });
