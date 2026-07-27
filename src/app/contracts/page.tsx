@@ -9,18 +9,39 @@ import { downloadContractsCsv, downloadContractsJson } from '@/lib/exportContrac
 import { useToast } from '@/components/toast/toast-provider';
 import type { Contract } from '@/types/domain';
 
+type ContractsFetchState =
+  | { status: 'loading'; contracts: Contract[] }
+  | { status: 'success'; contracts: Contract[] }
+  | { status: 'error'; contracts: Contract[] };
+
+const getInitialFetchState = (): ContractsFetchState => {
+  try {
+    return { status: 'success', contracts: listContracts() };
+  } catch {
+    return { status: 'error', contracts: [] };
+  }
+};
+
 const ContractsPage: React.FC = () => {
-  // Initialise from localStorage on first render; subsequent saves trigger
-  // a state update so the list reflects newly added items immediately.
-  const [contracts, setContracts] = useState<Contract[]>(() => {
-    try {
-      return listContracts();
-    } catch {
-      return [];
-    }
-  });
+  const [fetchState, setFetchState] = useState<ContractsFetchState>(getInitialFetchState);
   const [showForm, setShowForm] = useState(false);
   const { showError } = useToast();
+  const { contracts } = fetchState;
+
+  /** Re-reads persisted contracts after a recoverable load failure. */
+  const loadContracts = useCallback(() => {
+    setFetchState((current) => ({ ...current, status: 'loading' }));
+
+    // Defer the synchronous local-storage read so the loading state is
+    // announced before the result replaces it.
+    queueMicrotask(() => {
+      try {
+        setFetchState({ status: 'success', contracts: listContracts() });
+      } catch {
+        setFetchState({ status: 'error', contracts: [] });
+      }
+    });
+  }, []);
 
   /**
    * Opens the contract creation form modal.
@@ -36,12 +57,18 @@ const ContractsPage: React.FC = () => {
    */
   const handleSubmitContract = useCallback(
     (contract: Contract) => {
-      setContracts((prev) => [...prev, contract]);
+      setFetchState((current) => ({
+        status: 'success',
+        contracts: [...current.contracts, contract],
+      }));
       setShowForm(false);
 
       const persisted = saveContract(contract);
       if (!persisted) {
-        setContracts((prev) => prev.filter((item) => item.id !== contract.id));
+        setFetchState((current) => ({
+          status: 'success',
+          contracts: current.contracts.filter((item) => item.id !== contract.id),
+        }));
         showError({
           title: 'Unable to create contract',
           description: 'Your contract could not be saved. Please try again.',
@@ -62,7 +89,47 @@ const ContractsPage: React.FC = () => {
     <main className="min-h-screen p-8 pb-24">
       <h1 className="text-2xl font-bold mb-6">Contracts</h1>
 
-      {!showForm && contracts.length === 0 && (
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {fetchState.status === 'loading'
+          ? 'Loading contracts'
+          : fetchState.status === 'error'
+            ? 'Unable to load contracts'
+            : contracts.length === 0
+              ? 'No contracts found'
+              : `${contracts.length} ${contracts.length === 1 ? 'contract' : 'contracts'} loaded`}
+      </p>
+
+      {fetchState.status === 'loading' && !showForm && (
+        <div
+          role="status"
+          aria-label="Loading contracts"
+          aria-busy="true"
+          className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600"
+        >
+          Loading contracts…
+        </div>
+      )}
+
+      {fetchState.status === 'error' && !showForm && (
+        <section
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+          className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900"
+        >
+          <h2 className="text-lg font-semibold">Unable to load contracts</h2>
+          <p className="mt-2 text-sm">Please check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={loadContracts}
+            className="mt-4 rounded-md bg-red-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-800 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-red-900"
+          >
+            Retry loading contracts
+          </button>
+        </section>
+      )}
+
+      {fetchState.status === 'success' && !showForm && contracts.length === 0 && (
         <EmptyState
           illustration="contracts"
           title="No contracts found"
@@ -72,7 +139,7 @@ const ContractsPage: React.FC = () => {
         />
       )}
 
-      {!showForm && contracts.length > 0 && (
+      {fetchState.status === 'success' && !showForm && contracts.length > 0 && (
         <>
           <div className="mb-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
