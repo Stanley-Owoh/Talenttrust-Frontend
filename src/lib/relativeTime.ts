@@ -1,40 +1,81 @@
-import { parseLocalDate } from './dueSoon';
+/**
+ * Formats how long ago a timestamp was, e.g. "5 minutes ago", "yesterday".
+ *
+ * Backed by the built-in `Intl.RelativeTimeFormat` so pluralization and
+ * wording stay correct across locales without hand-rolled string building.
+ * Values under a minute collapse to "just now" rather than "0 minutes ago".
+ */
+
+/** Fallback returned for invalid or missing input. */
+export const INVALID_DATE_FALLBACK = '—';
 
 /**
- * Formats a creation date string as a short, human-readable relative time
- * label (e.g. "Today", "3 days ago", "2 years ago").
- *
- * Reuses `parseLocalDate` so the same calendar-date parsing rules (and the
- * same invalid-date guarding) apply here as they do for milestone due dates.
- *
- * @param dateStr - The stored date string (e.g. "Apr 20, 2026" or "2026-04-20").
- * @param now - The reference "current" date; defaults to `new Date()`. Exposed
- *   as a parameter so tests can pin it for deterministic assertions.
- * @returns A relative label, or the original string (unchanged) when the date
- *   cannot be parsed, so callers never render nothing for malformed input.
+ * Breakpoints used by {@link formatRelativeTime}, ordered smallest to largest.
+ * `secondsInUnit` converts a second-delta into a count of that unit; `max` is
+ * the second-delta threshold below which this unit applies (exclusive upper bound).
  */
-export function getRelativeTime(dateStr: string | undefined, now: Date = new Date()): string {
-  if (!dateStr) return 'Unknown date';
+const RELATIVE_TIME_UNITS: ReadonlyArray<{
+  unit: Intl.RelativeTimeFormatUnit;
+  secondsInUnit: number;
+  max: number;
+}> = [
+  { unit: 'second', secondsInUnit: 1, max: 60 },
+  { unit: 'minute', secondsInUnit: 60, max: 3600 },
+  { unit: 'hour', secondsInUnit: 3600, max: 86400 },
+  { unit: 'day', secondsInUnit: 86400, max: 604800 },
+  { unit: 'week', secondsInUnit: 604800, max: 2629800 },
+  { unit: 'month', secondsInUnit: 2629800, max: 31557600 },
+  { unit: 'year', secondsInUnit: 31557600, max: Infinity },
+];
 
-  const parsed = parseLocalDate(dateStr);
-  if (!parsed) return dateStr;
+export interface FormatRelativeTimeOptions {
+  /** BCP47 locale tag. Defaults to `'en-US'`. */
+  locale?: string;
+  /**
+   * Reference "current" time. Defaults to `new Date()`.
+   * Pass a fixed value in tests to keep results deterministic.
+   */
+  now?: Date | number;
+}
 
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffMs = today.getTime() - parsed.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+/**
+ * Formats how long ago (or, in principle, from now) a value is.
+ *
+ * Accepts an ISO string, a `Date`, or a Unix millisecond timestamp. Returns
+ * {@link INVALID_DATE_FALLBACK} for invalid or missing values.
+ */
+export function formatRelativeTime(
+  value: string | Date | number | null | undefined,
+  { locale = 'en-US', now }: FormatRelativeTimeOptions = {},
+): string {
+  if (value === null || value === undefined || value === '') {
+    return INVALID_DATE_FALLBACK;
+  }
 
-  // Future-dated or same-day creation both read naturally as "Today" here,
-  // since createdAt only carries day-level precision, not a time-of-day.
-  if (diffDays <= 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
+  const date = value instanceof Date ? value : new Date(value);
+  if (isNaN(date.getTime())) {
+    return INVALID_DATE_FALLBACK;
+  }
 
-  const diffWeeks = Math.floor(diffDays / 7);
-  if (diffDays < 30) return diffWeeks === 1 ? '1 week ago' : `${diffWeeks} weeks ago`;
+  const reference = now instanceof Date ? now : now !== undefined ? new Date(now) : new Date();
+  if (isNaN(reference.getTime())) {
+    return INVALID_DATE_FALLBACK;
+  }
 
-  const diffMonths = Math.floor(diffDays / 30);
-  if (diffDays < 365) return diffMonths === 1 ? '1 month ago' : `${diffMonths} months ago`;
+  const diffSeconds = (date.getTime() - reference.getTime()) / 1000;
+  const absSeconds = Math.abs(diffSeconds);
 
-  const diffYears = Math.floor(diffDays / 365);
-  return diffYears === 1 ? '1 year ago' : `${diffYears} years ago`;
+  if (absSeconds < 60) {
+    return 'just now';
+  }
+
+  try {
+    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+    const entry =
+      RELATIVE_TIME_UNITS.find((candidate) => absSeconds < candidate.max) ??
+      RELATIVE_TIME_UNITS[RELATIVE_TIME_UNITS.length - 1];
+    return rtf.format(Math.round(diffSeconds / entry.secondsInUnit), entry.unit);
+  } catch {
+    return INVALID_DATE_FALLBACK;
+  }
 }

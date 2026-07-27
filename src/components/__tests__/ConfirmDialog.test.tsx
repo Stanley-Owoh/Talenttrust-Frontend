@@ -836,3 +836,59 @@ describe('ConfirmDialog — accessibility audits', () => {
     });
   });
 });
+
+// ─── updatedAt (last-updated timestamp) ──────────────────────────────────────
+
+describe('ConfirmDialog - updatedAt', () => {
+  const FIXED_NOW = new Date('2026-07-26T12:00:00.000Z');
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(FIXED_NOW);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('does not render a last-updated line when updatedAt is omitted', () => {
+    render(
+      <ConfirmDialog
+        isOpen
+        title="Delete"
+        description="Remove this item?"
+        onConfirm={jest.fn()}
+        onCancel={jest.fn()}
+      />,
+    );
+    expect(screen.queryByText(/^updated /i)).not.toBeInTheDocument();
+  });
+
+  it('renders a relative last-updated line when updatedAt is provided', () => {
+    render(
+      <ConfirmDialog
+        isOpen
+        title="Delete"
+        description="Remove this item?"
+        onConfirm={jest.fn()}
+        onCancel={jest.fn()}
+        updatedAt={new Date(FIXED_NOW.getTime() - 10 * 60 * 1000)}
+      />,
+    );
+    expect(screen.getByText(/updated 10 minutes ago/i)).toBeInTheDocument();
+  });
+
+  it('accepts an ISO string for updatedAt', () => {
+    render(
+      <ConfirmDialog
+        isOpen
+        title="Delete"
+        description="Remove this item?"
+        onConfirm={jest.fn()}
+        onCancel={jest.fn()}
+        updatedAt="2026-07-26T11:00:00.000Z"
+      />,
+    );
+    expect(screen.getByText(/updated 1 hour ago/i)).toBeInTheDocument();
+  });
+});
