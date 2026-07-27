@@ -53,12 +53,13 @@ describe('MilestonesList structural/snapshot tests', () => {
       const { container } = render(<MilestonesList milestones={LOADED_MILESTONES} />);
       const section = container.querySelector('section');
       const children = Array.from(section?.children ?? []);
-      // No contractCurrency and no due-soon milestones here, so only the
-      // header row, the status-tally chips, and the scroll region render.
-      expect(children).toHaveLength(3);
+      // No contractCurrency and no due-soon milestones here, so the header
+      // row, the two sr-only live regions (density + save announcements),
+      // the status-tally chips, and the scroll region render — in that order.
+      expect(children).toHaveLength(5);
       expect(children[0].querySelector('#milestones-title')).not.toBeNull();
-      expect(children[1]).toHaveAttribute('role', 'list');
-      expect(children[2]).toHaveAttribute('role', 'region');
+      expect(children[2]).toHaveAttribute('role', 'list');
+      expect(children[4]).toHaveAttribute('role', 'region');
     });
   });
 
@@ -78,9 +79,11 @@ describe('MilestonesList structural/snapshot tests', () => {
       const { container } = render(<MilestonesList milestones={[]} />);
       const section = container.querySelector('section');
       const children = Array.from(section?.children ?? []);
-      expect(children).toHaveLength(2);
+      // Header row plus the two sr-only live regions (density + save
+      // announcements) always render; the tally list is omitted when empty.
+      expect(children).toHaveLength(4);
 
-      const region = children[1];
+      const region = children[3];
       expect(region).not.toHaveAttribute('role');
       expect(region).not.toHaveAttribute('tabIndex');
       expect(region.children).toHaveLength(0);

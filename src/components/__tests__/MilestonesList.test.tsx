@@ -7,6 +7,8 @@ import MilestonesList from '../MilestonesList';
 import type { Milestone } from '../MilestonesList';
 import { parseLocalDate, isDueSoon } from '../../lib/dueSoon';
 import { ToastProvider } from '@/components/toast/toast-provider';
+import { PreferencesProvider } from '@/lib/preferences';
+import { resetCache } from '../../lib/safeStorage';
 
 function r(element: React.ReactElement) {
   return render(element, { wrapper: ToastProvider });
