@@ -30,6 +30,7 @@ Reference documentation for components, hooks, contexts, and library utilities.
 | [Toast.md](./components/Toast.md) | Toast notification system — quiet mode, density, auto-dismiss, action button |
 | [WalletConnectButton.md](./components/WalletConnectButton.md) | Wallet connect/disconnect button |
 | [WalletContext.md](./components/WalletContext.md) | `WalletProvider`, `useWallet`, idle auto-disconnect |
+| [WALLET_ACCESSIBILITY.md](./WALLET_ACCESSIBILITY.md) | Wallet components accessibility contract (roles, keyboard, focus) |
 
 ---
 
