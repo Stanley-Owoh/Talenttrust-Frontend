@@ -1,29 +1,7 @@
-'use client';
-
-/**
- * FormsList
- *
- * Renders a paginated, filterable list of forms.  Each row now includes an
- * accessible copy-to-clipboard control for the form identifier so users can
- * quickly grab an id without selecting text manually.
- *
- * Copy behaviour:
- *  - Uses the Clipboard API (`navigator.clipboard.writeText`) when available.
- *  - Falls back to a `document.execCommand('copy')` textarea trick in
- *    environments that do not expose the async Clipboard API.
- *  - After a successful copy a toast is shown via `useToast`.
- *  - On failure a toast describes the problem so the user can act.
- *
- * Requires `<ToastProvider>` in the component tree (provided by the root layout).
- */
-
 import React, { useState, useMemo, useCallback } from 'react';
+import { Skeleton } from './Skeleton';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useToast } from '@/components/toast/toast-provider';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 export type FormStatus = 'All' | 'Draft' | 'Published';
 
@@ -41,22 +19,10 @@ export interface FormsListProps {
   error?: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Copy button for a single form id
-// ---------------------------------------------------------------------------
-
 interface CopyIdButtonProps {
   formId: string;
 }
 
-/**
- * Renders a small copy-to-clipboard button for a form identifier.
- *
- * Accessibility:
- *  - `aria-label` identifies the action and target id.
- *  - `aria-pressed` reflects the transient "copied" state.
- *  - Keyboard-operable via natural focus/tab order.
- */
 function CopyIdButton({ formId }: CopyIdButtonProps) {
   const { showSuccess, showError } = useToast();
 
@@ -65,7 +31,6 @@ function CopyIdButton({ formId }: CopyIdButtonProps) {
       showSuccess({ title: `Copied "${formId}" to clipboard.` });
     },
     onError: () => {
-      // Clipboard API unavailable — attempt the execCommand fallback
       const success = execCommandFallback(formId);
       if (success) {
         showSuccess({ title: `Copied "${formId}" to clipboard.` });
@@ -114,25 +79,11 @@ function CopyIdButton({ formId }: CopyIdButtonProps) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// execCommand fallback
-// ---------------------------------------------------------------------------
-
-/**
- * Fallback copy using the legacy `document.execCommand('copy')` approach.
- * Creates a hidden textarea, selects its content, and fires the copy command.
- * Returns `true` when the command reported success, `false` otherwise.
- *
- * This path executes when `navigator.clipboard` is unavailable (e.g. non-HTTPS
- * or older browsers) and is documented inline for reviewer clarity.
- */
 export function execCommandFallback(text: string): boolean {
-  // Guard: execCommand is not available in non-browser environments
   if (typeof document === 'undefined') return false;
 
   const textarea = document.createElement('textarea');
   textarea.value = text;
-  // Off-screen so it is not visible to users
   textarea.style.position = 'fixed';
   textarea.style.top = '-9999px';
   textarea.style.left = '-9999px';
@@ -152,10 +103,6 @@ export function execCommandFallback(text: string): boolean {
   return success;
 }
 
-// ---------------------------------------------------------------------------
-// FormsList
-// ---------------------------------------------------------------------------
-
 export const FormsList = ({ forms, isLoading = false, error = null }: FormsListProps) => {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<FormStatus>('All');
@@ -169,45 +116,59 @@ export const FormsList = ({ forms, isLoading = false, error = null }: FormsListP
   const displayedForms = filteredForms.slice(0, page * pageSize);
   const hasMore = displayedForms.length < filteredForms.length;
 
-  // ── Loading state ─────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div
-        aria-busy="true"
-        aria-label="Loading forms…"
-        data-testid="forms-loading"
-        className="flex flex-col gap-3 p-4 animate-pulse"
-      >
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded" />
-        ))}
+      <div>
+        <div
+          role="status"
+          aria-label="Loading forms"
+          aria-live="polite"
+          aria-busy="true"
+          data-testid="forms-loading"
+        >
+          {error ? (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
+          {!error ? (
+            <>
+              <div className="mb-4 flex flex-wrap gap-2" aria-hidden="true">
+                <Skeleton width="w-24" height="h-9" rounded="rounded-lg" />
+                <Skeleton width="w-24" height="h-9" rounded="rounded-lg" />
+                <Skeleton width="w-28" height="h-9" rounded="rounded-lg" />
+              </div>
+              <ul data-testid="forms-list-skeleton" aria-hidden="true" className="space-y-2">
+                {Array.from({ length: 10 }, (_, index) => (
+                  <li key={`skeleton-${index}`} data-testid="forms-skeleton-row" className="py-2">
+                    <Skeleton width="w-full" height="h-5" rounded="rounded-md" className="max-w-[18rem]" />
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          <span className="sr-only">Loading forms</span>
+        </div>
       </div>
     );
   }
 
-  // ── Error state ───────────────────────────────────────────────────────────
   if (error) {
     return (
-      <div
-        role="alert"
-        data-testid="forms-error"
-        className="p-4 text-red-700 bg-red-50 rounded"
-      >
-        <p>{error}</p>
+      <div role="alert" data-testid="forms-error" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        {error}
       </div>
     );
   }
 
   return (
     <div>
-      {/* Filter controls */}
       <div role="group" aria-label="Filter forms by status">
-        <button onClick={() => { setFilter('All'); setPage(1); }}>Filter All</button>
-        <button onClick={() => { setFilter('Draft'); setPage(1); }}>Filter Draft</button>
-        <button onClick={() => { setFilter('Published'); setPage(1); }}>Filter Published</button>
+        <button type="button" onClick={() => { setFilter('All'); setPage(1); }}>Filter All</button>
+        <button type="button" onClick={() => { setFilter('Draft'); setPage(1); }}>Filter Draft</button>
+        <button type="button" onClick={() => { setFilter('Published'); setPage(1); }}>Filter Published</button>
       </div>
 
-      {/* Empty state */}
       {filteredForms.length === 0 ? (
         <div data-testid="forms-empty" className="py-12 text-center text-gray-500">
           <p className="text-lg font-medium">No forms found</p>
@@ -221,7 +182,7 @@ export const FormsList = ({ forms, isLoading = false, error = null }: FormsListP
         <>
           <ul data-testid="forms-list">
             {displayedForms.map((f) => (
-              <li key={f.id} className="flex items-center justify-between py-2">
+              <li key={f.id} className="flex items-center justify-between gap-3 py-2">
                 <span>{f.title}</span>
                 <span className="flex items-center gap-2">
                   <code
@@ -235,13 +196,10 @@ export const FormsList = ({ forms, isLoading = false, error = null }: FormsListP
               </li>
             ))}
           </ul>
-
           {hasMore && (
-            <button onClick={() => setPage((p) => p + 1)}>Load More</button>
+            <button type="button" onClick={() => setPage((p) => p + 1)}>Load More</button>
           )}
-          {!hasMore && displayedForms.length > 0 && (
-            <div>End of list</div>
-          )}
+          {!hasMore && displayedForms.length > 0 && <div>End of list</div>}
         </>
       )}
     </div>
