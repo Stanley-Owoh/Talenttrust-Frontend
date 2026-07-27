@@ -29,7 +29,7 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
   isOpen,
 }) => {
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const { addToast } = useToast();
+  const { showSuccess, showError } = useToast();
 
   if (!isOpen) {
     return null;
@@ -44,9 +44,8 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
     
     if (confirmDelete) {
       onDelete();
-      addToast({
-        type: 'success',
-        message: `Successfully deleted ${selectedCount} contract${selectedCount !== 1 ? 's' : ''}.`,
+      showSuccess({
+        title: `Successfully deleted ${selectedCount} contract${selectedCount !== 1 ? 's' : ''}.`,
       });
     }
   };
@@ -57,14 +56,12 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
   const handleExport = () => {
     try {
       onExport();
-      addToast({
-        type: 'success',
-        message: `Successfully exported ${selectedCount} contract${selectedCount !== 1 ? 's' : ''}.`,
+      showSuccess({
+        title: `Successfully exported ${selectedCount} contract${selectedCount !== 1 ? 's' : ''}.`,
       });
     } catch (_error) {
-      addToast({
-        type: 'error',
-        message: 'Failed to export contracts. Please try again.',
+      showError({
+        title: 'Failed to export contracts. Please try again.',
       });
     }
   };

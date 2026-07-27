@@ -1,6 +1,6 @@
 'use client';
 
-import React, { FormEvent, useRef, useState } from 'react';
+import React, { FormEvent, useState } from 'react';
 import { Skeleton, SkeletonContainer } from '@/components/Skeleton';
 
 // ---------------------------------------------------------------------------
@@ -36,6 +36,14 @@ type FormErrors = Partial<Record<keyof StreamFormValues, string>>;
 
 const STELLAR_ADDRESS_RE = /^G[A-Z2-7]{55}$/;
 const CURRENCIES = ['XLM', 'USDC', 'EURC'] as const;
+
+/** Maps each field to its input `id`, used to focus the first invalid field on submit. */
+const FIELD_IDS: Record<keyof StreamFormValues, string> = {
+  title: 'stream-title',
+  recipient: 'stream-recipient',
+  ratePerSecond: 'stream-rate',
+  currency: 'stream-currency',
+};
 
 function validateStreamForm(values: StreamFormValues): FormErrors {
   const errors: FormErrors = {};
@@ -165,7 +173,6 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
     currency: 'XLM',
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const firstErrorRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
   const mod = modKey();
 
   // ── Loading state ────────────────────────────────────────────────────────
@@ -186,11 +193,11 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    firstErrorRef.current = null;
     const errs = validateStreamForm(values);
     setErrors(errs);
-    if (Object.keys(errs).length > 0) {
-      firstErrorRef.current?.focus();
+    const firstErrorField = (Object.keys(errs) as (keyof StreamFormValues)[])[0];
+    if (firstErrorField) {
+      document.getElementById(FIELD_IDS[firstErrorField])?.focus();
       return;
     }
     onSubmit({
@@ -211,14 +218,6 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
       onCancel?.();
     }
   };
-
-  /** Capture a ref to the first field that has an error for focus management. */
-  const captureFirstError = (field: keyof StreamFormValues) =>
-    errors[field]
-      ? (el: HTMLInputElement | HTMLSelectElement | null) => {
-          if (el && !firstErrorRef.current) firstErrorRef.current = el;
-        }
-      : undefined;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -256,7 +255,6 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
             aria-required="true"
             aria-invalid={!!errors.title}
             aria-describedby={errors.title ? 'stream-title-error' : undefined}
-            ref={captureFirstError('title') as React.RefCallback<HTMLInputElement>}
             placeholder="e.g., Weekly design retainer"
             className={[
               'w-full rounded-lg border px-3 py-2 text-sm',
@@ -289,7 +287,6 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
             aria-required="true"
             aria-invalid={!!errors.recipient}
             aria-describedby={errors.recipient ? 'stream-recipient-error' : undefined}
-            ref={captureFirstError('recipient') as React.RefCallback<HTMLInputElement>}
             placeholder="GABC…"
             className={[
               'w-full rounded-lg border px-3 py-2 text-sm font-mono',
@@ -324,7 +321,6 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
               aria-required="true"
               aria-invalid={!!errors.ratePerSecond}
               aria-describedby={errors.ratePerSecond ? 'stream-rate-error' : undefined}
-              ref={captureFirstError('ratePerSecond') as React.RefCallback<HTMLInputElement>}
               placeholder="e.g., 0.001"
               className={[
                 'w-full rounded-lg border px-3 py-2 text-sm',
@@ -355,7 +351,6 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
               aria-required="true"
               aria-invalid={!!errors.currency}
               aria-describedby={errors.currency ? 'stream-currency-error' : undefined}
-              ref={captureFirstError('currency') as React.RefCallback<HTMLSelectElement>}
               className={[
                 'w-full rounded-lg border px-3 py-2 text-sm',
                 'focus:outline-none focus:ring-2 focus:ring-blue-500',
@@ -392,6 +387,8 @@ export const CreateStreamForm: React.FC<CreateStreamFormProps> = ({
             </kbd>
             {' to submit'}
           </p>
+          {/* Screen-reader-only equivalent of the decorative kbd hint above. */}
+          <span className="sr-only" role="img" aria-label={`${mod} plus Enter to submit`} />
 
           <div className="flex gap-3 ml-auto">
             {onCancel && (

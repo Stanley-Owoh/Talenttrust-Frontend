@@ -22,22 +22,7 @@ export const PAGE_SIZE_DEFAULT = 5;
 export type MilestonesListProps = {
   milestones: Milestone[];
   contractCurrency?: string;
-  /**
-   * Called whenever a milestone row is saved in inline edit mode. The parent
-   * is the single source of truth for milestones state and persistence —
-   * this component never mutates its `milestones` prop directly.
-   *
-   * Returning `false` from this callback surfaces the failure to the user as
-   * an in-line error inside the row. The default implementation in the
-   * parent (`page.tsx`) routes through `repository.updateMilestone`, which
-   * returns `false` when the milestone id cannot be found (e.g. removed by
-   * another tab).
-   */
   onUpdateMilestone?: (id: string, patch: Partial<Milestone>) => boolean;
-  /**
-   * Number of milestones rendered initially before a "Load More" button
-   * appends the next page. Defaults to {@link PAGE_SIZE_DEFAULT}.
-   */
   pageSize?: number;
 };
 
@@ -53,6 +38,12 @@ const MilestonesList = ({
   const [displayCount, setDisplayCount] = useState(pageSize);
   const [isDensityAnnounced, setIsDensityAnnounced] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [displayCount, setDisplayCount] = useState(pageSize);
+  /**
+   * Gates the density live-region announcement so it stays silent on mount
+   * and only speaks after the user actively toggles density.
+   */
+  const [isDensityAnnounced, setIsDensityAnnounced] = useState(false);
   /**
    * Tracks which row is currently in inline edit mode. Mutually exclusive —
    * opening one row closes any other row that was being edited so we never

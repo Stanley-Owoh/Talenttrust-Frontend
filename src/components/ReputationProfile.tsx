@@ -19,6 +19,8 @@ export type ReputationProfileProps = {
    * Defaults to true so shareable links work on the reputation page.
    */
   syncUrl?: boolean;
+  /** Number of history events shown per page before "Load more" appears. */
+  pageSize?: number;
 };
 
 export type ReputationBand = {
@@ -63,20 +65,23 @@ const reputationSummary =
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ConfirmDialog } from './ConfirmDialog';
+import { useToast } from './toast/toast-provider';
 import {
-  buildReputationQueryString,
   DEFAULT_DIR,
   DEFAULT_TYPE,
+  REPUTATION_URL_DEBOUNCE_MS,
+  buildReputationQueryString,
   filterAndSortHistory,
   getAvailableHistoryTypes,
   getValidDir,
   getValidType,
   isReputationUrlInSync,
-  REPUTATION_URL_DEBOUNCE_MS,
   type ReputationSortDir,
 } from '@/lib/reputationUrlState';
-import { ConfirmDialog } from './ConfirmDialog';
-import { useToast } from './toast/toast-provider';
+
+/** Number of history events shown per page before "Load more" is needed. */
+export const REPUTATION_PAGE_SIZE = 5;
 
 export default function ReputationProfile({
   name,
@@ -85,6 +90,7 @@ export default function ReputationProfile({
   history = [],
   maxScore = 5,
   syncUrl = true,
+  pageSize = REPUTATION_PAGE_SIZE,
 }: ReputationProfileProps) {
   let showSuccess: ReturnType<typeof useToast>['showSuccess'] | null = null;
   try {
@@ -98,6 +104,24 @@ export default function ReputationProfile({
   const [events, setEvents] = useState(history);
   const [announcement, setAnnouncement] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [displayCount, setDisplayCount] = useState(pageSize);
+
+  // Keep the local, deletable copy of history in sync whenever the parent
+  // supplies a new history array (data reload, filter change upstream, etc.).
+  useEffect(() => {
+    setEvents(history);
+  }, [history]);
+
+  // Reset pagination to the first page whenever the underlying history data
+  // or the page size changes, so a reload/filter never leaves "Load more"
+  // pointing past the end of a shorter list.
+  useEffect(() => {
+    setDisplayCount(pageSize);
+  }, [history, pageSize]);
+
+  const selectedCount = selectedIds.length;
+  const allSelected = events.length > 0 && selectedCount === events.length;
+  const hasPartialSelection = selectedCount > 0 && selectedCount < events.length;
 
   const selectedEvents = useMemo(
     () => events.filter((event) => selectedIds.includes(event.id)),
@@ -141,13 +165,29 @@ export default function ReputationProfile({
     return () => window.clearTimeout(timer);
   }, [selectedType, sortDir, router, searchParams, availableTypes, syncUrl]);
 
-  const filteredHistory = useMemo(
-    () => filterAndSortHistory(history, selectedType, sortDir),
-    [history, selectedType, sortDir]
+  // At the default sort direction, preserve the order the caller supplied
+  // (only the type filter is applied) rather than forcing a date sort — this
+  // keeps "newest first" a byproduct of well-ordered input instead of an
+  // implicit reorder callers didn't ask for. Explicitly choosing a direction
+  // (including re-selecting the default) always applies a real date sort.
+  const filteredHistory = useMemo(() => {
+    const byType =
+      selectedType === DEFAULT_TYPE
+        ? events
+        : events.filter((event) => event.type === selectedType);
+    return sortDir === DEFAULT_DIR ? byType : filterAndSortHistory(events, selectedType, sortDir);
+  }, [events, selectedType, sortDir]);
+
+  const visibleHistory = useMemo(
+    () => filteredHistory.slice(0, displayCount),
+    [filteredHistory, displayCount],
   );
-  const selectedCount = selectedIds.length;
-  const allSelected = filteredHistory.length > 0 && selectedCount === filteredHistory.length;
-  const hasPartialSelection = selectedCount > 0 && selectedCount < filteredHistory.length;
+  const hasMoreHistory = displayCount < filteredHistory.length;
+  const isHistoryFullyShown = filteredHistory.length > 0 && !hasMoreHistory;
+
+  const handleLoadMore = () => {
+    setDisplayCount((current) => Math.min(current + pageSize, filteredHistory.length));
+  };
 
   const resolvedLevel = level !== undefined
     ? level
@@ -227,7 +267,7 @@ export default function ReputationProfile({
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5">
+          <div className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5">
             <p className="text-sm font-medium text-[var(--muted-foreground)]" id="reputation-score-label">Reputation score</p>
             <p className="mt-3 text-3xl font-semibold text-[var(--foreground)]" aria-labelledby="reputation-score-label">
               {hasReputation ? (
@@ -281,7 +321,7 @@ export default function ReputationProfile({
                     key={band.label}
                     className={`rounded-2xl border p-3 transition-colors ${isActive
                         ? 'border-[var(--legend-active-border)] bg-[var(--legend-active-bg)] text-[var(--legend-active-foreground)] font-semibold'
-                        : 'border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)]'
+                        : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]'
                       }`}
                   >
                     <p className="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
@@ -305,7 +345,7 @@ export default function ReputationProfile({
         )}
       </div>
 
-      <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8">
+      <div className="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-[var(--foreground)]">Reputation history</h2>
@@ -368,14 +408,14 @@ export default function ReputationProfile({
         </p>
 
         {events.length === 0 ? (
-          <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 text-[var(--foreground)]">
+          <div className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--muted-foreground)]">
             <p className="font-semibold text-[var(--foreground)]">No reputation history available yet.</p>
             <p className="mt-2 text-sm leading-6">
               Reputation history appears once you complete verified actions. Your profile remains safe and privacy-friendly until then.
             </p>
           </div>
         ) : filteredHistory.length === 0 ? (
-          <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 text-[var(--foreground)]">
+          <div className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--muted-foreground)]">
             <p className="font-semibold text-[var(--foreground)]">No events match this filter.</p>
             <p className="mt-2 text-sm leading-6">
               Try choosing a different event type, or select All to see the full reputation history.
@@ -383,8 +423,8 @@ export default function ReputationProfile({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-col gap-3 rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4 sm:flex-row sm:items-center sm:justify-between">
-              <label className="inline-flex items-center gap-3 text-sm font-medium text-[var(--foreground)]">
+            <div className="flex flex-col gap-3 rounded-3xl border-[var(--border)] bg-[var(--surface)] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-slate-800">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -434,11 +474,11 @@ export default function ReputationProfile({
               </div>
             </div>
             <ol className="space-y-4">
-              {filteredHistory.map((event) => {
+              {visibleHistory.map((event) => {
                 const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
                 const isSelected = selectedIds.includes(event.id);
                 return (
-                  <li key={event.id} className={`rounded-3xl border border-[var(--border)] p-5 ${isSelected ? 'bg-[var(--surface)]' : 'bg-[var(--card)]'}`}>
+                  <li key={event.id} className={`rounded-3xl border p-5 ${isSelected ? 'border-[var(--foreground)] bg-[var(--muted)]' : 'border-[var(--border)] bg-[var(--card)]'}`}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <label className="flex items-start gap-3">
                         <input
@@ -464,6 +504,28 @@ export default function ReputationProfile({
                 );
               })}
             </ol>
+
+            {hasMoreHistory && (
+              <div className="flex justify-center pt-2">
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  aria-label={`Showing ${displayCount} of ${filteredHistory.length} events. Load more`}
+                  className="w-full rounded-xl border-[var(--border)] bg-[var(--card)] py-2.5 text-sm font-medium text-[var(--muted-foreground)] transition hover:bg-[var(--surface)] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                >
+                  Load more
+                </button>
+              </div>
+            )}
+
+            {isHistoryFullyShown && (
+              <p
+                data-testid="reputation-history-end"
+                className="pt-2 text-center text-sm text-slate-500"
+              >
+                All {filteredHistory.length} events shown
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -481,5 +543,3 @@ export default function ReputationProfile({
     </section>
   );
 }
-
-export default ReputationProfile;

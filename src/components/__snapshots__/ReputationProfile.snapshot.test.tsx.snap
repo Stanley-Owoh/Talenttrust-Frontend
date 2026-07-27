@@ -6,7 +6,7 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
   class="w-full max-w-5xl mx-auto space-y-8 px-4 py-10 sm:px-6 lg:px-8"
 >
   <div
-    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    class="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8"
   >
     <h2
       class="sr-only"
@@ -22,28 +22,28 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
         class="flex items-center gap-4"
       >
         <div
-          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-2xl font-semibold text-white"
+          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--foreground)] text-2xl font-semibold text-[var(--background)]"
         >
           S
         </div>
         <div>
           <p
-            class="text-sm font-medium text-slate-500"
+            class="text-sm font-medium text-[var(--muted-foreground)]"
           >
             Reputation profile
           </p>
           <h1
-            class="text-2xl font-semibold text-slate-950"
+            class="text-2xl font-semibold text-[var(--foreground)]"
           >
             Scaled User
           </h1>
         </div>
       </div>
       <div
-        class="flex flex-col gap-2 rounded-3xl bg-slate-50 p-4 text-slate-700 sm:p-5"
+        class="flex flex-col gap-2 rounded-3xl bg-[var(--muted)] p-4 text-[var(--muted-foreground)] sm:p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
         >
           Privacy-friendly defaults
         </p>
@@ -58,17 +58,17 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
       class="mt-8 grid gap-4 sm:grid-cols-3"
     >
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
           id="reputation-score-label"
         >
           Reputation score
         </p>
         <p
           aria-labelledby="reputation-score-label"
-          class="mt-3 text-3xl font-semibold text-slate-950"
+          class="mt-3 text-3xl font-semibold text-[var(--foreground)]"
         >
           <span
             aria-describedby="reputation-legend"
@@ -94,17 +94,17 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
         </p>
       </div>
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
           id="reputation-level-label"
         >
           Level
         </p>
         <p
           aria-labelledby="reputation-level-label"
-          class="mt-3 text-xl font-semibold text-slate-950"
+          class="mt-3 text-xl font-semibold text-[var(--foreground)]"
         >
           <span
             class="sr-only"
@@ -115,25 +115,25 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
         </p>
       </div>
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
         >
           Explanation
         </p>
         <p
-          class="mt-3 text-sm leading-6 text-slate-700"
+          class="mt-3 text-sm leading-6 text-[var(--muted-foreground)]"
         >
           Reputation represents verified trust signals and activity history, not sensitive personal metadata. Privacy-friendly defaults keep your profile safe.
         </p>
       </div>
     </div>
     <div
-      class="mt-6 border-t border-slate-200 pt-6"
+      class="mt-6 border-t border-[var(--border)] pt-6"
     >
       <h2
-        class="text-sm font-semibold text-slate-900"
+        class="text-sm font-semibold text-[var(--foreground)]"
         id="reputation-legend-title"
       >
         Reputation Level Legend
@@ -144,10 +144,10 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
         id="reputation-legend"
       >
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             0.0
              - 
@@ -160,10 +160,10 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             2.0
              - 
@@ -176,10 +176,10 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             4.0
              - 
@@ -192,10 +192,10 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-indigo-200 bg-indigo-50/50 text-indigo-900 font-semibold"
+          class="rounded-2xl border p-3 transition-colors border-[var(--legend-active-border)] bg-[var(--legend-active-bg)] text-[var(--legend-active-foreground)] font-semibold"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             6.0
              - 
@@ -208,10 +208,10 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             8.0
              - 
@@ -227,111 +227,271 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
     </div>
   </div>
   <div
-    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    class="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8"
   >
     <div
-      class="mb-6 flex items-center justify-between gap-4"
+      class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
         <h2
-          class="text-xl font-semibold text-slate-950"
+          class="text-xl font-semibold text-[var(--foreground)]"
         >
           Reputation history
         </h2>
         <p
-          class="mt-1 text-sm text-slate-500"
+          class="mt-1 text-sm text-[var(--muted-foreground)]"
         >
           History is shown as safe, aggregated events with no wallet or personal metadata by default.
         </p>
       </div>
-      <span
-        class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
-      >
-        Visible
-      </span>
-    </div>
-    <ol
-      class="space-y-4"
-    >
-      <li
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+      <div
+        class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4"
       >
         <div
-          class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+          class="flex items-center gap-2"
         >
-          <div>
-            <p
-              class="text-sm font-medium text-slate-500"
-            >
-              Verification
-            </p>
-            <p
-              class="mt-1 text-base font-semibold text-slate-950"
-            >
-              Completed identity verification
-            </p>
-          </div>
-          <time
-            class="text-sm text-slate-500"
-            datetime="2026-04-24"
+          <label
+            class="text-sm font-medium text-slate-700"
+            for="history-type-filter"
           >
-            2026-04-24
-          </time>
-        </div>
-      </li>
-      <li
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
-      >
-        <div
-          class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div>
-            <p
-              class="text-sm font-medium text-slate-500"
+            Filter:
+          </label>
+          <select
+            class="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            data-testid="reputation-type-filter"
+            id="history-type-filter"
+          >
+            <option
+              value="All"
+            >
+              All
+            </option>
+            <option
+              value="On-chain review"
             >
               On-chain review
-            </p>
-            <p
-              class="mt-1 text-base font-semibold text-slate-950"
-            >
-              Received positive trust signal
-            </p>
-          </div>
-          <time
-            class="text-sm text-slate-500"
-            datetime="2026-04-23"
-          >
-            2026-04-23
-          </time>
-        </div>
-      </li>
-      <li
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
-      >
-        <div
-          class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div>
-            <p
-              class="text-sm font-medium text-slate-500"
+            </option>
+            <option
+              value="Referral"
             >
               Referral
-            </p>
-            <p
-              class="mt-1 text-base font-semibold text-slate-950"
+            </option>
+            <option
+              value="Verification"
             >
-              Referred two new community members
-            </p>
-          </div>
-          <time
-            class="text-sm text-slate-500"
-            datetime="2026-04-20"
-          >
-            2026-04-20
-          </time>
+              Verification
+            </option>
+          </select>
         </div>
-      </li>
-    </ol>
+        <div
+          class="flex items-center gap-2"
+        >
+          <label
+            class="text-sm font-medium text-slate-700"
+            for="history-sort-dir"
+          >
+            Sort:
+          </label>
+          <select
+            class="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            data-testid="reputation-sort-dir"
+            id="history-sort-dir"
+          >
+            <option
+              value="desc"
+            >
+              Newest first
+            </option>
+            <option
+              value="asc"
+            >
+              Oldest first
+            </option>
+          </select>
+        </div>
+        <div
+          aria-live="polite"
+          class="sr-only"
+        >
+          Showing 
+          3
+           
+          events
+          , 
+          newest first
+        </div>
+        <span
+          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+        >
+          Visible
+        </span>
+      </div>
+    </div>
+    <p
+      aria-atomic="true"
+      aria-live="polite"
+      class="sr-only"
+    />
+    <div
+      class="space-y-4"
+    >
+      <div
+        class="flex flex-col gap-3 rounded-3xl border-[var(--border)] bg-[var(--surface)] p-4 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <label
+          class="inline-flex items-center gap-3 text-sm font-medium text-slate-800"
+        >
+          <input
+            aria-label="Select all reputation items"
+            class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+            type="checkbox"
+          />
+          Select all
+        </label>
+        <div
+          class="flex flex-wrap gap-2"
+        >
+          <button
+            class="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled=""
+            type="button"
+          >
+            Export selected
+          </button>
+          <button
+            class="rounded-2xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled=""
+            type="button"
+          >
+            Delete selected
+          </button>
+          <button
+            class="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled=""
+            type="button"
+          >
+            Clear selection
+          </button>
+        </div>
+      </div>
+      <ol
+        class="space-y-4"
+      >
+        <li
+          class="rounded-3xl border p-5 border-[var(--border)] bg-[var(--card)]"
+        >
+          <div
+            class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+          >
+            <label
+              class="flex items-start gap-3"
+            >
+              <input
+                aria-label="Select reputation item Verification: Completed identity verification"
+                class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                type="checkbox"
+              />
+              <span>
+                <span
+                  class="block text-sm font-medium text-slate-500"
+                >
+                  Verification
+                </span>
+                <span
+                  class="mt-1 block text-base font-semibold text-slate-950"
+                >
+                  Completed identity verification
+                </span>
+              </span>
+            </label>
+            <time
+              class="text-sm text-slate-500 sm:text-right"
+              datetime="2026-04-24"
+            >
+              2026-04-24
+            </time>
+          </div>
+        </li>
+        <li
+          class="rounded-3xl border p-5 border-[var(--border)] bg-[var(--card)]"
+        >
+          <div
+            class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+          >
+            <label
+              class="flex items-start gap-3"
+            >
+              <input
+                aria-label="Select reputation item On-chain review: Received positive trust signal"
+                class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                type="checkbox"
+              />
+              <span>
+                <span
+                  class="block text-sm font-medium text-slate-500"
+                >
+                  On-chain review
+                </span>
+                <span
+                  class="mt-1 block text-base font-semibold text-slate-950"
+                >
+                  Received positive trust signal
+                </span>
+              </span>
+            </label>
+            <time
+              class="text-sm text-slate-500 sm:text-right"
+              datetime="2026-04-23"
+            >
+              2026-04-23
+            </time>
+          </div>
+        </li>
+        <li
+          class="rounded-3xl border p-5 border-[var(--border)] bg-[var(--card)]"
+        >
+          <div
+            class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+          >
+            <label
+              class="flex items-start gap-3"
+            >
+              <input
+                aria-label="Select reputation item Referral: Referred two new community members"
+                class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                type="checkbox"
+              />
+              <span>
+                <span
+                  class="block text-sm font-medium text-slate-500"
+                >
+                  Referral
+                </span>
+                <span
+                  class="mt-1 block text-base font-semibold text-slate-950"
+                >
+                  Referred two new community members
+                </span>
+              </span>
+            </label>
+            <time
+              class="text-sm text-slate-500 sm:text-right"
+              datetime="2026-04-20"
+            >
+              2026-04-20
+            </time>
+          </div>
+        </li>
+      </ol>
+      <p
+        class="pt-2 text-center text-sm text-slate-500"
+        data-testid="reputation-history-end"
+      >
+        All 
+        3
+         events shown
+      </p>
+    </div>
   </div>
 </section>
 `;
@@ -342,7 +502,7 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
   class="w-full max-w-5xl mx-auto space-y-8 px-4 py-10 sm:px-6 lg:px-8"
 >
   <div
-    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    class="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8"
   >
     <h2
       class="sr-only"
@@ -358,28 +518,28 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
         class="flex items-center gap-4"
       >
         <div
-          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-2xl font-semibold text-white"
+          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--foreground)] text-2xl font-semibold text-[var(--background)]"
         >
           N
         </div>
         <div>
           <p
-            class="text-sm font-medium text-slate-500"
+            class="text-sm font-medium text-[var(--muted-foreground)]"
           >
             Reputation profile
           </p>
           <h1
-            class="text-2xl font-semibold text-slate-950"
+            class="text-2xl font-semibold text-[var(--foreground)]"
           >
             New Member
           </h1>
         </div>
       </div>
       <div
-        class="flex flex-col gap-2 rounded-3xl bg-slate-50 p-4 text-slate-700 sm:p-5"
+        class="flex flex-col gap-2 rounded-3xl bg-[var(--muted)] p-4 text-[var(--muted-foreground)] sm:p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
         >
           Privacy-friendly defaults
         </p>
@@ -394,17 +554,17 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
       class="mt-8 grid gap-4 sm:grid-cols-3"
     >
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
           id="reputation-score-label"
         >
           Reputation score
         </p>
         <p
           aria-labelledby="reputation-score-label"
-          class="mt-3 text-3xl font-semibold text-slate-950"
+          class="mt-3 text-3xl font-semibold text-[var(--foreground)]"
         >
           <span
             aria-describedby="reputation-legend"
@@ -430,17 +590,17 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
         </p>
       </div>
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
           id="reputation-level-label"
         >
           Level
         </p>
         <p
           aria-labelledby="reputation-level-label"
-          class="mt-3 text-xl font-semibold text-slate-950"
+          class="mt-3 text-xl font-semibold text-[var(--foreground)]"
         >
           <span
             class="sr-only"
@@ -451,25 +611,25 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
         </p>
       </div>
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
         >
           Explanation
         </p>
         <p
-          class="mt-3 text-sm leading-6 text-slate-700"
+          class="mt-3 text-sm leading-6 text-[var(--muted-foreground)]"
         >
           Reputation represents verified trust signals and activity history, not sensitive personal metadata. Privacy-friendly defaults keep your profile safe.
         </p>
       </div>
     </div>
     <div
-      class="mt-6 border-t border-slate-200 pt-6"
+      class="mt-6 border-t border-[var(--border)] pt-6"
     >
       <h2
-        class="text-sm font-semibold text-slate-900"
+        class="text-sm font-semibold text-[var(--foreground)]"
         id="reputation-legend-title"
       >
         Reputation Level Legend
@@ -480,10 +640,10 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
         id="reputation-legend"
       >
         <li
-          class="rounded-2xl border p-3 transition-colors border-indigo-200 bg-indigo-50/50 text-indigo-900 font-semibold"
+          class="rounded-2xl border p-3 transition-colors border-[var(--legend-active-border)] bg-[var(--legend-active-bg)] text-[var(--legend-active-foreground)] font-semibold"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             0.0
              - 
@@ -496,10 +656,10 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             1.0
              - 
@@ -512,10 +672,10 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             2.0
              - 
@@ -528,10 +688,10 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             3.0
              - 
@@ -544,10 +704,10 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             4.0
              - 
@@ -562,7 +722,7 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
       </ul>
     </div>
     <div
-      class="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-900"
+      class="mt-6 rounded-3xl border-[var(--status-warning-bg)] bg-[var(--status-warning-bg)] p-4 text-[var(--status-warning-foreground)]"
     >
       <p
         class="font-semibold"
@@ -577,34 +737,43 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
     </div>
   </div>
   <div
-    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    class="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8"
   >
     <div
-      class="mb-6 flex items-center justify-between gap-4"
+      class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
         <h2
-          class="text-xl font-semibold text-slate-950"
+          class="text-xl font-semibold text-[var(--foreground)]"
         >
           Reputation history
         </h2>
         <p
-          class="mt-1 text-sm text-slate-500"
+          class="mt-1 text-sm text-[var(--muted-foreground)]"
         >
           History is shown as safe, aggregated events with no wallet or personal metadata by default.
         </p>
       </div>
-      <span
-        class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+      <div
+        class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4"
       >
-        Private by default
-      </span>
+        <span
+          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+        >
+          Private by default
+        </span>
+      </div>
     </div>
+    <p
+      aria-atomic="true"
+      aria-live="polite"
+      class="sr-only"
+    />
     <div
-      class="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-slate-700"
+      class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--muted-foreground)]"
     >
       <p
-        class="font-semibold text-slate-900"
+        class="font-semibold text-[var(--foreground)]"
       >
         No reputation history available yet.
       </p>
@@ -624,7 +793,7 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
   class="w-full max-w-5xl mx-auto space-y-8 px-4 py-10 sm:px-6 lg:px-8"
 >
   <div
-    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    class="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8"
   >
     <h2
       class="sr-only"
@@ -640,28 +809,28 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
         class="flex items-center gap-4"
       >
         <div
-          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-2xl font-semibold text-white"
+          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--foreground)] text-2xl font-semibold text-[var(--background)]"
         >
           V
         </div>
         <div>
           <p
-            class="text-sm font-medium text-slate-500"
+            class="text-sm font-medium text-[var(--muted-foreground)]"
           >
             Reputation profile
           </p>
           <h1
-            class="text-2xl font-semibold text-slate-950"
+            class="text-2xl font-semibold text-[var(--foreground)]"
           >
             Verified User
           </h1>
         </div>
       </div>
       <div
-        class="flex flex-col gap-2 rounded-3xl bg-slate-50 p-4 text-slate-700 sm:p-5"
+        class="flex flex-col gap-2 rounded-3xl bg-[var(--muted)] p-4 text-[var(--muted-foreground)] sm:p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
         >
           Privacy-friendly defaults
         </p>
@@ -676,17 +845,17 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
       class="mt-8 grid gap-4 sm:grid-cols-3"
     >
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
           id="reputation-score-label"
         >
           Reputation score
         </p>
         <p
           aria-labelledby="reputation-score-label"
-          class="mt-3 text-3xl font-semibold text-slate-950"
+          class="mt-3 text-3xl font-semibold text-[var(--foreground)]"
         >
           <span
             aria-describedby="reputation-legend"
@@ -712,17 +881,17 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
         </p>
       </div>
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
           id="reputation-level-label"
         >
           Level
         </p>
         <p
           aria-labelledby="reputation-level-label"
-          class="mt-3 text-xl font-semibold text-slate-950"
+          class="mt-3 text-xl font-semibold text-[var(--foreground)]"
         >
           <span
             class="sr-only"
@@ -733,25 +902,25 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
         </p>
       </div>
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
         >
           Explanation
         </p>
         <p
-          class="mt-3 text-sm leading-6 text-slate-700"
+          class="mt-3 text-sm leading-6 text-[var(--muted-foreground)]"
         >
           Reputation represents verified trust signals and activity history, not sensitive personal metadata. Privacy-friendly defaults keep your profile safe.
         </p>
       </div>
     </div>
     <div
-      class="mt-6 border-t border-slate-200 pt-6"
+      class="mt-6 border-t border-[var(--border)] pt-6"
     >
       <h2
-        class="text-sm font-semibold text-slate-900"
+        class="text-sm font-semibold text-[var(--foreground)]"
         id="reputation-legend-title"
       >
         Reputation Level Legend
@@ -762,10 +931,10 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
         id="reputation-legend"
       >
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             0.0
              - 
@@ -778,10 +947,10 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             1.0
              - 
@@ -794,10 +963,10 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             2.0
              - 
@@ -810,10 +979,10 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-indigo-200 bg-indigo-50/50 text-indigo-900 font-semibold"
+          class="rounded-2xl border p-3 transition-colors border-[var(--legend-active-border)] bg-[var(--legend-active-bg)] text-[var(--legend-active-foreground)] font-semibold"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             3.0
              - 
@@ -826,10 +995,10 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             4.0
              - 
@@ -845,111 +1014,271 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
     </div>
   </div>
   <div
-    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    class="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8"
   >
     <div
-      class="mb-6 flex items-center justify-between gap-4"
+      class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
         <h2
-          class="text-xl font-semibold text-slate-950"
+          class="text-xl font-semibold text-[var(--foreground)]"
         >
           Reputation history
         </h2>
         <p
-          class="mt-1 text-sm text-slate-500"
+          class="mt-1 text-sm text-[var(--muted-foreground)]"
         >
           History is shown as safe, aggregated events with no wallet or personal metadata by default.
         </p>
       </div>
-      <span
-        class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
-      >
-        Visible
-      </span>
-    </div>
-    <ol
-      class="space-y-4"
-    >
-      <li
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+      <div
+        class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4"
       >
         <div
-          class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+          class="flex items-center gap-2"
         >
-          <div>
-            <p
-              class="text-sm font-medium text-slate-500"
-            >
-              Verification
-            </p>
-            <p
-              class="mt-1 text-base font-semibold text-slate-950"
-            >
-              Completed identity verification
-            </p>
-          </div>
-          <time
-            class="text-sm text-slate-500"
-            datetime="2026-04-24"
+          <label
+            class="text-sm font-medium text-slate-700"
+            for="history-type-filter"
           >
-            2026-04-24
-          </time>
-        </div>
-      </li>
-      <li
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
-      >
-        <div
-          class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div>
-            <p
-              class="text-sm font-medium text-slate-500"
+            Filter:
+          </label>
+          <select
+            class="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            data-testid="reputation-type-filter"
+            id="history-type-filter"
+          >
+            <option
+              value="All"
+            >
+              All
+            </option>
+            <option
+              value="On-chain review"
             >
               On-chain review
-            </p>
-            <p
-              class="mt-1 text-base font-semibold text-slate-950"
-            >
-              Received positive trust signal
-            </p>
-          </div>
-          <time
-            class="text-sm text-slate-500"
-            datetime="2026-04-23"
-          >
-            2026-04-23
-          </time>
-        </div>
-      </li>
-      <li
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
-      >
-        <div
-          class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div>
-            <p
-              class="text-sm font-medium text-slate-500"
+            </option>
+            <option
+              value="Referral"
             >
               Referral
-            </p>
-            <p
-              class="mt-1 text-base font-semibold text-slate-950"
+            </option>
+            <option
+              value="Verification"
             >
-              Referred two new community members
-            </p>
-          </div>
-          <time
-            class="text-sm text-slate-500"
-            datetime="2026-04-20"
-          >
-            2026-04-20
-          </time>
+              Verification
+            </option>
+          </select>
         </div>
-      </li>
-    </ol>
+        <div
+          class="flex items-center gap-2"
+        >
+          <label
+            class="text-sm font-medium text-slate-700"
+            for="history-sort-dir"
+          >
+            Sort:
+          </label>
+          <select
+            class="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            data-testid="reputation-sort-dir"
+            id="history-sort-dir"
+          >
+            <option
+              value="desc"
+            >
+              Newest first
+            </option>
+            <option
+              value="asc"
+            >
+              Oldest first
+            </option>
+          </select>
+        </div>
+        <div
+          aria-live="polite"
+          class="sr-only"
+        >
+          Showing 
+          3
+           
+          events
+          , 
+          newest first
+        </div>
+        <span
+          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+        >
+          Visible
+        </span>
+      </div>
+    </div>
+    <p
+      aria-atomic="true"
+      aria-live="polite"
+      class="sr-only"
+    />
+    <div
+      class="space-y-4"
+    >
+      <div
+        class="flex flex-col gap-3 rounded-3xl border-[var(--border)] bg-[var(--surface)] p-4 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <label
+          class="inline-flex items-center gap-3 text-sm font-medium text-slate-800"
+        >
+          <input
+            aria-label="Select all reputation items"
+            class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+            type="checkbox"
+          />
+          Select all
+        </label>
+        <div
+          class="flex flex-wrap gap-2"
+        >
+          <button
+            class="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled=""
+            type="button"
+          >
+            Export selected
+          </button>
+          <button
+            class="rounded-2xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled=""
+            type="button"
+          >
+            Delete selected
+          </button>
+          <button
+            class="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled=""
+            type="button"
+          >
+            Clear selection
+          </button>
+        </div>
+      </div>
+      <ol
+        class="space-y-4"
+      >
+        <li
+          class="rounded-3xl border p-5 border-[var(--border)] bg-[var(--card)]"
+        >
+          <div
+            class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+          >
+            <label
+              class="flex items-start gap-3"
+            >
+              <input
+                aria-label="Select reputation item Verification: Completed identity verification"
+                class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                type="checkbox"
+              />
+              <span>
+                <span
+                  class="block text-sm font-medium text-slate-500"
+                >
+                  Verification
+                </span>
+                <span
+                  class="mt-1 block text-base font-semibold text-slate-950"
+                >
+                  Completed identity verification
+                </span>
+              </span>
+            </label>
+            <time
+              class="text-sm text-slate-500 sm:text-right"
+              datetime="2026-04-24"
+            >
+              2026-04-24
+            </time>
+          </div>
+        </li>
+        <li
+          class="rounded-3xl border p-5 border-[var(--border)] bg-[var(--card)]"
+        >
+          <div
+            class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+          >
+            <label
+              class="flex items-start gap-3"
+            >
+              <input
+                aria-label="Select reputation item On-chain review: Received positive trust signal"
+                class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                type="checkbox"
+              />
+              <span>
+                <span
+                  class="block text-sm font-medium text-slate-500"
+                >
+                  On-chain review
+                </span>
+                <span
+                  class="mt-1 block text-base font-semibold text-slate-950"
+                >
+                  Received positive trust signal
+                </span>
+              </span>
+            </label>
+            <time
+              class="text-sm text-slate-500 sm:text-right"
+              datetime="2026-04-23"
+            >
+              2026-04-23
+            </time>
+          </div>
+        </li>
+        <li
+          class="rounded-3xl border p-5 border-[var(--border)] bg-[var(--card)]"
+        >
+          <div
+            class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+          >
+            <label
+              class="flex items-start gap-3"
+            >
+              <input
+                aria-label="Select reputation item Referral: Referred two new community members"
+                class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                type="checkbox"
+              />
+              <span>
+                <span
+                  class="block text-sm font-medium text-slate-500"
+                >
+                  Referral
+                </span>
+                <span
+                  class="mt-1 block text-base font-semibold text-slate-950"
+                >
+                  Referred two new community members
+                </span>
+              </span>
+            </label>
+            <time
+              class="text-sm text-slate-500 sm:text-right"
+              datetime="2026-04-20"
+            >
+              2026-04-20
+            </time>
+          </div>
+        </li>
+      </ol>
+      <p
+        class="pt-2 text-center text-sm text-slate-500"
+        data-testid="reputation-history-end"
+      >
+        All 
+        3
+         events shown
+      </p>
+    </div>
   </div>
 </section>
 `;
@@ -960,7 +1289,7 @@ exports[`ReputationProfile snapshot – no reputation (null score) matches snaps
   class="w-full max-w-5xl mx-auto space-y-8 px-4 py-10 sm:px-6 lg:px-8"
 >
   <div
-    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    class="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8"
   >
     <h2
       class="sr-only"
@@ -976,28 +1305,28 @@ exports[`ReputationProfile snapshot – no reputation (null score) matches snaps
         class="flex items-center gap-4"
       >
         <div
-          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-2xl font-semibold text-white"
+          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--foreground)] text-2xl font-semibold text-[var(--background)]"
         >
           L
         </div>
         <div>
           <p
-            class="text-sm font-medium text-slate-500"
+            class="text-sm font-medium text-[var(--muted-foreground)]"
           >
             Reputation profile
           </p>
           <h1
-            class="text-2xl font-semibold text-slate-950"
+            class="text-2xl font-semibold text-[var(--foreground)]"
           >
             Legacy User
           </h1>
         </div>
       </div>
       <div
-        class="flex flex-col gap-2 rounded-3xl bg-slate-50 p-4 text-slate-700 sm:p-5"
+        class="flex flex-col gap-2 rounded-3xl bg-[var(--muted)] p-4 text-[var(--muted-foreground)] sm:p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
         >
           Privacy-friendly defaults
         </p>
@@ -1012,47 +1341,47 @@ exports[`ReputationProfile snapshot – no reputation (null score) matches snaps
       class="mt-8 grid gap-4 sm:grid-cols-3"
     >
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
           id="reputation-score-label"
         >
           Reputation score
         </p>
         <p
           aria-labelledby="reputation-score-label"
-          class="mt-3 text-3xl font-semibold text-slate-950"
+          class="mt-3 text-3xl font-semibold text-[var(--foreground)]"
         >
           No reputation yet
         </p>
       </div>
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
           id="reputation-level-label"
         >
           Level
         </p>
         <p
           aria-labelledby="reputation-level-label"
-          class="mt-3 text-xl font-semibold text-slate-950"
+          class="mt-3 text-xl font-semibold text-[var(--foreground)]"
         >
           Pending
         </p>
       </div>
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
         >
           Explanation
         </p>
         <p
-          class="mt-3 text-sm leading-6 text-slate-700"
+          class="mt-3 text-sm leading-6 text-[var(--muted-foreground)]"
         >
           Reputation represents verified trust signals and activity history, not sensitive personal metadata. Privacy-friendly defaults keep your profile safe.
         </p>
@@ -1060,34 +1389,43 @@ exports[`ReputationProfile snapshot – no reputation (null score) matches snaps
     </div>
   </div>
   <div
-    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    class="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8"
   >
     <div
-      class="mb-6 flex items-center justify-between gap-4"
+      class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
         <h2
-          class="text-xl font-semibold text-slate-950"
+          class="text-xl font-semibold text-[var(--foreground)]"
         >
           Reputation history
         </h2>
         <p
-          class="mt-1 text-sm text-slate-500"
+          class="mt-1 text-sm text-[var(--muted-foreground)]"
         >
           History is shown as safe, aggregated events with no wallet or personal metadata by default.
         </p>
       </div>
-      <span
-        class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+      <div
+        class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4"
       >
-        Private by default
-      </span>
+        <span
+          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+        >
+          Private by default
+        </span>
+      </div>
     </div>
+    <p
+      aria-atomic="true"
+      aria-live="polite"
+      class="sr-only"
+    />
     <div
-      class="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-slate-700"
+      class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--muted-foreground)]"
     >
       <p
-        class="font-semibold text-slate-900"
+        class="font-semibold text-[var(--foreground)]"
       >
         No reputation history available yet.
       </p>
@@ -1107,7 +1445,7 @@ exports[`ReputationProfile snapshot – no reputation (undefined score) matches 
   class="w-full max-w-5xl mx-auto space-y-8 px-4 py-10 sm:px-6 lg:px-8"
 >
   <div
-    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    class="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8"
   >
     <h2
       class="sr-only"
@@ -1123,28 +1461,28 @@ exports[`ReputationProfile snapshot – no reputation (undefined score) matches 
         class="flex items-center gap-4"
       >
         <div
-          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-2xl font-semibold text-white"
+          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--foreground)] text-2xl font-semibold text-[var(--background)]"
         >
           G
         </div>
         <div>
           <p
-            class="text-sm font-medium text-slate-500"
+            class="text-sm font-medium text-[var(--muted-foreground)]"
           >
             Reputation profile
           </p>
           <h1
-            class="text-2xl font-semibold text-slate-950"
+            class="text-2xl font-semibold text-[var(--foreground)]"
           >
             Guest User
           </h1>
         </div>
       </div>
       <div
-        class="flex flex-col gap-2 rounded-3xl bg-slate-50 p-4 text-slate-700 sm:p-5"
+        class="flex flex-col gap-2 rounded-3xl bg-[var(--muted)] p-4 text-[var(--muted-foreground)] sm:p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
         >
           Privacy-friendly defaults
         </p>
@@ -1159,47 +1497,47 @@ exports[`ReputationProfile snapshot – no reputation (undefined score) matches 
       class="mt-8 grid gap-4 sm:grid-cols-3"
     >
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
           id="reputation-score-label"
         >
           Reputation score
         </p>
         <p
           aria-labelledby="reputation-score-label"
-          class="mt-3 text-3xl font-semibold text-slate-950"
+          class="mt-3 text-3xl font-semibold text-[var(--foreground)]"
         >
           No reputation yet
         </p>
       </div>
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
           id="reputation-level-label"
         >
           Level
         </p>
         <p
           aria-labelledby="reputation-level-label"
-          class="mt-3 text-xl font-semibold text-slate-950"
+          class="mt-3 text-xl font-semibold text-[var(--foreground)]"
         >
           Pending
         </p>
       </div>
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
         >
           Explanation
         </p>
         <p
-          class="mt-3 text-sm leading-6 text-slate-700"
+          class="mt-3 text-sm leading-6 text-[var(--muted-foreground)]"
         >
           Reputation represents verified trust signals and activity history, not sensitive personal metadata. Privacy-friendly defaults keep your profile safe.
         </p>
@@ -1207,34 +1545,43 @@ exports[`ReputationProfile snapshot – no reputation (undefined score) matches 
     </div>
   </div>
   <div
-    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    class="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8"
   >
     <div
-      class="mb-6 flex items-center justify-between gap-4"
+      class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
         <h2
-          class="text-xl font-semibold text-slate-950"
+          class="text-xl font-semibold text-[var(--foreground)]"
         >
           Reputation history
         </h2>
         <p
-          class="mt-1 text-sm text-slate-500"
+          class="mt-1 text-sm text-[var(--muted-foreground)]"
         >
           History is shown as safe, aggregated events with no wallet or personal metadata by default.
         </p>
       </div>
-      <span
-        class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+      <div
+        class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4"
       >
-        Private by default
-      </span>
+        <span
+          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+        >
+          Private by default
+        </span>
+      </div>
     </div>
+    <p
+      aria-atomic="true"
+      aria-live="polite"
+      class="sr-only"
+    />
     <div
-      class="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-slate-700"
+      class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--muted-foreground)]"
     >
       <p
-        class="font-semibold text-slate-900"
+        class="font-semibold text-[var(--foreground)]"
       >
         No reputation history available yet.
       </p>
@@ -1254,7 +1601,7 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
   class="w-full max-w-5xl mx-auto space-y-8 px-4 py-10 sm:px-6 lg:px-8"
 >
   <div
-    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    class="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8"
   >
     <h2
       class="sr-only"
@@ -1270,28 +1617,28 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
         class="flex items-center gap-4"
       >
         <div
-          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-2xl font-semibold text-white"
+          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--foreground)] text-2xl font-semibold text-[var(--background)]"
         >
           P
         </div>
         <div>
           <p
-            class="text-sm font-medium text-slate-500"
+            class="text-sm font-medium text-[var(--muted-foreground)]"
           >
             Reputation profile
           </p>
           <h1
-            class="text-2xl font-semibold text-slate-950"
+            class="text-2xl font-semibold text-[var(--foreground)]"
           >
             Partial User
           </h1>
         </div>
       </div>
       <div
-        class="flex flex-col gap-2 rounded-3xl bg-slate-50 p-4 text-slate-700 sm:p-5"
+        class="flex flex-col gap-2 rounded-3xl bg-[var(--muted)] p-4 text-[var(--muted-foreground)] sm:p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
         >
           Privacy-friendly defaults
         </p>
@@ -1306,17 +1653,17 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
       class="mt-8 grid gap-4 sm:grid-cols-3"
     >
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
           id="reputation-score-label"
         >
           Reputation score
         </p>
         <p
           aria-labelledby="reputation-score-label"
-          class="mt-3 text-3xl font-semibold text-slate-950"
+          class="mt-3 text-3xl font-semibold text-[var(--foreground)]"
         >
           <span
             aria-describedby="reputation-legend"
@@ -1342,17 +1689,17 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
         </p>
       </div>
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
           id="reputation-level-label"
         >
           Level
         </p>
         <p
           aria-labelledby="reputation-level-label"
-          class="mt-3 text-xl font-semibold text-slate-950"
+          class="mt-3 text-xl font-semibold text-[var(--foreground)]"
         >
           <span
             class="sr-only"
@@ -1363,25 +1710,25 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
         </p>
       </div>
       <div
-        class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
       >
         <p
-          class="text-sm font-medium text-slate-500"
+          class="text-sm font-medium text-[var(--muted-foreground)]"
         >
           Explanation
         </p>
         <p
-          class="mt-3 text-sm leading-6 text-slate-700"
+          class="mt-3 text-sm leading-6 text-[var(--muted-foreground)]"
         >
           Reputation represents verified trust signals and activity history, not sensitive personal metadata. Privacy-friendly defaults keep your profile safe.
         </p>
       </div>
     </div>
     <div
-      class="mt-6 border-t border-slate-200 pt-6"
+      class="mt-6 border-t border-[var(--border)] pt-6"
     >
       <h2
-        class="text-sm font-semibold text-slate-900"
+        class="text-sm font-semibold text-[var(--foreground)]"
         id="reputation-legend-title"
       >
         Reputation Level Legend
@@ -1392,10 +1739,10 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
         id="reputation-legend"
       >
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             0.0
              - 
@@ -1408,10 +1755,10 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             1.0
              - 
@@ -1424,10 +1771,10 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-indigo-200 bg-indigo-50/50 text-indigo-900 font-semibold"
+          class="rounded-2xl border p-3 transition-colors border-[var(--legend-active-border)] bg-[var(--legend-active-bg)] text-[var(--legend-active-foreground)] font-semibold"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             2.0
              - 
@@ -1440,10 +1787,10 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             3.0
              - 
@@ -1456,10 +1803,10 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
           </p>
         </li>
         <li
-          class="rounded-2xl border p-3 transition-colors border-slate-200 bg-slate-50/50 text-slate-600"
+          class="rounded-2xl border p-3 transition-colors border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)]"
         >
           <p
-            class="font-bold text-xs uppercase tracking-wider text-slate-400"
+            class="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]"
           >
             4.0
              - 
@@ -1474,7 +1821,7 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
       </ul>
     </div>
     <div
-      class="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-900"
+      class="mt-6 rounded-3xl border-[var(--status-warning-bg)] bg-[var(--status-warning-bg)] p-4 text-[var(--status-warning-foreground)]"
     >
       <p
         class="font-semibold"
@@ -1489,34 +1836,43 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
     </div>
   </div>
   <div
-    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    class="rounded-3xl border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8"
   >
     <div
-      class="mb-6 flex items-center justify-between gap-4"
+      class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
         <h2
-          class="text-xl font-semibold text-slate-950"
+          class="text-xl font-semibold text-[var(--foreground)]"
         >
           Reputation history
         </h2>
         <p
-          class="mt-1 text-sm text-slate-500"
+          class="mt-1 text-sm text-[var(--muted-foreground)]"
         >
           History is shown as safe, aggregated events with no wallet or personal metadata by default.
         </p>
       </div>
-      <span
-        class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+      <div
+        class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4"
       >
-        Private by default
-      </span>
+        <span
+          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+        >
+          Private by default
+        </span>
+      </div>
     </div>
+    <p
+      aria-atomic="true"
+      aria-live="polite"
+      class="sr-only"
+    />
     <div
-      class="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-slate-700"
+      class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--muted-foreground)]"
     >
       <p
-        class="font-semibold text-slate-900"
+        class="font-semibold text-[var(--foreground)]"
       >
         No reputation history available yet.
       </p>

@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`Navbar rendered structure snapshots matches the empty default navigation structure without an active route 1`] = `
 <nav

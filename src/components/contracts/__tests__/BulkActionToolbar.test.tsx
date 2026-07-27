@@ -15,12 +15,14 @@ describe('BulkActionToolbar', () => {
   const mockOnClearSelection = jest.fn();
   const mockOnDelete = jest.fn();
   const mockOnExport = jest.fn();
-  const mockAddToast = jest.fn();
+  const mockShowSuccess = jest.fn();
+  const mockShowError = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseToast.mockReturnValue({
-      addToast: mockAddToast,
+      showSuccess: mockShowSuccess,
+      showError: mockShowError,
     } as any);
   });
 
@@ -183,9 +185,8 @@ describe('BulkActionToolbar', () => {
       fireEvent.click(screen.getByRole('button', { name: /export 2/i }));
 
       expect(mockOnExport).toHaveBeenCalledTimes(1);
-      expect(mockAddToast).toHaveBeenCalledWith({
-        type: 'success',
-        message: 'Successfully exported 2 contracts.',
+      expect(mockShowSuccess).toHaveBeenCalledWith({
+        title: 'Successfully exported 2 contracts.',
       });
     });
 
@@ -208,9 +209,8 @@ describe('BulkActionToolbar', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /export 1/i }));
 
-      expect(mockAddToast).toHaveBeenCalledWith({
-        type: 'error',
-        message: 'Failed to export contracts. Please try again.',
+      expect(mockShowError).toHaveBeenCalledWith({
+        title: 'Failed to export contracts. Please try again.',
       });
     });
   });
@@ -289,9 +289,8 @@ describe('BulkActionToolbar', () => {
       fireEvent.click(screen.getByRole('button', { name: /delete 3/i }));
 
       expect(mockOnDelete).toHaveBeenCalledTimes(1);
-      expect(mockAddToast).toHaveBeenCalledWith({
-        type: 'success',
-        message: 'Successfully deleted 3 contracts.',
+      expect(mockShowSuccess).toHaveBeenCalledWith({
+        title: 'Successfully deleted 3 contracts.',
       });
     });
 
@@ -313,7 +312,7 @@ describe('BulkActionToolbar', () => {
       fireEvent.click(screen.getByRole('button', { name: /delete 2/i }));
 
       expect(mockOnDelete).not.toHaveBeenCalled();
-      expect(mockAddToast).not.toHaveBeenCalled();
+      expect(mockShowSuccess).not.toHaveBeenCalled();
     });
 
     it('shows singular "contract" when deleting one item', () => {
@@ -333,9 +332,8 @@ describe('BulkActionToolbar', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /delete 1/i }));
 
-      expect(mockAddToast).toHaveBeenCalledWith({
-        type: 'success',
-        message: 'Successfully deleted 1 contract.',
+      expect(mockShowSuccess).toHaveBeenCalledWith({
+        title: 'Successfully deleted 1 contract.',
       });
     });
   });

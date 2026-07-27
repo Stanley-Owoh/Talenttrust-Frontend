@@ -15,12 +15,12 @@ import SafeBoundary from '@/components/SafeBoundary';
 import { resolveContractData, ContractData } from '@/lib/contractResolver';
 import { useToast } from '@/components/toast/toast-provider';
 import {
-  upsertContract,
   listMilestonesByContract,
   updateMilestone,
 } from '@/lib/repository';
 import { isValidContractId } from '@/lib/validateContractId';
-import type { Contract, Milestone } from '@/types/domain';
+import { useOptimisticContractStatus, type BuildPersistedContract } from '@/hooks/useOptimisticContractStatus';
+import type { Milestone } from '@/types/domain';
 
 /**
  * Merges the contract's resolved milestones with any milestones persisted in
@@ -63,13 +63,12 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
    *
    * The repository stores summary-friendly contract records, so the detail page
    * narrows `ContractData` into the fields that persistence already expects.
-   *
-   * @param data - The loaded detail-page contract data.
-   * @param status - The next status to persist for that contract.
-   * @returns A repository-ready `Contract` record.
+   * `version` is threaded through from {@link useOptimisticContractStatus} so
+   * the repository's stale-overwrite guard compares against the correct baseline.
    */
-  const buildPersistedContract = useCallback(
-    (data: ContractData, status: Contract['status']): Contract => ({
+  const buildPersistedContract: BuildPersistedContract = useCallback(
+    (data, status, version) => ({
+      id: data.id,
       contractName: data.name,
       parties: data.parties,
       totalValue: data.totalValue,
@@ -77,16 +76,25 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       status,
       createdAt: data.createdAt,
       milestoneCount: data.milestones.length,
+      version,
     }),
     [],
   );
 
+  const persistStatus = useOptimisticContractStatus(
+    contractData,
+    setContractData,
+    buildPersistedContract,
+  );
+
   /**
-   * Persists a contract status transition and mirrors the result into page state.
+   * Applies a contract status transition optimistically, then persists it.
    *
-   * The write is intentionally client-side because repository persistence is
-   * backed by `localStorage`. Success and failure are surfaced through toasts so
-   * the confirmed ActionPanel flows provide immediate feedback.
+   * The UI already reflects `nextStatus` by the time this returns (applied
+   * synchronously inside {@link useOptimisticContractStatus}). On failure —
+   * including a stale-overwrite rejection — the optimistic change is rolled
+   * back and a clear, specific error message is surfaced via both the inline
+   * `ActionPanel` banner and a dismissible toast.
    *
    * @param nextStatus - The status to persist to the repository.
    * @param successTitle - The toast title shown after a successful write.
@@ -98,38 +106,21 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       successTitle: string,
       successDescription: string,
     ) => {
-      if (!contractData) {
-        const message =
-          'Contract details are unavailable, so the status could not be updated.';
-        setErrorMessage(message);
-        showError({
-          title: 'Unable to update contract',
-          description: message,
-        });
-        return;
-      }
-
       setIsPersistingStatus(true);
       setErrorMessage(null);
 
-      const persisted = upsertContract(
-        buildPersistedContract(contractData, nextStatus),
-      );
+      const result = persistStatus(nextStatus);
 
-      if (!persisted) {
-        const message =
-          'The contract status could not be persisted. Please try again.';
-        setErrorMessage(message);
+      if (!result.ok) {
+        setErrorMessage(result.error);
         showError({
           title: 'Unable to update contract',
-          description: message,
+          description: result.error,
         });
         setIsPersistingStatus(false);
         return;
       }
 
-      const updatedContract = { ...contractData, status: nextStatus };
-      setContractData(updatedContract);
       setErrorMessage(null);
       showSuccess({
         title: successTitle,
@@ -137,7 +128,7 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
       });
       setIsPersistingStatus(false);
     },
-    [buildPersistedContract, contractData, showError, showSuccess],
+    [persistStatus, showError, showSuccess],
   );
 
   useEffect(() => {
@@ -208,15 +199,15 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
     // Replace with summary navigation.
   };
 
-  const handleUpdateMilestone = useCallback((milestone: Milestone) => {
-    const persisted = updateMilestone(milestone.id, milestone);
+  const handleUpdateMilestone = useCallback((id: string, patch: Partial<Milestone>) => {
+    const persisted = updateMilestone(id, patch);
 
     if (!persisted) {
       return false;
     }
 
     setMilestones((current) =>
-      current.map((item) => (item.id === milestone.id ? milestone : item)),
+      current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     );
     return true;
   }, []);
@@ -276,7 +267,11 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
               {isLoading ? (
                 <MilestonesListSkeleton />
               ) : contractData ? (
-                <MilestonesList milestones={milestones} contractCurrency={contractData.currency} />
+                <MilestonesList
+                  milestones={milestones}
+                  contractCurrency={contractData.currency}
+                  onUpdateMilestone={handleUpdateMilestone}
+                />
               ) : null}
             </SafeBoundary>
           </div>

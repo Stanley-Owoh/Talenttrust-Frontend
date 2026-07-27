@@ -22,7 +22,8 @@ jest.mock('@/hooks/useCopyToClipboard', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Toast mock — MilestonesList now uses useToast for copy feedback
+// Toast mock — MilestonesList uses useToast for copy feedback, and the page
+// uses it for the create-milestone rollback error.
 // ---------------------------------------------------------------------------
 
 const mockShowSuccess = jest.fn();
@@ -115,7 +116,6 @@ beforeEach(() => {
   });
   mockedListMilestones.mockReturnValue([]);
   mockedSaveMilestone.mockReturnValue(true);
-  mockShowError.mockReset();
   mockCopied = false;
   mockCopySuccess = true;
   mockUseCopyToClipboard.mockImplementation((options) => ({

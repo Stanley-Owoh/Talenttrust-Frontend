@@ -128,10 +128,15 @@ describe('SettingsPanel', () => {
   });
 
   it('renders nothing when closed', () => {
-    const { container } = renderWithProvider(
+    renderWithProvider(
       <SettingsPanel isOpen={false} onClose={() => {}} />
     );
+    // The render tree also includes ToastProvider's viewport (its own idle
+    // skeleton is intentional, tested behaviour), so we assert SettingsPanel
+    // itself contributed nothing rather than asserting the whole container
+    // is empty.
     expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByLabelText('Close settings')).toBeNull();
   });
 
   it('renders correctly when open', () => {

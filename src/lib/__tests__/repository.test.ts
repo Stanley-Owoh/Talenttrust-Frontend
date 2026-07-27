@@ -20,6 +20,7 @@ import {
   listContracts,
   saveContract,
   upsertContract,
+  getContractVersion,
   updateContract,
   updateMilestone,
   listMilestones,
