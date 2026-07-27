@@ -15,12 +15,23 @@ import MilestoneFilter, {
   type MilestoneStatusFilter,
 } from '../../components/milestones/MilestoneFilter';
 import { MilestoneCreationForm } from '../../components/milestones/MilestoneCreationForm';
+import MilestonesErrorBoundary from '../../components/milestones/MilestonesErrorBoundary';
 import { listMilestones, saveMilestone, updateMilestone } from '@/lib/repository';
 import { getItem, setItem } from '@/lib/safeStorage';
-import { exportMilestonesToCSV, exportMilestonesToJSON } from '@/lib/exportMilestones';
+import { useToast } from '@/components/toast/toast-provider';
+import SafeBoundary from '@/components/SafeBoundary';
 import type { Milestone } from '@/types/domain';
+import type { StatusType } from '@/components/StatusBadge';
 
 export const SAMPLE_DISMISSED_KEY = 'talenttrust-milestones-sample-dismissed';
+
+/**
+ * MilestonesList paginates internally via its own `pageSize` prop, but that
+ * cap is fixed at mount (see MilestonesList's `displayCount` state). This
+ * page doesn't want an arbitrary "Load More" click gating milestones the
+ * user just added, so it opts the list out of pagination entirely.
+ */
+const UNPAGINATED_LIST_SIZE = 9999;
 
 export const SAMPLE_MILESTONES: Milestone[] = [
   {
@@ -79,6 +90,9 @@ function getValidStatus(param: string | null): MilestoneStatusFilter {
     : 'All';
 }
 
+export type MilestoneSortOption = 'newest' | 'oldest';
+const VALID_SORT_OPTIONS: MilestoneSortOption[] = ['newest', 'oldest'];
+
 function getValidSortOption(param: string | null): MilestoneSortOption {
   return param && (VALID_SORT_OPTIONS as string[]).includes(param)
     ? (param as MilestoneSortOption)
@@ -91,11 +105,13 @@ const MilestonesContent: React.FC = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
   const startFromScratchRef = useRef<HTMLButtonElement | null>(null);
-  const hasAppliedUrlStateRef = useRef(false);
 
   const initialStatus = getValidStatus(searchParams.get('status'));
   const [statusFilter, setStatusFilter] =
     useState<MilestoneStatusFilter>(initialStatus);
+  const [sortOrder, setSortOrder] = useState<MilestoneSortOption>(
+    getValidSortOption(searchParams.get('sort')),
+  );
   const [showForm, setShowForm] = useState(false);
   const { showError } = useToast();
 
@@ -107,26 +123,16 @@ const MilestonesContent: React.FC = () => {
 
   // Sync filter/sort state changes to the URL without adding browser history entries.
   useEffect(() => {
-    const currentUrlStatus = searchParams.get('status');
-    if (
-      currentUrlStatus !== statusFilter &&
-      !(currentUrlStatus === null && statusFilter === 'All')
-    ) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('status', statusFilter);
-      router.replace(`?${params.toString()}`);
-    }
-
     const timeoutId = window.setTimeout(() => {
       const params = new URLSearchParams(searchParams.toString());
-      if (nextStatusParam) {
-        params.set('status', nextStatusParam);
+      if (statusFilter !== 'All') {
+        params.set('status', statusFilter);
       } else {
         params.delete('status');
       }
 
-      if (nextSortParam) {
-        params.set('sort', nextSortParam);
+      if (sortOrder !== 'newest') {
+        params.set('sort', sortOrder);
       } else {
         params.delete('sort');
       }
@@ -226,18 +232,6 @@ const MilestonesContent: React.FC = () => {
     setShowForm(false);
   }, []);
 
-  const handleUpdateMilestone = useCallback((milestone: Milestone) => {
-    const persisted = updateMilestone(milestone.id, milestone);
-
-    if (!persisted) {
-      return false;
-    }
-
-    setMilestones((current) =>
-      current.map((item) => (item.id === milestone.id ? milestone : item)),
-    );
-    return true;
-  }, []);
   /**
    * Inline-edit save handler.
    *
@@ -369,8 +363,9 @@ const MilestonesContent: React.FC = () => {
             />
           ) : (
             <MilestonesList
-              milestones={filtered}
+              milestones={sortedMilestones}
               onUpdateMilestone={handleUpdateMilestone}
+              pageSize={UNPAGINATED_LIST_SIZE}
             />
           )}
         </>
@@ -387,11 +382,11 @@ const MilestonesContent: React.FC = () => {
 };
 
 const MilestonesPage: React.FC = () => (
-  <MilestonesErrorBoundary>
+  <SafeBoundary fallbackTitle="Milestones failed to load.">
     <Suspense fallback={null}>
       <MilestonesContent />
     </Suspense>
-  </MilestonesErrorBoundary>
+  </SafeBoundary>
 );
 
 export default MilestonesPage;

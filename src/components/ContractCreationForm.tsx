@@ -6,7 +6,6 @@ import { ErrorSummary } from './ErrorSummary';
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 import { isValidStellarAddress } from '@/lib/stellarAddress';
 import { sanitizeUserText } from '@/lib/sanitizeUserText';
-import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 import type { Contract } from '@/types/domain';
 
 export const MAX_CONTRACT_NAME_LENGTH = 200;
@@ -60,17 +59,6 @@ export const ContractCreationForm: React.FC<ContractCreationFormProps> = ({
     { label: '', address: '' },
   ]);
   const [errors, setErrors] = useState<Array<{ fieldId: string; message: string }>>([]);
-
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const firstInputRef = useRef<HTMLInputElement>(null);
-
-  useDialogFocusTrap({
-    isOpen: true,
-    dialogRef,
-    initialFocusRef: firstInputRef,
-    onEscape: onCancel,
-    restoreFocus: true,
-  });
 
   /**
    * Validates the form data and returns an array of error objects.

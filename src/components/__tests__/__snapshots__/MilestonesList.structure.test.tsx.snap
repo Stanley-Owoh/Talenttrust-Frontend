@@ -14,17 +14,48 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
     >
       Milestones
     </h2>
-    <span
-      class="text-sm text-slate-500"
-      id="milestones-count"
+    <div
+      class="flex items-center gap-3"
     >
-      2
-       total
-    </span>
+      <button
+        aria-label="Switch to compact density"
+        aria-pressed="false"
+        class="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          class="h-3.5 w-3.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="M4 6h16M4 12h16M4 18h16"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Comfortable
+      </button>
+      <span
+        class="text-sm text-slate-500"
+        id="milestones-count"
+      >
+        2
+         total
+      </span>
+    </div>
   </div>
+  <span
+    aria-atomic="true"
+    aria-live="polite"
+    class="sr-only"
+  />
   <div
     aria-label="Milestone status summary"
-    class="mt-4 flex flex-wrap gap-2"
+    class="flex flex-wrap gap-2 mt-4"
     role="list"
   >
     <span
@@ -70,9 +101,16 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
       </li>
     </ul>
   </div>
+  <span
+    aria-atomic="true"
+    aria-live="polite"
+    class="sr-only"
+    data-testid="milestones-announcement"
+    role="status"
+  />
   <div
     aria-labelledby="milestones-title milestones-count"
-    class="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
+    class="max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 mt-6 space-y-4"
     role="region"
     tabindex="0"
   >
@@ -83,7 +121,9 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
       <div
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div>
+        <div
+          class="min-w-0 flex-1"
+        >
           <p
             class="text-sm font-medium text-slate-600"
           >
@@ -96,18 +136,35 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
             2025-01-01
           </p>
         </div>
-        <span
-          aria-label="Status: Pending"
-          class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-warning-bg)] text-[var(--status-warning-foreground)] "
-          role="status"
+        <div
+          class="flex items-center gap-3"
         >
           <span
-            aria-hidden="true"
+            aria-label="Status: Pending"
+            class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-warning-bg)] text-[var(--status-warning-foreground)] "
+            role="status"
           >
-            ⏳
+            <span
+              aria-hidden="true"
+            >
+              ⏳
+            </span>
+            Pending
           </span>
-          Pending
-        </span>
+          <button
+            aria-label="Edit milestone Local milestone"
+            class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            data-testid="edit-milestone-m1"
+            type="button"
+          >
+            <span
+              aria-hidden="true"
+            >
+              ✎
+            </span>
+            Edit
+          </button>
+        </div>
       </div>
       <div
         class="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600"
@@ -117,6 +174,7 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
         </p>
         <p
           class="font-semibold text-slate-900"
+          data-testid="milestone-payout-m1"
         >
           $500.00
         </p>
@@ -129,7 +187,9 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
       <div
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div>
+        <div
+          class="min-w-0 flex-1"
+        >
           <p
             class="text-sm font-medium text-slate-600"
           >
@@ -142,18 +202,35 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
             2025-01-02
           </p>
         </div>
-        <span
-          aria-label="Status: Pending"
-          class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-warning-bg)] text-[var(--status-warning-foreground)] "
-          role="status"
+        <div
+          class="flex items-center gap-3"
         >
           <span
-            aria-hidden="true"
+            aria-label="Status: Pending"
+            class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-warning-bg)] text-[var(--status-warning-foreground)] "
+            role="status"
           >
-            ⏳
+            <span
+              aria-hidden="true"
+            >
+              ⏳
+            </span>
+            Pending
           </span>
-          Pending
-        </span>
+          <button
+            aria-label="Edit milestone Foreign milestone"
+            class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            data-testid="edit-milestone-m2"
+            type="button"
+          >
+            <span
+              aria-hidden="true"
+            >
+              ✎
+            </span>
+            Edit
+          </button>
+        </div>
       </div>
       <div
         class="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600"
@@ -163,6 +240,7 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
         </p>
         <p
           class="font-semibold text-slate-900"
+          data-testid="milestone-payout-m2"
         >
           €400.00
         </p>
@@ -186,17 +264,48 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
     >
       Milestones
     </h2>
-    <span
-      class="text-sm text-slate-500"
-      id="milestones-count"
+    <div
+      class="flex items-center gap-3"
     >
-      1
-       total
-    </span>
+      <button
+        aria-label="Switch to compact density"
+        aria-pressed="false"
+        class="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          class="h-3.5 w-3.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="M4 6h16M4 12h16M4 18h16"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Comfortable
+      </button>
+      <span
+        class="text-sm text-slate-500"
+        id="milestones-count"
+      >
+        1
+         total
+      </span>
+    </div>
   </div>
+  <span
+    aria-atomic="true"
+    aria-live="polite"
+    class="sr-only"
+  />
   <div
     aria-label="Milestone status summary"
-    class="mt-4 flex flex-wrap gap-2"
+    class="flex flex-wrap gap-2 mt-4"
     role="list"
   >
     <span
@@ -250,7 +359,7 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
     </div>
     <button
       aria-label="Dismiss reminder"
-      class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 hover:text-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1 dark:text-amber-400 dark:hover:bg-amber-500/10 dark:hover:text-amber-200 transition-colors"
+      class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 hover:text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1 dark:text-amber-400 dark:hover:bg-amber-500/10 dark:hover:text-amber-200 transition-colors"
       type="button"
     >
       <span
@@ -261,9 +370,16 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
       </span>
     </button>
   </div>
+  <span
+    aria-atomic="true"
+    aria-live="polite"
+    class="sr-only"
+    data-testid="milestones-announcement"
+    role="status"
+  />
   <div
     aria-labelledby="milestones-title milestones-count"
-    class="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
+    class="max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 mt-6 space-y-4"
     role="region"
     tabindex="0"
   >
@@ -274,7 +390,9 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
       <div
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div>
+        <div
+          class="min-w-0 flex-1"
+        >
           <p
             class="text-sm font-medium text-slate-600"
           >
@@ -287,18 +405,35 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
             2026-01-03
           </p>
         </div>
-        <span
-          aria-label="Status: Pending"
-          class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-warning-bg)] text-[var(--status-warning-foreground)] "
-          role="status"
+        <div
+          class="flex items-center gap-3"
         >
           <span
-            aria-hidden="true"
+            aria-label="Status: Pending"
+            class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-warning-bg)] text-[var(--status-warning-foreground)] "
+            role="status"
           >
-            ⏳
+            <span
+              aria-hidden="true"
+            >
+              ⏳
+            </span>
+            Pending
           </span>
-          Pending
-        </span>
+          <button
+            aria-label="Edit milestone Urgent milestone"
+            class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            data-testid="edit-milestone-m1"
+            type="button"
+          >
+            <span
+              aria-hidden="true"
+            >
+              ✎
+            </span>
+            Edit
+          </button>
+        </div>
       </div>
       <div
         class="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600"
@@ -308,6 +443,7 @@ exports[`MilestonesList structural/snapshot tests edge cases matches the structu
         </p>
         <p
           class="font-semibold text-slate-900"
+          data-testid="milestone-payout-m1"
         >
           $750.00
         </p>
@@ -331,17 +467,48 @@ exports[`MilestonesList structural/snapshot tests edge cases renders "Due TBD" a
     >
       Milestones
     </h2>
-    <span
-      class="text-sm text-slate-500"
-      id="milestones-count"
+    <div
+      class="flex items-center gap-3"
     >
-      1
-       total
-    </span>
+      <button
+        aria-label="Switch to compact density"
+        aria-pressed="false"
+        class="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          class="h-3.5 w-3.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="M4 6h16M4 12h16M4 18h16"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Comfortable
+      </button>
+      <span
+        class="text-sm text-slate-500"
+        id="milestones-count"
+      >
+        1
+         total
+      </span>
+    </div>
   </div>
+  <span
+    aria-atomic="true"
+    aria-live="polite"
+    class="sr-only"
+  />
   <div
     aria-label="Milestone status summary"
-    class="mt-4 flex flex-wrap gap-2"
+    class="flex flex-wrap gap-2 mt-4"
     role="list"
   >
     <span
@@ -361,9 +528,16 @@ exports[`MilestonesList structural/snapshot tests edge cases renders "Due TBD" a
       </span>
     </span>
   </div>
+  <span
+    aria-atomic="true"
+    aria-live="polite"
+    class="sr-only"
+    data-testid="milestones-announcement"
+    role="status"
+  />
   <div
     aria-labelledby="milestones-title milestones-count"
-    class="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
+    class="max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 mt-6 space-y-4"
     role="region"
     tabindex="0"
   >
@@ -374,7 +548,9 @@ exports[`MilestonesList structural/snapshot tests edge cases renders "Due TBD" a
       <div
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div>
+        <div
+          class="min-w-0 flex-1"
+        >
           <p
             class="text-sm font-medium text-slate-600"
           >
@@ -387,18 +563,35 @@ exports[`MilestonesList structural/snapshot tests edge cases renders "Due TBD" a
             TBD
           </p>
         </div>
-        <span
-          aria-label="Status: Pending"
-          class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-warning-bg)] text-[var(--status-warning-foreground)] "
-          role="status"
+        <div
+          class="flex items-center gap-3"
         >
           <span
-            aria-hidden="true"
+            aria-label="Status: Pending"
+            class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-warning-bg)] text-[var(--status-warning-foreground)] "
+            role="status"
           >
-            ⏳
+            <span
+              aria-hidden="true"
+            >
+              ⏳
+            </span>
+            Pending
           </span>
-          Pending
-        </span>
+          <button
+            aria-label="Edit milestone Undated milestone"
+            class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            data-testid="edit-milestone-m1"
+            type="button"
+          >
+            <span
+              aria-hidden="true"
+            >
+              ✎
+            </span>
+            Edit
+          </button>
+        </div>
       </div>
       <div
         class="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600"
@@ -408,6 +601,7 @@ exports[`MilestonesList structural/snapshot tests edge cases renders "Due TBD" a
         </p>
         <p
           class="font-semibold text-slate-900"
+          data-testid="milestone-payout-m1"
         >
           $100.00
         </p>
@@ -431,16 +625,54 @@ exports[`MilestonesList structural/snapshot tests empty state matches the struct
     >
       Milestones
     </h2>
-    <span
-      class="text-sm text-slate-500"
-      id="milestones-count"
+    <div
+      class="flex items-center gap-3"
     >
-      0
-       total
-    </span>
+      <button
+        aria-label="Switch to compact density"
+        aria-pressed="false"
+        class="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          class="h-3.5 w-3.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="M4 6h16M4 12h16M4 18h16"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Comfortable
+      </button>
+      <span
+        class="text-sm text-slate-500"
+        id="milestones-count"
+      >
+        0
+         total
+      </span>
+    </div>
   </div>
+  <span
+    aria-atomic="true"
+    aria-live="polite"
+    class="sr-only"
+  />
+  <span
+    aria-atomic="true"
+    aria-live="polite"
+    class="sr-only"
+    data-testid="milestones-announcement"
+    role="status"
+  />
   <div
-    class="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
+    class="max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 mt-6 space-y-4"
   />
 </section>
 `;
@@ -459,17 +691,48 @@ exports[`MilestonesList structural/snapshot tests loaded state matches the struc
     >
       Milestones
     </h2>
-    <span
-      class="text-sm text-slate-500"
-      id="milestones-count"
+    <div
+      class="flex items-center gap-3"
     >
-      3
-       total
-    </span>
+      <button
+        aria-label="Switch to compact density"
+        aria-pressed="false"
+        class="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          class="h-3.5 w-3.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="M4 6h16M4 12h16M4 18h16"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Comfortable
+      </button>
+      <span
+        class="text-sm text-slate-500"
+        id="milestones-count"
+      >
+        3
+         total
+      </span>
+    </div>
   </div>
+  <span
+    aria-atomic="true"
+    aria-live="polite"
+    class="sr-only"
+  />
   <div
     aria-label="Milestone status summary"
-    class="mt-4 flex flex-wrap gap-2"
+    class="flex flex-wrap gap-2 mt-4"
     role="list"
   >
     <span
@@ -521,9 +784,16 @@ exports[`MilestonesList structural/snapshot tests loaded state matches the struc
       </span>
     </span>
   </div>
+  <span
+    aria-atomic="true"
+    aria-live="polite"
+    class="sr-only"
+    data-testid="milestones-announcement"
+    role="status"
+  />
   <div
     aria-labelledby="milestones-title milestones-count"
-    class="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
+    class="max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 mt-6 space-y-4"
     role="region"
     tabindex="0"
   >
@@ -534,7 +804,9 @@ exports[`MilestonesList structural/snapshot tests loaded state matches the struc
       <div
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div>
+        <div
+          class="min-w-0 flex-1"
+        >
           <p
             class="text-sm font-medium text-slate-600"
           >
@@ -547,18 +819,35 @@ exports[`MilestonesList structural/snapshot tests loaded state matches the struc
             2025-01-01
           </p>
         </div>
-        <span
-          aria-label="Status: Completed"
-          class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-info-bg)] text-[var(--status-info-foreground)] "
-          role="status"
+        <div
+          class="flex items-center gap-3"
         >
           <span
-            aria-hidden="true"
+            aria-label="Status: Completed"
+            class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-info-bg)] text-[var(--status-info-foreground)] "
+            role="status"
           >
-            ✓
+            <span
+              aria-hidden="true"
+            >
+              ✓
+            </span>
+            Completed
           </span>
-          Completed
-        </span>
+          <button
+            aria-label="Edit milestone Kickoff call"
+            class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            data-testid="edit-milestone-m1"
+            type="button"
+          >
+            <span
+              aria-hidden="true"
+            >
+              ✎
+            </span>
+            Edit
+          </button>
+        </div>
       </div>
       <div
         class="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600"
@@ -568,6 +857,7 @@ exports[`MilestonesList structural/snapshot tests loaded state matches the struc
         </p>
         <p
           class="font-semibold text-slate-900"
+          data-testid="milestone-payout-m1"
         >
           $1,200.00
         </p>
@@ -580,7 +870,9 @@ exports[`MilestonesList structural/snapshot tests loaded state matches the struc
       <div
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div>
+        <div
+          class="min-w-0 flex-1"
+        >
           <p
             class="text-sm font-medium text-slate-600"
           >
@@ -593,18 +885,35 @@ exports[`MilestonesList structural/snapshot tests loaded state matches the struc
             2025-02-01
           </p>
         </div>
-        <span
-          aria-label="Status: Pending"
-          class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-warning-bg)] text-[var(--status-warning-foreground)] "
-          role="status"
+        <div
+          class="flex items-center gap-3"
         >
           <span
-            aria-hidden="true"
+            aria-label="Status: Pending"
+            class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-warning-bg)] text-[var(--status-warning-foreground)] "
+            role="status"
           >
-            ⏳
+            <span
+              aria-hidden="true"
+            >
+              ⏳
+            </span>
+            Pending
           </span>
-          Pending
-        </span>
+          <button
+            aria-label="Edit milestone Design handoff"
+            class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            data-testid="edit-milestone-m2"
+            type="button"
+          >
+            <span
+              aria-hidden="true"
+            >
+              ✎
+            </span>
+            Edit
+          </button>
+        </div>
       </div>
       <div
         class="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600"
@@ -614,6 +923,7 @@ exports[`MilestonesList structural/snapshot tests loaded state matches the struc
         </p>
         <p
           class="font-semibold text-slate-900"
+          data-testid="milestone-payout-m2"
         >
           $3,400.00
         </p>
@@ -626,7 +936,9 @@ exports[`MilestonesList structural/snapshot tests loaded state matches the struc
       <div
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div>
+        <div
+          class="min-w-0 flex-1"
+        >
           <p
             class="text-sm font-medium text-slate-600"
           >
@@ -639,18 +951,35 @@ exports[`MilestonesList structural/snapshot tests loaded state matches the struc
             2025-03-01
           </p>
         </div>
-        <span
-          aria-label="Status: Disputed"
-          class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-error-bg)] text-[var(--status-error-foreground)] "
-          role="status"
+        <div
+          class="flex items-center gap-3"
         >
           <span
-            aria-hidden="true"
+            aria-label="Status: Disputed"
+            class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold bg-[var(--status-error-bg)] text-[var(--status-error-foreground)] "
+            role="status"
           >
-            ⚠
+            <span
+              aria-hidden="true"
+            >
+              ⚠
+            </span>
+            Disputed
           </span>
-          Disputed
-        </span>
+          <button
+            aria-label="Edit milestone Final delivery"
+            class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            data-testid="edit-milestone-m3"
+            type="button"
+          >
+            <span
+              aria-hidden="true"
+            >
+              ✎
+            </span>
+            Edit
+          </button>
+        </div>
       </div>
       <div
         class="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600"
@@ -660,6 +989,7 @@ exports[`MilestonesList structural/snapshot tests loaded state matches the struc
         </p>
         <p
           class="font-semibold text-slate-900"
+          data-testid="milestone-payout-m3"
         >
           $5,000.00
         </p>

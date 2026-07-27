@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useRef, useEffect } from 'react';
-import { usePreferences, Theme, AmountFormat, ToastDensity, FormDensity } from '@/lib/preferences';
+import { usePreferences, type FormDensity, type UserPreferences } from '@/lib/preferences';
+import { useToast } from '@/components/toast/toast-provider';
+import { reportError } from '@/lib/errorReporter';
 
 const FOCUSABLE_SELECTORS =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -136,6 +138,12 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     const panel = panelRef.current;
     if (!panel) return;
 
+    // Save whatever held focus before the panel opened so it can be
+    // restored on close (WCAG 2.1 SC 3.2.2), mirroring the restoreFocus
+    // behaviour of useDialogFocusTrap without depending on the hook itself.
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
     // Set initial focus to the close button
     const closeBtn = panel.querySelector<HTMLElement>('[aria-label="Close settings"]');
     closeBtn?.focus();
@@ -161,7 +169,10 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previouslyFocused?.focus();
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -176,7 +187,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
       {/* Drawer */}
       <div
-        ref={dialogRef}
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-panel-title"
@@ -186,12 +197,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
           <h2 id="settings-panel-title" className="text-xl font-bold text-[var(--foreground)]">Settings</h2>
           <button 
+            type="button"
             ref={closeButtonRef}
             onClick={onClose}
             className="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
             aria-label="Close settings"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg aria-hidden="true" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -209,7 +221,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   <RadioGroup
                     options={['light', 'dark', 'system'] as const}
                     value={preferences.theme}
-                    onChange={(val) => updatePreference('theme', val)}
+                    onChange={(val) => handleUpdate('theme', val)}
                     labelId="theme-label"
                     ariaLabel="Theme"
                     containerClassName="grid grid-cols-3 gap-2"
@@ -223,7 +235,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 <RadioGroup
                   options={['usd', 'ngn', 'compact'] as const}
                   value={preferences.amountFormat}
-                  onChange={(val) => updatePreference('amountFormat', val)}
+                  onChange={(val) => handleUpdate('amountFormat', val)}
                   labelId="currency-label"
                   ariaLabel="Currency Display"
                   containerClassName="grid grid-cols-3 gap-2"
@@ -243,7 +255,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 <RadioGroup
                   options={['relaxed', 'compact'] as const}
                   value={preferences.toastDensity}
-                  onChange={(val) => updatePreference('toastDensity', val)}
+                  onChange={(val) => handleUpdate('toastDensity', val)}
                   labelId="density-label"
                   ariaLabel="Toast Density"
                   containerClassName="grid grid-cols-2 gap-2"
@@ -257,7 +269,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   {(['comfortable', 'compact'] as FormDensity[]).map((d) => (
                     <button
                       key={d}
-                      onClick={() => updatePreference('formDensity', d)}
+                      onClick={() => handleUpdate('formDensity', d)}
                       role="radio"
                       aria-checked={preferences.formDensity === d}
                       className={`px-3 py-2 text-sm rounded-md border capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 ${

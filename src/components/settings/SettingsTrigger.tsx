@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { SettingsPanel } from './SettingsPanel';
+import SettingsErrorBoundary from './SettingsErrorBoundary';
 import { useRegisterCommandAction } from '@/components/CommandPalette';
 
 export function SettingsTrigger() {
@@ -29,11 +30,13 @@ export function SettingsTrigger() {
   return (
     <>
       <button
+        ref={triggerRef}
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 right-6 p-3 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-lg hover:scale-110 transition-transform z-40 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2"
         aria-label="Open Settings"
       >
         <svg 
+          aria-hidden="true"
           className="w-6 h-6" 
           fill="none" 
           viewBox="0 0 24 24" 
@@ -54,7 +57,7 @@ export function SettingsTrigger() {
         </svg>
       </button>
 
-      <SettingsPanel isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      <SettingsPanel isOpen={isOpen} onClose={handleClose} />
     </>
   );
 }

@@ -3,7 +3,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode, useState } from 'react';
 import { PreferencesProvider } from '@/lib/preferences';
-import { ToastProvider, useToast, ToastErrorBoundary } from './toast-provider';
+import { ToastProvider, useToast, ToastErrorBoundary, ToastSkeleton } from './toast-provider';
 import * as errorReporter from '@/lib/errorReporter';
 
 function ToastHarness() {

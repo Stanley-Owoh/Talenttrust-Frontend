@@ -167,6 +167,48 @@ body {
     color: HighlightText !important;
     border: 1px solid Highlight !important;
   }
+
+  /* ── Wallet-specific high-contrast rules ──
+     Ensures the wallet table, selected rows, status badges, toolbar, and
+     checkboxes remain legible and clearly distinguishable when forced-colors
+     mode is active (e.g. Windows High Contrast). */
+
+  /* Wallet table container and cell borders */
+  [data-wallet-table] {
+    border: 2px solid CanvasText !important;
+  }
+
+  [data-wallet-table] th,
+  [data-wallet-table] td {
+    border-bottom: 1px solid CanvasText !important;
+  }
+
+  /* Selected wallet rows: highlighted background with high-contrast text */
+  [data-wallet-table] tr[data-selected] {
+    background-color: Highlight !important;
+    color: HighlightText !important;
+    forced-color-adjust: none;
+  }
+
+  /* Wallet status badges: visible borders in forced-colors mode */
+  [data-wallet-status] {
+    border: 1px solid CanvasText !important;
+  }
+
+  /* Wallet bulk toolbar: visible border in forced-colors mode */
+  [data-wallet-toolbar] {
+    border: 2px solid CanvasText !important;
+  }
+
+  /* Wallet checkboxes: ensure they're visible in high-contrast */
+  [data-wallet-table] input[type="checkbox"] {
+    forced-color-adjust: auto;
+  }
+
+  /* Wallet delete buttons: ensure icon buttons have visible boundaries */
+  [data-wallet-table] button {
+    border: 1px solid ButtonText !important;
+  }
 }
 
 /* ---------------------------------------------------------------------------

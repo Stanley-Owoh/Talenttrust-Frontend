@@ -31,6 +31,7 @@ const buildPersistedContract: BuildPersistedContract = (
   status,
   version,
 ): Contract => ({
+  id: data.id,
   contractName: data.name,
   parties: data.parties,
   totalValue: data.totalValue,
@@ -163,6 +164,7 @@ describe('useOptimisticContractStatus', () => {
 
     const setContractData = jest.fn();
     const buildSpy: BuildPersistedContract = jest.fn((data, status, version) => ({
+      id: data.id,
       contractName: data.name,
       parties: data.parties,
       totalValue: data.totalValue,
