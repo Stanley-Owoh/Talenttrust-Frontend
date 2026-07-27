@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "jest"
+    "test": "jest",
+    "analyze": "node scripts/check-bundle-budget.mjs"
   },
   "dependencies": {
     "@stellar/freighter-api": "^6.0.1",
