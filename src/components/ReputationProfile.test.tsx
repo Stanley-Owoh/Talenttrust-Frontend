@@ -452,6 +452,17 @@ it('sr-only span announces "out of {maxScore}" after the numeric score', () => {
     const srOnlySpan = levelSpans.find((el) => el.classList.contains('sr-only'));
     expect(srOnlySpan).toBeDefined();
   });
+
+  it('groups bulk reputation actions in a toolbar with descriptive labels', () => {
+    renderProfile({ name: 'Toolbar User', score: 80, history: HISTORY_EVENTS });
+
+    const toolbar = screen.getByRole('toolbar', { name: /reputation history actions/i });
+    expect(toolbar).toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: /export selected reputation items/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /delete selected reputation items/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /clear selected reputation items/i })).toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------

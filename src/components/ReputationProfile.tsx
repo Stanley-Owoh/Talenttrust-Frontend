@@ -61,7 +61,20 @@ export function resolveReputationLevel(score: number, maxScore: number): string 
 const reputationSummary =
   'Reputation represents verified trust signals and activity history, not sensitive personal metadata. Privacy-friendly defaults keep your profile safe.';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  buildReputationQueryString,
+  DEFAULT_DIR,
+  DEFAULT_TYPE,
+  filterAndSortHistory,
+  getAvailableHistoryTypes,
+  getValidDir,
+  getValidType,
+  isReputationUrlInSync,
+  REPUTATION_URL_DEBOUNCE_MS,
+  type ReputationSortDir,
+} from '@/lib/reputationUrlState';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useToast } from './toast/toast-provider';
 
@@ -85,9 +98,6 @@ export default function ReputationProfile({
   const [events, setEvents] = useState(history);
   const [announcement, setAnnouncement] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const selectedCount = selectedIds.length;
-  const allSelected = events.length > 0 && selectedCount === events.length;
-  const hasPartialSelection = selectedCount > 0 && selectedCount < events.length;
 
   const selectedEvents = useMemo(
     () => events.filter((event) => selectedIds.includes(event.id)),
@@ -135,6 +145,9 @@ export default function ReputationProfile({
     () => filterAndSortHistory(history, selectedType, sortDir),
     [history, selectedType, sortDir]
   );
+  const selectedCount = selectedIds.length;
+  const allSelected = filteredHistory.length > 0 && selectedCount === filteredHistory.length;
+  const hasPartialSelection = selectedCount > 0 && selectedCount < filteredHistory.length;
 
   const resolvedLevel = level !== undefined
     ? level
@@ -159,7 +172,7 @@ export default function ReputationProfile({
 
   const toggleAll = () => {
     setSelectedIds((current) => (
-      current.length === events.length ? [] : events.map((event) => event.id)
+      current.length === filteredHistory.length ? [] : filteredHistory.map((event) => event.id)
     ));
   };
 
@@ -214,9 +227,9 @@ export default function ReputationProfile({
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-            <p className="text-sm font-medium text-slate-500" id="reputation-score-label">Reputation score</p>
-            <p className="mt-3 text-3xl font-semibold text-slate-950" aria-labelledby="reputation-score-label">
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5">
+            <p className="text-sm font-medium text-[var(--muted-foreground)]" id="reputation-score-label">Reputation score</p>
+            <p className="mt-3 text-3xl font-semibold text-[var(--foreground)]" aria-labelledby="reputation-score-label">
               {hasReputation ? (
                 <>
                   <span
@@ -233,7 +246,7 @@ export default function ReputationProfile({
               ) : 'No reputation yet'}
             </p>
           </div>
-           <div className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5">
+           <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5">
              <p className="text-sm font-medium text-[var(--muted-foreground)]" id="reputation-level-label">Level</p>
              <p className="mt-3 text-xl font-semibold text-[var(--foreground)]" aria-labelledby="reputation-level-label">
               {hasReputation ? (
@@ -243,7 +256,7 @@ export default function ReputationProfile({
               ) : 'Pending'}
             </p>
           </div>
-           <div className="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5">
+           <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5">
              <p className="text-sm font-medium text-[var(--muted-foreground)]">Explanation</p>
              <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">{reputationSummary}</p>
           </div>
@@ -267,8 +280,8 @@ export default function ReputationProfile({
                   <li
                     key={band.label}
                     className={`rounded-2xl border p-3 transition-colors ${isActive
-                        ? 'border-indigo-200 bg-indigo-50/50 text-indigo-900 font-semibold'
-                        : 'border-slate-200 bg-slate-50/50 text-slate-600'
+                        ? 'border-[var(--legend-active-border)] bg-[var(--legend-active-bg)] text-[var(--legend-active-foreground)] font-semibold'
+                        : 'border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)]'
                       }`}
                   >
                     <p className="font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
@@ -292,7 +305,7 @@ export default function ReputationProfile({
         )}
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-[var(--foreground)]">Reputation history</h2>
@@ -304,13 +317,13 @@ export default function ReputationProfile({
             {history.length > 0 && (
               <>
                 <div className="flex items-center gap-2">
-                  <label htmlFor="history-type-filter" className="text-sm font-medium text-slate-700">
+                  <label htmlFor="history-type-filter" className="text-sm font-medium text-[var(--foreground)]">
                     Filter:
                   </label>
                   <select
                     id="history-type-filter"
                     data-testid="reputation-type-filter"
-                    className="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 pl-3 pr-8 text-sm text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
                     value={selectedType}
                     onChange={(e) => setSelectedType(e.target.value)}
                   >
@@ -322,13 +335,13 @@ export default function ReputationProfile({
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <label htmlFor="history-sort-dir" className="text-sm font-medium text-slate-700">
+                  <label htmlFor="history-sort-dir" className="text-sm font-medium text-[var(--foreground)]">
                     Sort:
                   </label>
                   <select
                     id="history-sort-dir"
                     data-testid="reputation-sort-dir"
-                    className="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 pl-3 pr-8 text-sm text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
                     value={sortDir}
                     onChange={(e) => setSortDir(e.target.value as ReputationSortDir)}
                   >
@@ -344,7 +357,7 @@ export default function ReputationProfile({
                 </div>
               </>
             )}
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600">
+            <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
               {history.length ? 'Visible' : 'Private by default'}
             </span>
           </div>
@@ -355,23 +368,23 @@ export default function ReputationProfile({
         </p>
 
         {events.length === 0 ? (
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-slate-700">
-            <p className="font-semibold text-slate-900">No reputation history available yet.</p>
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 text-[var(--foreground)]">
+            <p className="font-semibold text-[var(--foreground)]">No reputation history available yet.</p>
             <p className="mt-2 text-sm leading-6">
               Reputation history appears once you complete verified actions. Your profile remains safe and privacy-friendly until then.
             </p>
           </div>
         ) : filteredHistory.length === 0 ? (
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-slate-700">
-            <p className="font-semibold text-slate-900">No events match this filter.</p>
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 text-[var(--foreground)]">
+            <p className="font-semibold text-[var(--foreground)]">No events match this filter.</p>
             <p className="mt-2 text-sm leading-6">
               Try choosing a different event type, or select All to see the full reputation history.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <label className="inline-flex items-center gap-3 text-sm font-medium text-slate-800">
+            <div className="flex flex-col gap-3 rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-[var(--foreground)]">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -382,16 +395,21 @@ export default function ReputationProfile({
                   }}
                   onChange={toggleAll}
                   aria-label="Select all reputation items"
-                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                  className="h-4 w-4 rounded border-[var(--border)] text-[var(--foreground)] focus:ring-[var(--ring)]"
                 />
                 Select all
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div
+                role="toolbar"
+                aria-label="Reputation history actions"
+                className="flex flex-wrap gap-2"
+              >
                 <button
                   type="button"
                   onClick={handleExportSelected}
                   disabled={selectedCount === 0}
-                  className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Export selected reputation items"
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--muted-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Export selected
                 </button>
@@ -399,6 +417,7 @@ export default function ReputationProfile({
                   type="button"
                   onClick={handleDeleteSelected}
                   disabled={selectedCount === 0}
+                  aria-label="Delete selected reputation items"
                   className="rounded-2xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Delete selected
@@ -407,18 +426,19 @@ export default function ReputationProfile({
                   type="button"
                   onClick={clearSelection}
                   disabled={selectedCount === 0}
-                  className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Clear selected reputation items; clear selection"
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--muted-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Clear selection
                 </button>
               </div>
             </div>
             <ol className="space-y-4">
-              {events.map((event) => {
+              {filteredHistory.map((event) => {
                 const isValidDate = event.date && !Number.isNaN(Date.parse(event.date));
                 const isSelected = selectedIds.includes(event.id);
                 return (
-                  <li key={event.id} className={`rounded-3xl border p-5 ${isSelected ? 'border-slate-900 bg-slate-100' : 'border-slate-200 bg-slate-50'}`}>
+                  <li key={event.id} className={`rounded-3xl border border-[var(--border)] p-5 ${isSelected ? 'bg-[var(--surface)]' : 'bg-[var(--card)]'}`}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <label className="flex items-start gap-3">
                         <input
@@ -426,15 +446,15 @@ export default function ReputationProfile({
                           checked={isSelected}
                           onChange={() => toggleSelection(event.id)}
                           aria-label={`Select reputation item ${event.type}: ${event.summary}`}
-                          className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                          className="mt-1 h-4 w-4 rounded border-[var(--border)] text-[var(--foreground)] focus:ring-[var(--ring)]"
                         />
                         <span>
-                          <span className="block text-sm font-medium text-slate-500">{event.type}</span>
-                          <span className="mt-1 block text-base font-semibold text-slate-950">{event.summary}</span>
+                          <span className="block text-sm font-medium text-[var(--muted-foreground)]">{event.type}</span>
+                          <span className="mt-1 block text-base font-semibold text-[var(--foreground)]">{event.summary}</span>
                         </span>
                       </label>
                       <time
-                        className="text-sm text-slate-500 sm:text-right"
+                        className="text-sm text-[var(--muted-foreground)] sm:text-right"
                         {...(isValidDate ? { dateTime: event.date } : {})}
                       >
                         {event.date}
@@ -460,6 +480,6 @@ export default function ReputationProfile({
       />
     </section>
   );
-});
+}
 
 export default ReputationProfile;
