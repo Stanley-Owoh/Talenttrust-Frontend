@@ -76,7 +76,7 @@ export const WalletItemList: React.FC<WalletItemListProps> = ({
                 key={item.id}
                 data-testid={`wallet-item-row-${item.id}`}
                 data-selected={isSelected || undefined}
-                className={`transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40 ${
+                className={`transition-colors hover:bg-slate-50/80 focus-within:bg-slate-100/80 dark:hover:bg-slate-800/40 dark:focus-within:bg-slate-800/60 ${
                   isSelected ? 'bg-blue-50/40 dark:bg-slate-800/60' : ''
                 }`}
               >
