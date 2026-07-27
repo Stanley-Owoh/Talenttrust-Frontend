@@ -28,6 +28,14 @@ export const FormsList = ({ forms, isLoading = false, error }: FormsListProps) =
   const displayedForms = filteredForms.slice(0, page * pageSize);
   const hasMore = displayedForms.length < filteredForms.length;
 
+  if (error) {
+    return (
+      <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        {error}
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div>
@@ -46,14 +54,6 @@ export const FormsList = ({ forms, isLoading = false, error }: FormsListProps) =
           </ul>
           <span className="sr-only">Loading forms</span>
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        {error}
       </div>
     );
   }
