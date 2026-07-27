@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import type { WalletItem } from '@/types/domain';
 
 export interface WalletItemListProps {
@@ -24,6 +24,10 @@ export const WalletItemList: React.FC<WalletItemListProps> = ({
   onDeleteItem,
 }) => {
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
+
+  const handleDelete = useCallback((id: string) => {
+    onDeleteItem?.(id);
+  }, [onDeleteItem]);
 
   const isAllSelected = items.length > 0 && selectedIds.size === items.length;
   const isSomeSelected = selectedIds.size > 0 && selectedIds.size < items.length;
@@ -117,7 +121,7 @@ export const WalletItemList: React.FC<WalletItemListProps> = ({
                   {onDeleteItem && (
                     <button
                       type="button"
-                      onClick={() => onDeleteItem(item.id)}
+                      onClick={() => handleDelete(item.id)}
                       className="rounded-lg p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-500 dark:hover:bg-rose-950/50"
                       aria-label={`Delete ${item.name}`}
                     >

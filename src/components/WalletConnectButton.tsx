@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useToast } from '@/components/toast/toast-provider';
 import { usePreferences } from '@/lib/preferences';
@@ -13,7 +13,6 @@ export const WalletConnectButton = () => {
   const { showError } = useToast();
   const { preferences, updatePreference } = usePreferences();
   const { connectButtonRef, connectedElementRef } = useWalletFocus(address, isConnecting);
-  const { preferences, updatePreference } = usePreferences();
 
   const isCompact = preferences.walletDensity === 'compact';
 
@@ -22,15 +21,9 @@ export const WalletConnectButton = () => {
   const addressPadding = isCompact ? 'px-2 py-1' : 'px-3 py-1.5';
   const btnPadding = isCompact ? 'p-1' : 'p-1.5';
 
-  const toggleDensity = () => {
+  const toggleDensity = useCallback(() => {
     updatePreference('walletDensity', isCompact ? 'comfortable' : 'compact');
-  };
-
-  const isCompact = preferences.walletDensity === 'compact';
-  const btnPadding = isCompact ? 'p-1' : 'p-1.5';
-  const toggleDensity = () => {
-    updatePreference('walletDensity', isCompact ? 'comfortable' : 'compact');
-  };
+  }, [isCompact, updatePreference]);
 
   const { copied, copy } = useCopyToClipboard({
     delay: 2000,
@@ -49,23 +42,10 @@ export const WalletConnectButton = () => {
     },
   });
 
-  /**
-   * Copies the connected wallet address to the system clipboard.
-   *
-   * Guards against environments where the Clipboard API is unavailable
-   * (insecure contexts, older browsers, or denied permissions) and wraps
-   * the async write in a try/catch so failures surface as user-visible
-   * error toasts rather than unhandled promise rejections.
-   *
-   * - Sets `copied = true` **only** when the write actually succeeds,
-   *   reverting to `false` after 2 seconds.
-   * - On any failure, triggers an error toast via `showError` without
-   *   logging sensitive address data to the console.
-   */
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     if (!address) return;
     await copy(address);
-  };
+  }, [address, copy]);
 
   if (error) {
     return (
@@ -75,6 +55,7 @@ export const WalletConnectButton = () => {
         </svg>
         <span className="text-sm font-medium">Connection Error</span>
         <button
+          type="button"
           onClick={connect}
           className="ml-2 rounded text-sm font-semibold underline hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1"
           aria-label="Retry wallet connection"
@@ -149,6 +130,7 @@ export const WalletConnectButton = () => {
 
   return (
     <button
+      type="button"
       ref={connectButtonRef}
       onClick={connect}
       disabled={isConnecting}
