@@ -19,6 +19,7 @@ import { listMilestones, saveMilestone, updateMilestone } from '@/lib/repository
 import { getItem, setItem } from '@/lib/safeStorage';
 import { exportMilestonesToCSV, exportMilestonesToJSON } from '@/lib/exportMilestones';
 import type { Milestone } from '@/types/domain';
+import type { StatusType } from '@/components/StatusBadge';
 
 export const SAMPLE_DISMISSED_KEY = 'talenttrust-milestones-sample-dismissed';
 

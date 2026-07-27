@@ -24,6 +24,9 @@ import {
   updateMilestone,
   listMilestones,
   saveMilestone,
+  deleteMilestones,
+  bulkUpdateMilestoneStatus,
+  exportMilestones,
   clearAppData,
   clearByPrefix,
   STORAGE_KEY,
@@ -926,6 +929,273 @@ describe('clearByPrefix', () => {
       clearByPrefix('talenttrust_');
       expect(mockReporter).not.toHaveBeenCalled();
     });
+  });
+});
+
+// ===========================================================================
+// deleteMilestones
+// ===========================================================================
+
+describe('deleteMilestones', () => {
+  const milestoneC: Milestone = {
+    id: 'ms-003',
+    title: 'Review',
+    status: 'Active',
+    payout: 750,
+    currency: 'USD',
+    dueDate: 'May 1, 2025',
+  };
+
+  const seedThreeMilestones = () => {
+    saveMilestone(milestoneA);
+    saveMilestone(milestoneB);
+    saveMilestone(milestoneC);
+  };
+
+  it('returns 0 when given an empty array', () => {
+    saveMilestone(milestoneA);
+    expect(deleteMilestones([])).toBe(0);
+    expect(listMilestones()).toHaveLength(1);
+  });
+
+  it('returns 0 when input is not an array', () => {
+    saveMilestone(milestoneA);
+    expect(deleteMilestones(null as unknown as string[])).toBe(0);
+    expect(listMilestones()).toHaveLength(1);
+  });
+
+  it('deletes a single milestone by id and returns count of 1', () => {
+    seedThreeMilestones();
+
+    const removed = deleteMilestones(['ms-002']);
+
+    expect(removed).toBe(1);
+    const remaining = listMilestones();
+    expect(remaining).toHaveLength(2);
+    expect(remaining.map((m) => m.id)).toEqual(expect.arrayContaining(['ms-001', 'ms-003']));
+    expect(remaining.map((m) => m.id)).not.toContain('ms-002');
+  });
+
+  it('deletes multiple milestones and returns the actual deletion count', () => {
+    seedThreeMilestones();
+
+    const removed = deleteMilestones(['ms-001', 'ms-003']);
+
+    expect(removed).toBe(2);
+    const remaining = listMilestones();
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].id).toBe('ms-002');
+  });
+
+  it('silently skips ids that do not exist (partial match)', () => {
+    seedThreeMilestones();
+
+    const removed = deleteMilestones(['ms-001', 'ms-NOEXIST', 'ms-999']);
+
+    expect(removed).toBe(1);
+    const remaining = listMilestones();
+    expect(remaining).toHaveLength(2);
+    expect(remaining.map((m) => m.id)).toEqual(expect.arrayContaining(['ms-002', 'ms-003']));
+  });
+
+  it('does not write to storage when zero ids match', () => {
+    seedThreeMilestones();
+
+    const spy = jest.spyOn(window.localStorage, 'setItem');
+    const before = spy.mock.calls.length;
+
+    const removed = deleteMilestones(['ms-NOT-THERE', 'ms-ALSO-NOT']);
+
+    expect(removed).toBe(0);
+    expect(spy.mock.calls.length).toBe(before);
+    expect(listMilestones()).toHaveLength(3);
+  });
+
+  it('does not mutate the input ids array', () => {
+    seedThreeMilestones();
+    const ids = ['ms-001', 'ms-002'];
+    const frozen = Object.freeze([...ids]);
+
+    deleteMilestones(ids);
+
+    expect(ids).toEqual(frozen);
+  });
+
+  it('leaves contracts and other persisted data untouched', () => {
+    saveContract(contractA);
+    saveContract(contractB);
+    seedThreeMilestones();
+
+    deleteMilestones(['ms-001']);
+
+    expect(listContracts()).toHaveLength(2);
+    expect(listContracts().map((c) => c.contractName)).toEqual([
+      'Alpha Contract',
+      'Beta Contract',
+    ]);
+  });
+});
+
+// ===========================================================================
+// bulkUpdateMilestoneStatus
+// ===========================================================================
+
+describe('bulkUpdateMilestoneStatus', () => {
+  const seedThreeMilestones = () => {
+    saveMilestone({ ...milestoneA, status: 'Pending' });
+    saveMilestone({ ...milestoneB, status: 'Pending' });
+    saveMilestone({
+      id: 'ms-003',
+      title: 'Review',
+      status: 'Active',
+      payout: 750,
+      currency: 'USD',
+      dueDate: 'May 1, 2025',
+    });
+  };
+
+  it('returns 0 when given an empty ids array', () => {
+    saveMilestone(milestoneA);
+    expect(bulkUpdateMilestoneStatus([], 'Completed')).toBe(0);
+    expect(listMilestones()[0].status).toBe(milestoneA.status);
+  });
+
+  it('returns 0 when ids is not an array', () => {
+    saveMilestone(milestoneA);
+    expect(bulkUpdateMilestoneStatus(null as unknown as string[], 'Paid')).toBe(0);
+  });
+
+  it('updates status for all supplied ids and returns the change count', () => {
+    seedThreeMilestones();
+
+    const changed = bulkUpdateMilestoneStatus(['ms-001', 'ms-002'], 'Completed');
+
+    expect(changed).toBe(2);
+    const all = listMilestones();
+    const m1 = all.find((m) => m.id === 'ms-001');
+    const m2 = all.find((m) => m.id === 'ms-002');
+    const m3 = all.find((m) => m.id === 'ms-003');
+    expect(m1?.status).toBe('Completed');
+    expect(m2?.status).toBe('Completed');
+    expect(m3?.status).toBe('Active');
+  });
+
+  it('does not count milestones that already have the target status', () => {
+    saveMilestone({ ...milestoneA, status: 'Paid' });
+    saveMilestone({ ...milestoneB, status: 'Pending' });
+
+    const changed = bulkUpdateMilestoneStatus(['ms-001', 'ms-002'], 'Paid');
+
+    expect(changed).toBe(1);
+    const all = listMilestones();
+    expect(all.find((m) => m.id === 'ms-001')?.status).toBe('Paid');
+    expect(all.find((m) => m.id === 'ms-002')?.status).toBe('Paid');
+  });
+
+  it('silently skips ids that do not exist', () => {
+    saveMilestone(milestoneA);
+
+    const changed = bulkUpdateMilestoneStatus(['ms-001', 'ms-NOT-THERE'], 'Disputed');
+
+    expect(changed).toBe(1);
+    expect(listMilestones()[0].status).toBe('Disputed');
+  });
+
+  it('does not write to storage when zero milestones actually change', () => {
+    saveMilestone({ ...milestoneA, status: 'Completed' });
+    saveMilestone({ ...milestoneB, status: 'Completed' });
+
+    const spy = jest.spyOn(window.localStorage, 'setItem');
+    const before = spy.mock.calls.length;
+
+    const changed = bulkUpdateMilestoneStatus(['ms-001', 'ms-002'], 'Completed');
+
+    expect(changed).toBe(0);
+    expect(spy.mock.calls.length).toBe(before);
+  });
+
+  it('preserves all other milestone fields when updating status', () => {
+    saveMilestone(milestoneA);
+
+    bulkUpdateMilestoneStatus(['ms-001'], 'Paid');
+
+    const updated = listMilestones().find((m) => m.id === 'ms-001');
+    expect(updated).toMatchObject({
+      id: 'ms-001',
+      title: 'Kickoff',
+      status: 'Paid',
+      payout: 500,
+      currency: 'USD',
+      dueDate: 'Mar 1, 2025',
+    });
+  });
+
+  it('leaves unrelated milestones alone', () => {
+    saveMilestone(milestoneA);
+    saveMilestone(milestoneB);
+
+    bulkUpdateMilestoneStatus(['ms-001'], 'Disputed');
+
+    const m2 = listMilestones().find((m) => m.id === 'ms-002');
+    expect(m2?.status).toBe(milestoneB.status);
+  });
+
+  it('leaves contracts data unchanged while updating milestones', () => {
+    saveContract(contractA);
+    saveMilestone(milestoneA);
+    saveMilestone(milestoneB);
+
+    bulkUpdateMilestoneStatus(['ms-001', 'ms-002'], 'Completed');
+
+    expect(listContracts()).toHaveLength(1);
+    expect(listContracts()[0].contractName).toBe('Alpha Contract');
+  });
+});
+
+// ===========================================================================
+// exportMilestones
+// ===========================================================================
+
+describe('exportMilestones', () => {
+  it('returns a valid JSON array string that parses identically', () => {
+    const data: Milestone[] = [milestoneA, milestoneB];
+
+    const json = exportMilestones(data);
+
+    expect(typeof json).toBe('string');
+    const parsed = JSON.parse(json);
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed).toEqual(data);
+  });
+
+  it('pretty-prints output with indentation (2 spaces)', () => {
+    const json = exportMilestones([milestoneA]);
+
+    const lines = json.split('\n');
+    expect(lines.length).toBeGreaterThan(2);
+    expect(lines[0]).toBe('[');
+    expect(lines[1]).toMatch(/^\s\s"/);
+  });
+
+  it('returns "[]" for an empty input array', () => {
+    expect(exportMilestones([])).toBe('[]');
+  });
+
+  it('produces stable output (same input → same string)', () => {
+    const input: Milestone[] = [milestoneA, milestoneB];
+    const first = exportMilestones(input);
+    const second = exportMilestones(input);
+
+    expect(first).toBe(second);
+  });
+
+  it('does not write anything to localStorage (pure function)', () => {
+    const spy = jest.spyOn(window.localStorage, 'setItem');
+
+    exportMilestones([milestoneA]);
+
+    expect(spy).not.toHaveBeenCalled();
+    expect(listMilestones()).toEqual([]);
   });
 });
 
