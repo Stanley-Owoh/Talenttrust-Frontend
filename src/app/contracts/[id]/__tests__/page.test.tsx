@@ -155,6 +155,16 @@ describe('ContractDetailPage', () => {
     });
   });
 
+  it('shows a success toast after an optimistic status change is persisted', async () => {
+    const user = userEvent.setup();
+
+    await renderPage();
+    await confirmReleaseFunds(user);
+
+    expect(await screen.findByText('Funds released')).toBeInTheDocument();
+    expect(screen.getByText('The contract was marked as Completed and the change was saved.')).toBeInTheDocument();
+  });
+
   it('rolls back the optimistic status change when persistence fails', async () => {
     mockedUpsertContract.mockReturnValue({ success: false, stale: false });
     const user = userEvent.setup();
@@ -165,6 +175,7 @@ describe('ContractDetailPage', () => {
     await waitFor(() => {
       expect(within(getContractSummarySection()).getByLabelText('Status: Active')).toBeInTheDocument();
     });
+    expect(await screen.findByText('Unable to update contract')).toBeInTheDocument();
   });
 
   it('disables action buttons while a status change is in flight and re-enables them after it settles', async () => {

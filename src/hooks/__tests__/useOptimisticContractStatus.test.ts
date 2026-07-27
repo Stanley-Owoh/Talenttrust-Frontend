@@ -1,3 +1,4 @@
+import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { useOptimisticContractStatus, BuildPersistedContract } from '../useOptimisticContractStatus';
 import * as repository from '@/lib/repository';
@@ -136,6 +137,30 @@ describe('useOptimisticContractStatus', () => {
     expect(setContractData.mock.calls[1][0]).toEqual(
       expect.objectContaining({ status: 'Active' }),
     );
+  });
+
+  it('rolls back to the latest optimistic state when a later concurrent update fails', () => {
+    mockedUpsertContract
+      .mockReturnValueOnce({ success: true, stale: false })
+      .mockReturnValueOnce({ success: false, stale: false });
+
+    const { result } = renderHook(() => {
+      const [contractData, setContractData] = React.useState(baseContractData);
+      const persistStatus = useOptimisticContractStatus(
+        contractData,
+        setContractData,
+        buildPersistedContract,
+      );
+
+      return { contractData, persistStatus };
+    });
+
+    act(() => {
+      result.current.persistStatus('Completed');
+      result.current.persistStatus('Disputed');
+    });
+
+    expect(result.current.contractData.status).toBe('Completed');
   });
 
   it('returns an error when contractData is null', () => {
