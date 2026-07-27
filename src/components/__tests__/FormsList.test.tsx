@@ -18,6 +18,38 @@ describe('FormsList Pagination Boundaries', () => {
     expect(items).toHaveLength(10);
   });
 
+  it('renders a form-shaped loading skeleton with a busy state while loading', () => {
+    const forms = createForms(3);
+    render(<FormsList forms={forms} isLoading />);
+
+    const statusRegion = screen.getByRole('status', { name: /loading forms/i });
+    expect(statusRegion).toHaveAttribute('aria-busy', 'true');
+
+    const skeleton = screen.getByTestId('forms-list-skeleton');
+    expect(skeleton).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getAllByTestId('forms-skeleton-row')).toHaveLength(10);
+  });
+
+  it('switches from skeleton to content when loading completes', () => {
+    const forms = createForms(3);
+    const { rerender } = render(<FormsList forms={forms} isLoading />);
+
+    expect(screen.getByRole('status', { name: /loading forms/i })).toBeInTheDocument();
+
+    rerender(<FormsList forms={forms} isLoading={false} />);
+
+    expect(screen.queryByTestId('forms-list-skeleton')).not.toBeInTheDocument();
+    expect(screen.getByText('Form 0')).toBeInTheDocument();
+  });
+
+  it('renders an error state in place of the skeleton when provided', () => {
+    const forms = createForms(3);
+    render(<FormsList forms={forms} isLoading error="Unable to load forms" />);
+
+    expect(screen.queryByTestId('forms-list-skeleton')).not.toBeInTheDocument();
+    expect(screen.getByText('Unable to load forms')).toBeInTheDocument();
+  });
+
   it('handles load-more append behavior', () => {
     const forms = createForms(15);
     render(<FormsList forms={forms} />);
