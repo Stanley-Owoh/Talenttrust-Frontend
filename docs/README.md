@@ -38,8 +38,10 @@ Reference documentation for components, hooks, contexts, and library utilities.
 
 | Document | What it covers |
 |----------|----------------|
-| [useCopyToClipboard.md](./hooks/useCopyToClipboard.md) | Clipboard copy with status management and SSR safety |
-| [useMediaQuery.md](./hooks/useMediaQuery.md) | SSR-safe CSS media query hook |
+| [useCopyToClipboard.md](./hooks/useCopyToClipboard.md) | Clipboard copy with status management |
+| [useDialogFocusTrap.md](./hooks/useDialogFocusTrap.md) | Focus management for dialogs |
+| [useFormAnnouncer.md](./hooks/useFormAnnouncer.md) | ARIA announcements for forms |
+| [useMediaQuery.md](./hooks/useMediaQuery.md) | SSR-safe media query hook |
 
 > The `useDialogFocusTrap` hook is documented in [Dialogs.md](./components/Dialogs.md#usedialogfocustrap-hook).
 
