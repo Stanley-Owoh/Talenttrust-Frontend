@@ -29,11 +29,13 @@ export function SettingsTrigger() {
   return (
     <>
       <button
+        type="button"
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 right-6 p-3 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-lg hover:scale-110 transition-transform z-40 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2"
         aria-label="Open Settings"
       >
         <svg 
+          aria-hidden="true"
           className="w-6 h-6" 
           fill="none" 
           viewBox="0 0 24 24" 
