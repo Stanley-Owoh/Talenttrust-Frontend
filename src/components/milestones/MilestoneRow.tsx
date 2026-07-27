@@ -14,6 +14,7 @@ import {
   type MilestoneEditFormValues,
 } from '@/lib/validateMilestoneEdit';
 import type { Milestone } from '@/components/MilestonesList';
+import { MilestoneTimestamp } from './MilestoneTimestamp';
 
 /** Status options exposed in the inline edit form (same set as create form). */
 const EDIT_STATUS_OPTIONS: StatusType[] = [
@@ -246,10 +247,16 @@ export const MilestoneRow: React.FC<MilestoneRowProps> = ({
         className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-slate-600">{milestone.title}</p>
-            <p className="mt-1 text-sm text-slate-500">Due {milestone.dueDate ?? 'TBD'}</p>
-          </div>
+  <div className="min-w-0 flex-1">
+    <p className="text-sm font-medium text-slate-600">{milestone.title}</p>
+    <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+      <span>Due {milestone.dueDate ?? 'TBD'}</span>
+      <span aria-hidden="true" className="text-slate-300">•</span>
+      <MilestoneTimestamp 
+        date={milestone.updatedAt || milestone.createdAt} 
+      />
+    </div>
+  </div>
           <div className="flex items-center gap-3">
             <StatusBadge status={milestone.status} />
             <button
