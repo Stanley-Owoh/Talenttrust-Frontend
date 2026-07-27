@@ -2,6 +2,7 @@
 
 import React, { useEffect, useId, useRef } from 'react';
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
+import { DialogLastUpdated } from './dialogs/DialogLastUpdated';
 
 /** Props for the ConfirmDialog component */
 export interface ConfirmDialogProps {
@@ -29,6 +30,8 @@ export interface ConfirmDialogProps {
   isEmpty?: boolean;
   /** Whether the dialog action was successful */
   isSuccess?: boolean;
+  /** When the data shown in this dialog was last updated. Renders a relative "Updated X ago" line when provided. */
+  updatedAt?: Date | string | number;
 }
 
 /**
@@ -51,6 +54,11 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   tone = 'default',
   onConfirm,
   onCancel,
+  isLoading,
+  error,
+  isEmpty,
+  isSuccess,
+  updatedAt,
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelBtnRef = useRef<HTMLButtonElement>(null);
@@ -157,6 +165,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         {error && (
           <div role="alert" className="mb-4 p-3 bg-red-100 text-red-800 rounded">{error}</div>
         )}
+        {updatedAt !== undefined && <DialogLastUpdated updatedAt={updatedAt} className="mb-4" />}
         <div className="flex justify-end space-x-3">
           {/* Cancel — receives initial focus; explicit focus-visible ring for keyboard users */}
           <button
