@@ -32,18 +32,27 @@ module.exports = [
     plugins: {
       '@typescript-eslint': tsPlugin,
     },
-    rules: {
-      ...js.configs.recommended.rules,
-      'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', {
-        vars: 'all',
-        args: 'after-used',
-        ignoreRestSiblings: true,
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_',
-      }],
-    },
+    rules: (() => {
+      const unsupported = new Set(['no-unassigned-vars', 'no-useless-assignment', 'preserve-caught-error']);
+      const baseRules = {};
+      for (const [key, value] of Object.entries(js.configs.recommended.rules)) {
+        if (!unsupported.has(key)) {
+          baseRules[key] = value;
+        }
+      }
+      return {
+        ...baseRules,
+        'no-unused-vars': 'off',
+        '@typescript-eslint/no-unused-vars': ['error', {
+          vars: 'all',
+          args: 'after-used',
+          ignoreRestSiblings: true,
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        }],
+      };
+    })(),
   },
   {
     files: ['**/*.{ts,tsx}'],

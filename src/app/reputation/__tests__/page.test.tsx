@@ -1,6 +1,6 @@
 import React, { Component, type ReactNode, type ErrorInfo } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ReputationPageContent } from '../page';
+import { ReputationPageContent } from '../ReputationPageContent';
 
 // Toggle to make the mock throw (used by error-state tests).
 // Prefix with `mock` so Jest's babel transform allows it in the mock factory.

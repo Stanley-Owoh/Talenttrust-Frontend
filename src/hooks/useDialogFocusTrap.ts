@@ -77,9 +77,15 @@ export function useDialogFocusTrap({
       document.removeEventListener('keydown', handleKeyDown);
 
       const trigger = triggerRef.current;
-      if (restoreFocus && trigger && document.contains(trigger)) {
-        trigger.focus();
+      if (restoreFocus) {
+        if (trigger && document.contains(trigger)) {
+          trigger.focus();
+        } else {
+          const fallbackTarget = document.querySelector<HTMLElement>('main, h1[tabindex="-1"], h1');
+          fallbackTarget?.focus();
+        }
       }
     };
   }, [dialogRef, initialFocusRef, isOpen, onEscape, restoreFocus]);
 }
+

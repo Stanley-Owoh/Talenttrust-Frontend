@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import WalletPage, { SAMPLE_WALLET_ITEMS } from '../page';
+import WalletPage from '../page';
+import { SAMPLE_WALLET_ITEMS } from '../constants';
 import { listWalletItems, saveWalletItem, deleteWalletItems } from '@/lib/repository';
 import { ToastProvider } from '@/components/toast/toast-provider';
 import { PreferencesProvider } from '@/lib/preferences';
