@@ -70,8 +70,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.23)
       babel-jest:
-        specifier: ^30.4.1
-        version: 30.4.1(@babel/core@7.29.7)
+        specifier: ^29.7.0
+        version: 29.7.0(@babel/core@7.29.7)
       eslint:
         specifier: ^10.7.0
         version: 10.8.0(jiti@2.7.0)
@@ -85,8 +85,8 @@ importers:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@26.1.1)
       jest-axe:
-        specifier: ^10.0.0
-        version: 10.0.0
+        specifier: ^11.0.0
+        version: 11.0.0
       jest-cli:
         specifier: ^30.4.2
         version: 30.4.2(@types/node@26.1.1)
@@ -1232,10 +1232,6 @@ packages:
     resolution: {integrity: sha512-LEUDjgmdJoA3LqklSTwKYqkjcZ4HKc4ddIYGSAiSkr46NTjzg2L9RNB+lekO9P7Dlpa87+hBtzc2Fzn/+GUWMQ==}
     engines: {node: '>=4'}
 
-  axe-core@4.10.2:
-    resolution: {integrity: sha512-RE3mdQ7P3FRSe7eqCWoeQ/Z9QXrtniSjp1wUjt5nRC3WIpz5rSCve6o3fsZ2aCpJtrZjSZgjwXAoTO5k4tEI0w==}
-    engines: {node: '>=4'}
-
   axe-core@4.12.1:
     resolution: {integrity: sha512-s7iGf5GaVMxEG0ENN9x+xTr7GFZCb1ZP/1uATUpCEK2X78nDB3RwbtFCo9pGAf9ru+VwoQ464DkaLEeRM08wJA==}
     engines: {node: '>=4'}
@@ -2123,9 +2119,9 @@ packages:
   jackspeak@3.4.3:
     resolution: {integrity: sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw==}
 
-  jest-axe@10.0.0:
-    resolution: {integrity: sha512-9QR0M7//o5UVRnEUUm68IsGapHrcKGakYy9dKWWMX79LmeUKguDI6DREyljC5I13j78OUmtKLF5My6ccffLFBg==}
-    engines: {node: '>= 16.0.0'}
+  jest-axe@11.0.0:
+    resolution: {integrity: sha512-JuLD/QzqDn5QxpFUMkbmf55GiI+sdutpryRD//rIRuyEefYAuMfQbQZ53TsNtZXKV3rjgfD4KKTKPY+2Ga1mGw==}
+    engines: {node: '>= 18.0.0'}
 
   jest-changed-files@30.4.1:
     resolution: {integrity: sha512-IuctmYrxi21iOSOaIXpJWalHyPAsVv0GeBHKDn8C1CA4W5htHn7INL+wdnL4Bo0+olEndvAFkmb++tIQJG+vvg==}
@@ -2205,8 +2201,8 @@ packages:
     resolution: {integrity: sha512-IpmyiioeHxiWDhesHnUFmOxcTzwCwKpgACgWajtAP+nYQXiY7DakTxB6Bx9JFiRMljr0AX1PvnQdaU1KFoz6NQ==}
     engines: {node: ^18.14.0 || ^20.0.0 || ^22.0.0 || >=24.0.0}
 
-  jest-matcher-utils@29.2.2:
-    resolution: {integrity: sha512-4DkJ1sDPT+UX2MR7Y3od6KtvRi9Im1ZGLGgdLFLm4lPexbTaCgJW5NN3IOXlQHF7NSHY/VHhflQ+WoKtD/vyCw==}
+  jest-matcher-utils@29.7.0:
+    resolution: {integrity: sha512-sBkD+Xi9DtcChsI3L3u0+N0opgPYnCRPtGcQYrgXmR+hmt/fYfWAL0xRXYU8eWOdfuLgBe0YCW3AFtnRLagq/g==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
 
   jest-matcher-utils@30.4.1:
@@ -4534,8 +4530,6 @@ snapshots:
 
   axe-core@3.5.6: {}
 
-  axe-core@4.10.2: {}
-
   axe-core@4.12.1: {}
 
   axobject-query@4.1.0: {}
@@ -5637,11 +5631,11 @@ snapshots:
     optionalDependencies:
       '@pkgjs/parseargs': 0.11.0
 
-  jest-axe@10.0.0:
+  jest-axe@11.0.0:
     dependencies:
-      axe-core: 4.10.2
+      axe-core: 4.12.1
       chalk: 4.1.2
-      jest-matcher-utils: 29.2.2
+      jest-matcher-utils: 30.4.1
       lodash.merge: 4.6.2
 
   jest-changed-files@30.4.1:
@@ -5885,7 +5879,7 @@ snapshots:
       '@jest/get-type': 30.1.0
       pretty-format: 30.4.1
 
-  jest-matcher-utils@29.2.2:
+  jest-matcher-utils@29.7.0:
     dependencies:
       chalk: 4.1.2
       jest-diff: 29.7.0
