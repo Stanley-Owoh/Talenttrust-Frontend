@@ -31,12 +31,13 @@ exports[`dialog rendered structure ConfirmDialog keeps destructive confirmations
       class="flex justify-end space-x-3"
     >
       <button
+        class="px-4 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
         type="button"
       >
         Cancel
       </button>
       <button
-        class="px-4 py-2 rounded bg-primary-600 text-white hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        class="px-4 py-2 rounded text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 bg-red-600 hover:bg-red-700 focus-visible:ring-red-500"
         type="button"
       >
         Confirm
@@ -79,12 +80,13 @@ exports[`dialog rendered structure ConfirmDialog renders the loaded confirmation
       class="flex justify-end space-x-3"
     >
       <button
+        class="px-4 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
         type="button"
       >
         Cancel
       </button>
       <button
-        class="px-4 py-2 rounded bg-primary-600 text-white hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        class="px-4 py-2 rounded text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-500"
         type="button"
       >
         Confirm
@@ -1306,13 +1308,13 @@ exports[`dialog rendered structure MilestoneCreationForm renders a deterministic
         class="flex gap-3 justify-end mt-6"
       >
         <button
-          class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+          class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           type="button"
         >
           Cancel
         </button>
         <button
-          class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+          class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           type="submit"
         >
           Add Milestone
@@ -1510,13 +1512,13 @@ exports[`dialog rendered structure MilestoneCreationForm renders the empty creat
         class="flex gap-3 justify-end mt-6"
       >
         <button
-          class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+          class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           type="button"
         >
           Cancel
         </button>
         <button
-          class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+          class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           type="submit"
         >
           Add Milestone
@@ -1714,13 +1716,13 @@ exports[`dialog rendered structure MilestoneCreationForm renders the loaded/popu
         class="flex gap-3 justify-end mt-6"
       >
         <button
-          class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+          class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           type="button"
         >
           Cancel
         </button>
         <button
-          class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+          class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           type="submit"
         >
           Add Milestone
@@ -1745,6 +1747,7 @@ exports[`dialog rendered structure SettingsPanel renders the loaded settings dia
     aria-modal="true"
     class="relative w-full max-w-md bg-[var(--background)] shadow-xl flex flex-col h-full border-l border-[var(--border)]"
     role="dialog"
+    tabindex="-1"
   >
     <div
       class="flex items-center justify-between p-6 border-b border-[var(--border)]"
@@ -1758,8 +1761,10 @@ exports[`dialog rendered structure SettingsPanel renders the loaded settings dia
       <button
         aria-label="Close settings"
         class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+        type="button"
       >
         <svg
+          aria-hidden="true"
           class="w-6 h-6"
           fill="none"
           stroke="currentColor"
@@ -1803,22 +1808,25 @@ exports[`dialog rendered structure SettingsPanel renders the loaded settings dia
             >
               <button
                 aria-checked="false"
-                class="px-3 py-2 text-sm rounded-md border capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]"
+                class="px-3 py-2 text-sm rounded-md border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 capitalize border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]"
                 role="radio"
+                tabindex="-1"
               >
                 light
               </button>
               <button
                 aria-checked="false"
-                class="px-3 py-2 text-sm rounded-md border capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]"
+                class="px-3 py-2 text-sm rounded-md border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 capitalize border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]"
                 role="radio"
+                tabindex="-1"
               >
                 dark
               </button>
               <button
                 aria-checked="true"
-                class="px-3 py-2 text-sm rounded-md border capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
+                class="px-3 py-2 text-sm rounded-md border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 capitalize border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
                 role="radio"
+                tabindex="0"
               >
                 system
               </button>
@@ -1839,22 +1847,25 @@ exports[`dialog rendered structure SettingsPanel renders the loaded settings dia
             >
               <button
                 aria-checked="true"
-                class="px-3 py-2 text-sm rounded-md border uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
+                class="px-3 py-2 text-sm rounded-md border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 uppercase border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
                 role="radio"
+                tabindex="0"
               >
                 usd
               </button>
               <button
                 aria-checked="false"
-                class="px-3 py-2 text-sm rounded-md border uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]"
+                class="px-3 py-2 text-sm rounded-md border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 uppercase border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]"
                 role="radio"
+                tabindex="-1"
               >
                 ngn
               </button>
               <button
                 aria-checked="false"
-                class="px-3 py-2 text-sm rounded-md border uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]"
+                class="px-3 py-2 text-sm rounded-md border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 uppercase border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]"
                 role="radio"
+                tabindex="-1"
               >
                 compact
               </button>
@@ -1888,10 +1899,41 @@ exports[`dialog rendered structure SettingsPanel renders the loaded settings dia
             >
               <button
                 aria-checked="true"
+                class="px-3 py-2 text-sm rounded-md border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 capitalize border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
+                role="radio"
+                tabindex="0"
+              >
+                relaxed
+              </button>
+              <button
+                aria-checked="false"
+                class="px-3 py-2 text-sm rounded-md border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 capitalize border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]"
+                role="radio"
+                tabindex="-1"
+              >
+                compact
+              </button>
+            </div>
+          </div>
+          <div>
+            <label
+              class="block text-sm font-medium mb-2 text-[var(--foreground)]"
+              id="form-density-label"
+            >
+              Form Density
+            </label>
+            <div
+              aria-label="Form Density"
+              aria-labelledby="form-density-label"
+              class="grid grid-cols-2 gap-2"
+              role="radiogroup"
+            >
+              <button
+                aria-checked="true"
                 class="px-3 py-2 text-sm rounded-md border capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
                 role="radio"
               >
-                relaxed
+                comfortable
               </button>
               <button
                 aria-checked="false"

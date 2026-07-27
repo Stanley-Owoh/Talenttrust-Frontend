@@ -67,6 +67,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useToast } from './toast/toast-provider';
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import {
   DEFAULT_DIR,
   DEFAULT_TYPE,
@@ -82,6 +83,119 @@ import {
 
 /** Number of history events shown per page before "Load more" is needed. */
 export const REPUTATION_PAGE_SIZE = 5;
+
+// ---------------------------------------------------------------------------
+// execCommandFallback — documented clipboard fallback when Clipboard API is
+// unavailable (e.g. non-HTTPS, older browsers).
+// ---------------------------------------------------------------------------
+
+/**
+ * Falls back to the deprecated `document.execCommand('copy')` API when the
+ * Clipboard API is not available. Creates an off-screen textarea, selects its
+ * value, and invokes execCommand. The textarea is always removed from the DOM.
+ *
+ * @param text - The string to copy to the clipboard.
+ * @returns `true` if the execCommand succeeded; `false` otherwise.
+ */
+export function execCommandFallback(text: string): boolean {
+  if (typeof document === 'undefined') return false;
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.top = '-9999px';
+  textarea.style.left = '-9999px';
+  textarea.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  let success = false;
+  try {
+    success = document.execCommand('copy');
+  } catch {
+    // execCommand not supported — success remains false
+  } finally {
+    document.body.removeChild(textarea);
+  }
+  return success;
+}
+
+// ---------------------------------------------------------------------------
+// CopyIdButton — accessible copy control for a single reputation event ID
+// ---------------------------------------------------------------------------
+
+interface CopyIdButtonProps {
+  /** The reputation event ID to copy. */
+  eventId: string;
+}
+
+/**
+ * Icon-button (with visible "Copy" label) that copies the given reputation
+ * event ID to the clipboard.
+ *
+ * - Uses the Clipboard API with a documented `execCommand` fallback.
+ * - Surfaces success/failure through the global toast system.
+ * - Keyboard-operable; has a descriptive `aria-label` for screen readers.
+ * - `aria-pressed` reflects the transient "copied" confirmation state.
+ */
+function CopyIdButton({ eventId }: CopyIdButtonProps) {
+  const { showSuccess, showError } = useToast();
+
+  const { copied, copy } = useCopyToClipboard({
+    onSuccess: () => {
+      showSuccess({ title: `Copied "${eventId}" to clipboard.` });
+    },
+    onError: () => {
+      // Documented fallback: try execCommand when Clipboard API is unavailable
+      const success = execCommandFallback(eventId);
+      if (success) {
+        showSuccess({ title: `Copied "${eventId}" to clipboard.` });
+      } else {
+        showError({ title: `Failed to copy "${eventId}". Please copy it manually.` });
+      }
+    },
+  });
+
+  const handleClick = React.useCallback(() => {
+    copy(eventId);
+  }, [copy, eventId]);
+
+  return (
+    <button
+      type="button"
+      aria-label={`Copy reputation event ID ${eventId} to clipboard`}
+      aria-pressed={copied}
+      data-testid={`copy-reputation-id-btn-${eventId}`}
+      title="Copy ID to clipboard"
+      onClick={handleClick}
+      className={[
+        'inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono border',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500',
+        copied
+          ? 'bg-green-50 border-green-400 text-green-700'
+          : 'bg-[var(--card)] border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--surface)]',
+      ].join(' ')}
+    >
+      {copied ? (
+        <>
+          <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Copied
+        </>
+      ) : (
+        <>
+          <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <rect x="1" y="3" width="7" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" />
+            <path d="M4 1h6a1 1 0 0 1 1 1v8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+          </svg>
+          Copy ID
+        </>
+      )}
+    </button>
+  );
+}
 
 export default function ReputationProfile({
   name,
@@ -493,12 +607,23 @@ export default function ReputationProfile({
                           <span className="mt-1 block text-base font-semibold text-[var(--foreground)]">{event.summary}</span>
                         </span>
                       </label>
-                      <time
-                        className="text-sm text-[var(--muted-foreground)] sm:text-right"
-                        {...(isValidDate ? { dateTime: event.date } : {})}
-                      >
-                        {event.date}
-                      </time>
+                      <div className="flex items-center gap-2 sm:flex-col sm:items-end">
+                        <time
+                          className="text-sm text-[var(--muted-foreground)] sm:text-right"
+                          {...(isValidDate ? { dateTime: event.date } : {})}
+                        >
+                          {event.date}
+                        </time>
+                        <div className="flex items-center gap-1.5">
+                          <code
+                            data-testid={`reputation-event-id-${event.id}`}
+                            className="text-xs text-[var(--muted-foreground)] font-mono"
+                          >
+                            {event.id}
+                          </code>
+                          <CopyIdButton eventId={event.id} />
+                        </div>
+                      </div>
                     </div>
                   </li>
                 );

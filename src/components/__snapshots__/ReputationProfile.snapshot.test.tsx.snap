@@ -94,7 +94,7 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
         </p>
       </div>
       <div
-        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
+        class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"
       >
         <p
           class="text-sm font-medium text-[var(--muted-foreground)]"
@@ -115,7 +115,7 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
         </p>
       </div>
       <div
-        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
+        class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"
       >
         <p
           class="text-sm font-medium text-[var(--muted-foreground)]"
@@ -251,13 +251,13 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
           class="flex items-center gap-2"
         >
           <label
-            class="text-sm font-medium text-slate-700"
+            class="text-sm font-medium text-[var(--foreground)]"
             for="history-type-filter"
           >
             Filter:
           </label>
           <select
-            class="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            class="rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 pl-3 pr-8 text-sm text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
             data-testid="reputation-type-filter"
             id="history-type-filter"
           >
@@ -287,13 +287,13 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
           class="flex items-center gap-2"
         >
           <label
-            class="text-sm font-medium text-slate-700"
+            class="text-sm font-medium text-[var(--foreground)]"
             for="history-sort-dir"
           >
             Sort:
           </label>
           <select
-            class="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            class="rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 pl-3 pr-8 text-sm text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
             data-testid="reputation-sort-dir"
             id="history-sort-dir"
           >
@@ -321,7 +321,7 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
           newest first
         </div>
         <span
-          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+          class="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted-foreground)]"
         >
           Visible
         </span>
@@ -343,22 +343,26 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
         >
           <input
             aria-label="Select all reputation items"
-            class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+            class="h-4 w-4 rounded border-[var(--border)] text-[var(--foreground)] focus:ring-[var(--ring)]"
             type="checkbox"
           />
           Select all
         </label>
         <div
+          aria-label="Reputation history actions"
           class="flex flex-wrap gap-2"
+          role="toolbar"
         >
           <button
-            class="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Export selected reputation items"
+            class="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--muted-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
             disabled=""
             type="button"
           >
             Export selected
           </button>
           <button
+            aria-label="Delete selected reputation items"
             class="rounded-2xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
             disabled=""
             type="button"
@@ -366,7 +370,8 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
             Delete selected
           </button>
           <button
-            class="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Clear selected reputation items; clear selection"
+            class="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--muted-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
             disabled=""
             type="button"
           >
@@ -388,28 +393,75 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
             >
               <input
                 aria-label="Select reputation item Verification: Completed identity verification"
-                class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                class="mt-1 h-4 w-4 rounded border-[var(--border)] text-[var(--foreground)] focus:ring-[var(--ring)]"
                 type="checkbox"
               />
               <span>
                 <span
-                  class="block text-sm font-medium text-slate-500"
+                  class="block text-sm font-medium text-[var(--muted-foreground)]"
                 >
                   Verification
                 </span>
                 <span
-                  class="mt-1 block text-base font-semibold text-slate-950"
+                  class="mt-1 block text-base font-semibold text-[var(--foreground)]"
                 >
                   Completed identity verification
                 </span>
               </span>
             </label>
-            <time
-              class="text-sm text-slate-500 sm:text-right"
-              datetime="2026-04-24"
+            <div
+              class="flex items-center gap-2 sm:flex-col sm:items-end"
             >
-              2026-04-24
-            </time>
+              <time
+                class="text-sm text-[var(--muted-foreground)] sm:text-right"
+                datetime="2026-04-24"
+              >
+                2026-04-24
+              </time>
+              <div
+                class="flex items-center gap-1.5"
+              >
+                <code
+                  class="text-xs text-[var(--muted-foreground)] font-mono"
+                  data-testid="reputation-event-id-ev-1"
+                >
+                  ev-1
+                </code>
+                <button
+                  aria-label="Copy reputation event ID ev-1 to clipboard"
+                  aria-pressed="false"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 bg-[var(--card)] border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--surface)]"
+                  data-testid="copy-reputation-id-btn-ev-1"
+                  title="Copy ID to clipboard"
+                  type="button"
+                >
+                  <svg
+                    aria-hidden="true"
+                    fill="none"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    width="12"
+                  >
+                    <rect
+                      height="8"
+                      rx="1"
+                      stroke="currentColor"
+                      stroke-width="1.2"
+                      width="7"
+                      x="1"
+                      y="3"
+                    />
+                    <path
+                      d="M4 1h6a1 1 0 0 1 1 1v8"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-width="1.2"
+                    />
+                  </svg>
+                  Copy ID
+                </button>
+              </div>
+            </div>
           </div>
         </li>
         <li
@@ -423,28 +475,75 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
             >
               <input
                 aria-label="Select reputation item On-chain review: Received positive trust signal"
-                class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                class="mt-1 h-4 w-4 rounded border-[var(--border)] text-[var(--foreground)] focus:ring-[var(--ring)]"
                 type="checkbox"
               />
               <span>
                 <span
-                  class="block text-sm font-medium text-slate-500"
+                  class="block text-sm font-medium text-[var(--muted-foreground)]"
                 >
                   On-chain review
                 </span>
                 <span
-                  class="mt-1 block text-base font-semibold text-slate-950"
+                  class="mt-1 block text-base font-semibold text-[var(--foreground)]"
                 >
                   Received positive trust signal
                 </span>
               </span>
             </label>
-            <time
-              class="text-sm text-slate-500 sm:text-right"
-              datetime="2026-04-23"
+            <div
+              class="flex items-center gap-2 sm:flex-col sm:items-end"
             >
-              2026-04-23
-            </time>
+              <time
+                class="text-sm text-[var(--muted-foreground)] sm:text-right"
+                datetime="2026-04-23"
+              >
+                2026-04-23
+              </time>
+              <div
+                class="flex items-center gap-1.5"
+              >
+                <code
+                  class="text-xs text-[var(--muted-foreground)] font-mono"
+                  data-testid="reputation-event-id-ev-2"
+                >
+                  ev-2
+                </code>
+                <button
+                  aria-label="Copy reputation event ID ev-2 to clipboard"
+                  aria-pressed="false"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 bg-[var(--card)] border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--surface)]"
+                  data-testid="copy-reputation-id-btn-ev-2"
+                  title="Copy ID to clipboard"
+                  type="button"
+                >
+                  <svg
+                    aria-hidden="true"
+                    fill="none"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    width="12"
+                  >
+                    <rect
+                      height="8"
+                      rx="1"
+                      stroke="currentColor"
+                      stroke-width="1.2"
+                      width="7"
+                      x="1"
+                      y="3"
+                    />
+                    <path
+                      d="M4 1h6a1 1 0 0 1 1 1v8"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-width="1.2"
+                    />
+                  </svg>
+                  Copy ID
+                </button>
+              </div>
+            </div>
           </div>
         </li>
         <li
@@ -458,28 +557,75 @@ exports[`ReputationProfile snapshot – custom maxScore matches snapshot with ma
             >
               <input
                 aria-label="Select reputation item Referral: Referred two new community members"
-                class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                class="mt-1 h-4 w-4 rounded border-[var(--border)] text-[var(--foreground)] focus:ring-[var(--ring)]"
                 type="checkbox"
               />
               <span>
                 <span
-                  class="block text-sm font-medium text-slate-500"
+                  class="block text-sm font-medium text-[var(--muted-foreground)]"
                 >
                   Referral
                 </span>
                 <span
-                  class="mt-1 block text-base font-semibold text-slate-950"
+                  class="mt-1 block text-base font-semibold text-[var(--foreground)]"
                 >
                   Referred two new community members
                 </span>
               </span>
             </label>
-            <time
-              class="text-sm text-slate-500 sm:text-right"
-              datetime="2026-04-20"
+            <div
+              class="flex items-center gap-2 sm:flex-col sm:items-end"
             >
-              2026-04-20
-            </time>
+              <time
+                class="text-sm text-[var(--muted-foreground)] sm:text-right"
+                datetime="2026-04-20"
+              >
+                2026-04-20
+              </time>
+              <div
+                class="flex items-center gap-1.5"
+              >
+                <code
+                  class="text-xs text-[var(--muted-foreground)] font-mono"
+                  data-testid="reputation-event-id-ev-3"
+                >
+                  ev-3
+                </code>
+                <button
+                  aria-label="Copy reputation event ID ev-3 to clipboard"
+                  aria-pressed="false"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 bg-[var(--card)] border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--surface)]"
+                  data-testid="copy-reputation-id-btn-ev-3"
+                  title="Copy ID to clipboard"
+                  type="button"
+                >
+                  <svg
+                    aria-hidden="true"
+                    fill="none"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    width="12"
+                  >
+                    <rect
+                      height="8"
+                      rx="1"
+                      stroke="currentColor"
+                      stroke-width="1.2"
+                      width="7"
+                      x="1"
+                      y="3"
+                    />
+                    <path
+                      d="M4 1h6a1 1 0 0 1 1 1v8"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-width="1.2"
+                    />
+                  </svg>
+                  Copy ID
+                </button>
+              </div>
+            </div>
           </div>
         </li>
       </ol>
@@ -590,7 +736,7 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
         </p>
       </div>
       <div
-        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
+        class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"
       >
         <p
           class="text-sm font-medium text-[var(--muted-foreground)]"
@@ -611,7 +757,7 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
         </p>
       </div>
       <div
-        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
+        class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"
       >
         <p
           class="text-sm font-medium text-[var(--muted-foreground)]"
@@ -758,7 +904,7 @@ exports[`ReputationProfile snapshot – edge: score === 0 matches snapshot (fals
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4"
       >
         <span
-          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+          class="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted-foreground)]"
         >
           Private by default
         </span>
@@ -881,7 +1027,7 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
         </p>
       </div>
       <div
-        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
+        class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"
       >
         <p
           class="text-sm font-medium text-[var(--muted-foreground)]"
@@ -902,7 +1048,7 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
         </p>
       </div>
       <div
-        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
+        class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"
       >
         <p
           class="text-sm font-medium text-[var(--muted-foreground)]"
@@ -1038,13 +1184,13 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
           class="flex items-center gap-2"
         >
           <label
-            class="text-sm font-medium text-slate-700"
+            class="text-sm font-medium text-[var(--foreground)]"
             for="history-type-filter"
           >
             Filter:
           </label>
           <select
-            class="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            class="rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 pl-3 pr-8 text-sm text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
             data-testid="reputation-type-filter"
             id="history-type-filter"
           >
@@ -1074,13 +1220,13 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
           class="flex items-center gap-2"
         >
           <label
-            class="text-sm font-medium text-slate-700"
+            class="text-sm font-medium text-[var(--foreground)]"
             for="history-sort-dir"
           >
             Sort:
           </label>
           <select
-            class="rounded-lg border border-slate-300 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            class="rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 pl-3 pr-8 text-sm text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
             data-testid="reputation-sort-dir"
             id="history-sort-dir"
           >
@@ -1108,7 +1254,7 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
           newest first
         </div>
         <span
-          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+          class="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted-foreground)]"
         >
           Visible
         </span>
@@ -1130,22 +1276,26 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
         >
           <input
             aria-label="Select all reputation items"
-            class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+            class="h-4 w-4 rounded border-[var(--border)] text-[var(--foreground)] focus:ring-[var(--ring)]"
             type="checkbox"
           />
           Select all
         </label>
         <div
+          aria-label="Reputation history actions"
           class="flex flex-wrap gap-2"
+          role="toolbar"
         >
           <button
-            class="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Export selected reputation items"
+            class="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--muted-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
             disabled=""
             type="button"
           >
             Export selected
           </button>
           <button
+            aria-label="Delete selected reputation items"
             class="rounded-2xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
             disabled=""
             type="button"
@@ -1153,7 +1303,8 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
             Delete selected
           </button>
           <button
-            class="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Clear selected reputation items; clear selection"
+            class="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--muted-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
             disabled=""
             type="button"
           >
@@ -1175,28 +1326,75 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
             >
               <input
                 aria-label="Select reputation item Verification: Completed identity verification"
-                class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                class="mt-1 h-4 w-4 rounded border-[var(--border)] text-[var(--foreground)] focus:ring-[var(--ring)]"
                 type="checkbox"
               />
               <span>
                 <span
-                  class="block text-sm font-medium text-slate-500"
+                  class="block text-sm font-medium text-[var(--muted-foreground)]"
                 >
                   Verification
                 </span>
                 <span
-                  class="mt-1 block text-base font-semibold text-slate-950"
+                  class="mt-1 block text-base font-semibold text-[var(--foreground)]"
                 >
                   Completed identity verification
                 </span>
               </span>
             </label>
-            <time
-              class="text-sm text-slate-500 sm:text-right"
-              datetime="2026-04-24"
+            <div
+              class="flex items-center gap-2 sm:flex-col sm:items-end"
             >
-              2026-04-24
-            </time>
+              <time
+                class="text-sm text-[var(--muted-foreground)] sm:text-right"
+                datetime="2026-04-24"
+              >
+                2026-04-24
+              </time>
+              <div
+                class="flex items-center gap-1.5"
+              >
+                <code
+                  class="text-xs text-[var(--muted-foreground)] font-mono"
+                  data-testid="reputation-event-id-ev-1"
+                >
+                  ev-1
+                </code>
+                <button
+                  aria-label="Copy reputation event ID ev-1 to clipboard"
+                  aria-pressed="false"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 bg-[var(--card)] border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--surface)]"
+                  data-testid="copy-reputation-id-btn-ev-1"
+                  title="Copy ID to clipboard"
+                  type="button"
+                >
+                  <svg
+                    aria-hidden="true"
+                    fill="none"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    width="12"
+                  >
+                    <rect
+                      height="8"
+                      rx="1"
+                      stroke="currentColor"
+                      stroke-width="1.2"
+                      width="7"
+                      x="1"
+                      y="3"
+                    />
+                    <path
+                      d="M4 1h6a1 1 0 0 1 1 1v8"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-width="1.2"
+                    />
+                  </svg>
+                  Copy ID
+                </button>
+              </div>
+            </div>
           </div>
         </li>
         <li
@@ -1210,28 +1408,75 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
             >
               <input
                 aria-label="Select reputation item On-chain review: Received positive trust signal"
-                class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                class="mt-1 h-4 w-4 rounded border-[var(--border)] text-[var(--foreground)] focus:ring-[var(--ring)]"
                 type="checkbox"
               />
               <span>
                 <span
-                  class="block text-sm font-medium text-slate-500"
+                  class="block text-sm font-medium text-[var(--muted-foreground)]"
                 >
                   On-chain review
                 </span>
                 <span
-                  class="mt-1 block text-base font-semibold text-slate-950"
+                  class="mt-1 block text-base font-semibold text-[var(--foreground)]"
                 >
                   Received positive trust signal
                 </span>
               </span>
             </label>
-            <time
-              class="text-sm text-slate-500 sm:text-right"
-              datetime="2026-04-23"
+            <div
+              class="flex items-center gap-2 sm:flex-col sm:items-end"
             >
-              2026-04-23
-            </time>
+              <time
+                class="text-sm text-[var(--muted-foreground)] sm:text-right"
+                datetime="2026-04-23"
+              >
+                2026-04-23
+              </time>
+              <div
+                class="flex items-center gap-1.5"
+              >
+                <code
+                  class="text-xs text-[var(--muted-foreground)] font-mono"
+                  data-testid="reputation-event-id-ev-2"
+                >
+                  ev-2
+                </code>
+                <button
+                  aria-label="Copy reputation event ID ev-2 to clipboard"
+                  aria-pressed="false"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 bg-[var(--card)] border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--surface)]"
+                  data-testid="copy-reputation-id-btn-ev-2"
+                  title="Copy ID to clipboard"
+                  type="button"
+                >
+                  <svg
+                    aria-hidden="true"
+                    fill="none"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    width="12"
+                  >
+                    <rect
+                      height="8"
+                      rx="1"
+                      stroke="currentColor"
+                      stroke-width="1.2"
+                      width="7"
+                      x="1"
+                      y="3"
+                    />
+                    <path
+                      d="M4 1h6a1 1 0 0 1 1 1v8"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-width="1.2"
+                    />
+                  </svg>
+                  Copy ID
+                </button>
+              </div>
+            </div>
           </div>
         </li>
         <li
@@ -1245,28 +1490,75 @@ exports[`ReputationProfile snapshot – full reputation (score + history) matche
             >
               <input
                 aria-label="Select reputation item Referral: Referred two new community members"
-                class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                class="mt-1 h-4 w-4 rounded border-[var(--border)] text-[var(--foreground)] focus:ring-[var(--ring)]"
                 type="checkbox"
               />
               <span>
                 <span
-                  class="block text-sm font-medium text-slate-500"
+                  class="block text-sm font-medium text-[var(--muted-foreground)]"
                 >
                   Referral
                 </span>
                 <span
-                  class="mt-1 block text-base font-semibold text-slate-950"
+                  class="mt-1 block text-base font-semibold text-[var(--foreground)]"
                 >
                   Referred two new community members
                 </span>
               </span>
             </label>
-            <time
-              class="text-sm text-slate-500 sm:text-right"
-              datetime="2026-04-20"
+            <div
+              class="flex items-center gap-2 sm:flex-col sm:items-end"
             >
-              2026-04-20
-            </time>
+              <time
+                class="text-sm text-[var(--muted-foreground)] sm:text-right"
+                datetime="2026-04-20"
+              >
+                2026-04-20
+              </time>
+              <div
+                class="flex items-center gap-1.5"
+              >
+                <code
+                  class="text-xs text-[var(--muted-foreground)] font-mono"
+                  data-testid="reputation-event-id-ev-3"
+                >
+                  ev-3
+                </code>
+                <button
+                  aria-label="Copy reputation event ID ev-3 to clipboard"
+                  aria-pressed="false"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 bg-[var(--card)] border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--surface)]"
+                  data-testid="copy-reputation-id-btn-ev-3"
+                  title="Copy ID to clipboard"
+                  type="button"
+                >
+                  <svg
+                    aria-hidden="true"
+                    fill="none"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    width="12"
+                  >
+                    <rect
+                      height="8"
+                      rx="1"
+                      stroke="currentColor"
+                      stroke-width="1.2"
+                      width="7"
+                      x="1"
+                      y="3"
+                    />
+                    <path
+                      d="M4 1h6a1 1 0 0 1 1 1v8"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-width="1.2"
+                    />
+                  </svg>
+                  Copy ID
+                </button>
+              </div>
+            </div>
           </div>
         </li>
       </ol>
@@ -1357,7 +1649,7 @@ exports[`ReputationProfile snapshot – no reputation (null score) matches snaps
         </p>
       </div>
       <div
-        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
+        class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"
       >
         <p
           class="text-sm font-medium text-[var(--muted-foreground)]"
@@ -1373,7 +1665,7 @@ exports[`ReputationProfile snapshot – no reputation (null score) matches snaps
         </p>
       </div>
       <div
-        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
+        class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"
       >
         <p
           class="text-sm font-medium text-[var(--muted-foreground)]"
@@ -1410,7 +1702,7 @@ exports[`ReputationProfile snapshot – no reputation (null score) matches snaps
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4"
       >
         <span
-          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+          class="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted-foreground)]"
         >
           Private by default
         </span>
@@ -1513,7 +1805,7 @@ exports[`ReputationProfile snapshot – no reputation (undefined score) matches 
         </p>
       </div>
       <div
-        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
+        class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"
       >
         <p
           class="text-sm font-medium text-[var(--muted-foreground)]"
@@ -1529,7 +1821,7 @@ exports[`ReputationProfile snapshot – no reputation (undefined score) matches 
         </p>
       </div>
       <div
-        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
+        class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"
       >
         <p
           class="text-sm font-medium text-[var(--muted-foreground)]"
@@ -1566,7 +1858,7 @@ exports[`ReputationProfile snapshot – no reputation (undefined score) matches 
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4"
       >
         <span
-          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+          class="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted-foreground)]"
         >
           Private by default
         </span>
@@ -1689,7 +1981,7 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
         </p>
       </div>
       <div
-        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
+        class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"
       >
         <p
           class="text-sm font-medium text-[var(--muted-foreground)]"
@@ -1710,7 +2002,7 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
         </p>
       </div>
       <div
-        class="rounded-3xl border-[var(--border)] bg-[var(--surface)] p-5"
+        class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"
       >
         <p
           class="text-sm font-medium text-[var(--muted-foreground)]"
@@ -1857,7 +2149,7 @@ exports[`ReputationProfile snapshot – partial reputation (score, no history) m
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4"
       >
         <span
-          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600"
+          class="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted-foreground)]"
         >
           Private by default
         </span>
