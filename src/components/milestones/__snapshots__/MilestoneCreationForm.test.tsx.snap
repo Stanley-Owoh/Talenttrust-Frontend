@@ -187,13 +187,13 @@ exports[`MilestoneCreationForm matches the empty-state form structure 1`] = `
         class="flex gap-3 justify-end mt-6"
       >
         <button
-          class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+          class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           type="button"
         >
           Cancel
         </button>
         <button
-          class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+          class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           type="submit"
         >
           Add Milestone
@@ -391,13 +391,13 @@ exports[`MilestoneCreationForm matches the loaded-state form structure with user
         class="flex gap-3 justify-end mt-6"
       >
         <button
-          class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+          class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           type="button"
         >
           Cancel
         </button>
         <button
-          class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+          class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           type="submit"
         >
           Add Milestone

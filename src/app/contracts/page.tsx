@@ -1,34 +1,26 @@
 'use client';
 
-import React, {
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useCallback, useState } from 'react';
 import EmptyState from '../../components/EmptyState';
 import ContractsList from '../../components/contracts/ContractsList';
 import { ContractCreationForm } from '../../components/ContractCreationForm';
 import { listContracts, saveContract } from '@/lib/repository';
-import { getRelativeTime } from '@/lib/relativeTime';
+import { downloadContractsCsv, downloadContractsJson } from '@/lib/exportContracts';
+import { useToast } from '@/components/toast/toast-provider';
 import type { Contract } from '@/types/domain';
 
 const ContractsPage: React.FC = () => {
   // Initialise from localStorage on first render; subsequent saves trigger
   // a state update so the list reflects newly added items immediately.
-  const [contracts, setContracts] = useState<Contract[]>(() => listContracts());
+  const [contracts, setContracts] = useState<Contract[]>(() => {
+    try {
+      return listContracts();
+    } catch {
+      return [];
+    }
+  });
   const [showForm, setShowForm] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const { addToast } = useToast();
-
-  /**
-   * Generates a unique identifier for a contract
-   */
-  const getContractId = useCallback((contract: Contract, index: number): string => {
-    return `${contract.contractName}-${index}`;
-  }, []);
+  const { showError } = useToast();
 
   /**
    * Opens the contract creation form modal.
@@ -38,17 +30,26 @@ const ContractsPage: React.FC = () => {
   }, []);
 
   /**
-   * Handles form submission by persisting the contract and refreshing the list.
+   * Applies the new contract to the list immediately, then persists it.
+   * Rolls back the optimistic update and surfaces an error toast if the
+   * write fails.
    */
-  const handleSubmitContract = useCallback((contract: Contract) => {
-    const optimisticId = `optimistic-contract-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const optimisticContract = { ...contract, __optimisticId: optimisticId } as OptimisticContract;
+  const handleSubmitContract = useCallback(
+    (contract: Contract) => {
+      setContracts((prev) => [...prev, contract]);
+      setShowForm(false);
 
-    setContracts((prev) => [...prev, optimisticContract as Contract]);
-    setShowForm(false);
-    // Clear selection after new contract is added
-    setSelectedIds(new Set());
-  }, []);
+      const persisted = saveContract(contract);
+      if (!persisted) {
+        setContracts((prev) => prev.filter((item) => item.id !== contract.id));
+        showError({
+          title: 'Unable to create contract',
+          description: 'Your contract could not be saved. Please try again.',
+        });
+      }
+    },
+    [showError],
+  );
 
   /**
    * Closes the contract creation form modal.
@@ -56,92 +57,6 @@ const ContractsPage: React.FC = () => {
   const handleCancelForm = useCallback(() => {
     setShowForm(false);
   }, []);
-
-  /**
-   * Handles individual contract row selection
-   */
-  const handleSelectContract = useCallback(
-    (index: number, selected: boolean) => {
-      const newSelected = new Set(selectedIds);
-      const contractId = getContractId(contracts[index], index);
-
-      if (selected) {
-        newSelected.add(contractId);
-      } else {
-        newSelected.delete(contractId);
-      }
-
-      setSelectedIds(newSelected);
-    },
-    [selectedIds, contracts, getContractId]
-  );
-
-  /**
-   * Handles select all contracts
-   */
-  const handleSelectAll = useCallback(() => {
-    const allIds = new Set(
-      contracts.map((contract, index) => getContractId(contract, index))
-    );
-    setSelectedIds(allIds);
-  }, [contracts, getContractId]);
-
-  /**
-   * Handles clear all selections
-   */
-  const handleClearSelection = useCallback(() => {
-    setSelectedIds(new Set());
-  }, []);
-
-  /**
-   * Handles bulk delete of selected contracts
-   */
-  const handleBulkDelete = useCallback(() => {
-    const contractsToDelete = contracts.filter((_, index) => {
-      const contractId = getContractId(contracts[index], index);
-      return selectedIds.has(contractId);
-    });
-
-    contractsToDelete.forEach((contract) => {
-      deleteContract(contract.contractName);
-    });
-
-    // Re-read storage and clear selection
-    setContracts(listContracts());
-    setSelectedIds(new Set());
-  }, [contracts, selectedIds, getContractId]);
-
-  /**
-   * Handles bulk export of selected contracts
-   */
-  const handleBulkExport = useCallback(() => {
-    const contractsToExport = contracts.filter((_, index) => {
-      const contractId = getContractId(contracts[index], index);
-      return selectedIds.has(contractId);
-    });
-
-    if (contractsToExport.length === 0) {
-      addToast({
-        type: 'error',
-        message: 'No contracts selected for export.',
-      });
-      return;
-    }
-
-    // Create JSON export
-    const dataStr = JSON.stringify(contractsToExport, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-
-    // Create and trigger download
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `contracts-export-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, [contracts, selectedIds, getContractId, addToast]);
 
   return (
     <main className="min-h-screen p-8 pb-24">
@@ -190,23 +105,7 @@ const ContractsPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Contract list with bulk selection */}
-          <ul className="space-y-4" role="presentation">
-            {contracts.map((contract, idx) => (
-              <ContractRowItem
-                key={`${contract.contractName}-${idx}`}
-                className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                <p className="font-semibold text-slate-900">{contract.contractName}</p>
-                <p className="text-sm text-slate-500">
-                  {contract.status} · Created{' '}
-                  <span title={contract.createdAt}>
-                    {getRelativeTime(contract.createdAt)}
-                  </span>
-                </p>
-              </li>
-            ))}
-          </ul>
+          <ContractsList contracts={contracts} />
         </>
       )}
 
@@ -216,17 +115,6 @@ const ContractsPage: React.FC = () => {
           onCancel={handleCancelForm}
         />
       )}
-
-      {/* Bulk action toolbar */}
-      <BulkActionToolbar
-        selectedCount={selectedIds.size}
-        totalCount={contracts.length}
-        onSelectAll={handleSelectAll}
-        onClearSelection={handleClearSelection}
-        onDelete={handleBulkDelete}
-        onExport={handleBulkExport}
-        isOpen={selectedIds.size > 0}
-      />
     </main>
   );
 };

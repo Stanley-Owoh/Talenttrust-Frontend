@@ -12,7 +12,7 @@
  *   - Focus is restored to the trigger element after the dialog closes.
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfirmDialog } from '../ConfirmDialog';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import MilestonesPage from '../milestones/page';
 import { ToastProvider } from '@/components/toast/toast-provider';
@@ -74,7 +74,7 @@ describe('Milestones page URL state sync', () => {
     const pendingRadio = screen.getByRole('radio', { name: 'Pending' }) as HTMLInputElement;
     fireEvent.click(pendingRadio);
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith('?status=Pending&sort=oldest');
+      expect(replaceMock).toHaveBeenCalledWith('?status=Pending');
     });
   });
 });

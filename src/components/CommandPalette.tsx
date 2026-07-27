@@ -1,14 +1,114 @@
 'use client';
 
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 import { getRegisteredCommands, type PaletteCommand } from '@/lib/commands/registry';
 
-function matches(command: PaletteCommand, query: string): boolean {
+/**
+ * A command contributed at runtime by a mounted component (as opposed to the
+ * static, route-based commands in `src/lib/commands/registry.ts`). Activating
+ * one calls `onSelect` instead of navigating.
+ */
+export interface DynamicCommandAction {
+  id: string;
+  label: string;
+  keywords: readonly string[];
+  section?: string;
+  onSelect: () => void;
+}
+
+type AnyCommand = PaletteCommand | DynamicCommandAction;
+
+function matches(command: AnyCommand, query: string): boolean {
   if (query.trim() === '') return true;
   const haystack = [command.label, ...command.keywords].join(' ').toLowerCase();
   return haystack.includes(query.trim().toLowerCase());
+}
+
+interface CommandPaletteActionsContextValue {
+  registerAction: (action: DynamicCommandAction) => void;
+  unregisterAction: (id: string) => void;
+  actions: DynamicCommandAction[];
+}
+
+const CommandPaletteActionsContext = createContext<CommandPaletteActionsContextValue | undefined>(
+  undefined,
+);
+
+/**
+ * Provides the registry that {@link useRegisterCommandAction} writes into and
+ * that {@link CommandPalette} reads from. Mount once near the app root
+ * (alongside the other app-wide providers) so any component can contribute a
+ * palette action for as long as it stays mounted.
+ */
+export function CommandPaletteProvider({ children }: { children: React.ReactNode }) {
+  const [actionsById, setActionsById] = useState<Map<string, DynamicCommandAction>>(new Map());
+
+  const registerAction = useCallback((action: DynamicCommandAction) => {
+    setActionsById((prev) => {
+      const next = new Map(prev);
+      next.set(action.id, action);
+      return next;
+    });
+  }, []);
+
+  const unregisterAction = useCallback((id: string) => {
+    setActionsById((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const actions = useMemo(() => Array.from(actionsById.values()), [actionsById]);
+
+  const value = useMemo(
+    () => ({ registerAction, unregisterAction, actions }),
+    [registerAction, unregisterAction, actions],
+  );
+
+  return (
+    <CommandPaletteActionsContext.Provider value={value}>
+      {children}
+    </CommandPaletteActionsContext.Provider>
+  );
+}
+
+/**
+ * Registers a dynamic, non-navigational action in the command palette for as
+ * long as the calling component stays mounted. Re-registers automatically
+ * when the action's identity (id, label, keywords, section, onSelect)
+ * changes, and unregisters on unmount.
+ *
+ * Safe to call without a `CommandPaletteProvider` ancestor — it becomes a
+ * no-op so components that use it don't crash in isolated contexts.
+ */
+export function useRegisterCommandAction(action: DynamicCommandAction): void {
+  // Destructure only the (stable, useCallback-memoized) register/unregister
+  // functions rather than depending on the whole context value — the
+  // context's `actions` array (and therefore its identity) changes on every
+  // registration, which would otherwise re-fire this effect and register/
+  // unregister in an infinite loop.
+  const context = useContext(CommandPaletteActionsContext);
+  const registerAction = context?.registerAction;
+  const unregisterAction = context?.unregisterAction;
+
+  useEffect(() => {
+    if (!registerAction || !unregisterAction) return;
+    registerAction(action);
+    return () => unregisterAction(action.id);
+  }, [registerAction, unregisterAction, action.id, action.label, action.section, action.onSelect, ...action.keywords]);
 }
 
 /**
@@ -32,7 +132,11 @@ export default function CommandPalette(): React.JSX.Element {
   const listboxId = useId();
   const titleId = useId();
 
-  const commands = useMemo(() => getRegisteredCommands(), [isOpen]);
+  const dynamicActions = useContext(CommandPaletteActionsContext)?.actions ?? [];
+  const commands = useMemo<AnyCommand[]>(
+    () => [...getRegisteredCommands(), ...dynamicActions],
+    [isOpen, dynamicActions],
+  );
   const results = useMemo(
     () => commands.filter((command) => matches(command, query)),
     [commands, query],
@@ -44,8 +148,12 @@ export default function CommandPalette(): React.JSX.Element {
     setActiveIndex(0);
   };
 
-  const activate = (command: PaletteCommand) => {
-    router.push(command.href);
+  const activate = (command: AnyCommand) => {
+    if ('onSelect' in command) {
+      command.onSelect();
+    } else {
+      router.push(command.href);
+    }
     close();
   };
 

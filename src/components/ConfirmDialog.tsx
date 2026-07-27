@@ -51,6 +51,10 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   tone = 'default',
   onConfirm,
   onCancel,
+  isLoading = false,
+  error,
+  isEmpty = false,
+  isSuccess = false,
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelBtnRef = useRef<HTMLButtonElement>(null);

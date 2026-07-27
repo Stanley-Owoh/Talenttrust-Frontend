@@ -11,7 +11,14 @@ import { useWalletFocus } from '@/hooks/useWalletFocus';
 export const WalletConnectButton = () => {
   const { address, isConnecting, error, connect, disconnect } = useWallet();
   const { showError } = useToast();
+  const { preferences, updatePreference } = usePreferences();
   const { connectButtonRef, connectedElementRef } = useWalletFocus(address, isConnecting);
+
+  const isCompact = preferences.walletDensity === 'compact';
+  const btnPadding = isCompact ? 'p-1' : 'p-1.5';
+  const toggleDensity = () => {
+    updatePreference('walletDensity', isCompact ? 'comfortable' : 'compact');
+  };
 
   const { copied, copy } = useCopyToClipboard({
     delay: 2000,

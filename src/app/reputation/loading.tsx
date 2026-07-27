@@ -56,7 +56,7 @@ const ProfileCardSkeleton = () => (
           key={label}
           className="rounded-3xl border border-slate-200 bg-slate-50 p-5 space-y-3"
         >
-          <div className="h-3.5 w-28 rounded bg-slate-200 animate-shimmer motion-reduce:animate-none" />
+          <p className="h-3.5 text-xs font-medium text-slate-500">{label}</p>
           <div className="h-8 w-20 rounded-lg bg-slate-200 animate-shimmer motion-reduce:animate-none" />
         </div>
       ))}
@@ -105,7 +105,7 @@ const HistoryCardSkeleton = () => (
 
 export default function ReputationLoading() {
   return (
-    <>
+    <main className="min-h-screen p-8" aria-busy="true">
       <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         Loading reputation…
       </span>
@@ -121,8 +121,6 @@ export default function ReputationLoading() {
         <ProfileCardSkeleton />
         <HistoryCardSkeleton />
       </section>
-    </>
+    </main>
   );
 }
-
-export { ReputationLoadingClient as default } from './ReputationLoadingClient';

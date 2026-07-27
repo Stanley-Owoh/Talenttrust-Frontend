@@ -18,6 +18,8 @@ import { usePreferences } from '@/lib/preferences';
 import type { ToastDuration } from '@/lib/preferences';
 import { ToastSkeleton } from './toast-skeleton';
 
+export { ToastSkeleton };
+
 type ToastVariant = 'success' | 'error';
 
 /** Optional inline action attached to a toast. */
@@ -130,6 +132,7 @@ const ToastViewport = forwardRef<HTMLDivElement, {
   onResumeTimer: (id: string) => void;
   density: 'relaxed' | 'compact';
 }>(({ toasts, onDismiss, onPauseTimer, onResumeTimer, density }, ref) => {
+  const isEmpty = toasts.length === 0;
   return (
     <div
       ref={ref}

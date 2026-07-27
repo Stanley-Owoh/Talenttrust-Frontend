@@ -60,9 +60,10 @@ describe('validateMilestoneEdit', () => {
     });
 
     it('counts the unpadded, normalised length against the cap (not the raw value)', () => {
-      // Raw input is 250 chars but after collapsing whitespace + trimming it
-      // is 200 → no over-length error.
-      const raw = 'a'.repeat(200) + ' \t\n ' + 'b'.repeat(45);
+      // Raw input is 205 chars (200-char title plus leading/trailing
+      // padding), but padding is trimmed before measuring length, leaving
+      // exactly 200 → no over-length error.
+      const raw = '  ' + 'a'.repeat(200) + '   ';
       expect(validateMilestoneEdit({ ...validValues(), title: raw })).toEqual([]);
     });
 

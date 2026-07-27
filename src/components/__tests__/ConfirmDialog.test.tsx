@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';

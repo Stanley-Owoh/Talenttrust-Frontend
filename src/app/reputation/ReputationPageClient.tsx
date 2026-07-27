@@ -34,7 +34,7 @@ export default function ReputationPageClient({
 
     // Focus the main content area after a small delay to ensure DOM is ready
     const timer = setTimeout(() => {
-      const main = mainRef.current || document.querySelector('main');
+      const main = document.querySelector('main') || mainRef.current;
       if (main) {
         main.focus();
       }

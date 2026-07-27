@@ -6,6 +6,7 @@ import { WalletConnectButton } from '../WalletConnectButton';
 import { WalletContextType, useWallet } from '@/contexts/WalletContext';
 import * as truncateAddressModule from '@/lib/truncateAddress';
 import { axe, testA11y } from '@/test-utils/a11y';
+import { PreferencesProvider } from '@/lib/preferences';
 
 jest.mock('@/contexts/WalletContext', () => ({
   useWallet: jest.fn(),
@@ -684,7 +685,6 @@ describe('WalletConnectButton — keyboard operation', () => {
   });
 
   it('focus order in the connected state is Copy then Disconnect (DOM order)', async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     mockUseWallet.mockReturnValue(
       createWalletState({ address: '0xABCDEF1234567890abcdef1234567890abcdef12' }),
     );

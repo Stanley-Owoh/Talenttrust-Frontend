@@ -6,6 +6,8 @@ import MilestonesList from '../MilestonesList';
 import type { Milestone } from '../MilestonesList';
 import { parseLocalDate, isDueSoon } from '../../lib/dueSoon';
 import { ToastProvider } from '@/components/toast/toast-provider';
+import { PreferencesProvider } from '@/lib/preferences';
+import { resetCache } from '@/lib/safeStorage';
 
 function r(element: React.ReactElement) {
   return render(element, { wrapper: ToastProvider });
@@ -100,9 +102,8 @@ describe('MilestonesList', () => {
     });
 
     it('count span reflects a single-item list', () => {
-      const { container } = r(
-        <MilestonesList milestones={[SAMPLE[0]]} />
-      );
+      r(<MilestonesList milestones={[SAMPLE[0]]} />);
+      expect(screen.getByText('1 total')).toBeInTheDocument();
     });
 
     it('does not apply region attributes when the list is empty', () => {
@@ -298,8 +299,8 @@ describe('MilestonesList', () => {
 
     expect(onUpdateMilestone).toHaveBeenCalledTimes(1);
     expect(onUpdateMilestone).toHaveBeenCalledWith(
+      '1',
       expect.objectContaining({
-        id: '1',
         title: 'Updated milestone',
         payout: 500,
         currency: 'USD',
@@ -318,8 +319,11 @@ describe('MilestonesList', () => {
     await user.clear(screen.getByLabelText(/title/i));
     await user.click(screen.getByRole('button', { name: /save/i }));
 
-    expect(screen.getByText('Title is required')).toBeInTheDocument();
-    expect(screen.getByLabelText(/title/i)).toHaveFocus();
+    expect(screen.getAllByText('Title is required').length).toBeGreaterThan(0);
+    // Focus moves to the error summary so assistive tech announces every
+    // validation failure at once, matching the ErrorSummary pattern used
+    // elsewhere (e.g. ContractCreationForm).
+    expect(screen.getByRole('alert', { name: /there is a problem/i })).toHaveFocus();
   });
 
   it('cancels edits and restores the original values', async () => {
