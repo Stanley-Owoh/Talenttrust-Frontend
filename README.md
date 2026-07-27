@@ -46,6 +46,7 @@ This repository keeps user-facing and implementation notes inside the `docs/` fo
 - `docs/persistence.md` — Persistence API and local storage patterns
 - `docs/preferences.md` — Preferences provider and currency/locale helpers
 - `docs/contexts/wallet-session.md` — Wallet session lifecycle and idle disconnect guidance
+- `docs/contexts/wallet-data-flow.md` — Wallet data flow diagram (fetch -> transform -> render)
 - `docs/implementation/ISSUE_383_IMPLEMENTATION.md` — Folded implementation notes for issue #383
 
 If you find other implementation notes in the repository root, they have been consolidated into `docs/` where appropriate. Remove or ignore remaining one-off files.
