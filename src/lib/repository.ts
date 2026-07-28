@@ -393,6 +393,101 @@ export function saveMilestone(milestone: Milestone): boolean {
 }
 
 /**
+ * Returns the current persistence-layer version for the milestone matching
+ * `id`, or `0` if the milestone has never been persisted or does not carry
+ * a version field.
+ *
+ * Callers use this to build a `Milestone` object with the correct base
+ * version before calling {@link upsertMilestone}, ensuring the stale-overwrite
+ * guard compares against the right baseline.
+ *
+ * @param id - The unique identifier of the milestone to look up.
+ * @returns The stored version number (`0` if not found).
+ */
+export function getMilestoneVersion(id: string): number {
+  const store = readStore();
+  const existing = store.milestones.find((m) => m.id === id);
+  return existing?.version ?? 0;
+}
+
+/**
+ * Result returned by {@link upsertMilestone}.
+ */
+export type MilestoneUpsertResult = {
+  /** Whether the write succeeded. */
+  success: boolean;
+  /** When `true`, the write was rejected because a newer version of the same
+   *  milestone was already persisted. Callers should roll back any optimistic
+   *  UI update and surface a clear message. */
+  stale: boolean;
+};
+
+/**
+ * Replaces an existing milestone that shares the same `id`, or appends the
+ * milestone when no persisted match exists yet.
+ *
+ * The helper returns a result object so calling UI code can distinguish between
+ * a plain persistence failure and a stale-overwrite rejection, allowing it to
+ * surface a more specific message and roll back optimistic updates.
+ *
+ * **Stale-overwrite guard**
+ *
+ * Every milestone carries an internal `version` field that starts at `1` for
+ * new milestones and increments on each successful upsert. Before writing, the
+ * function compares the incoming milestone's version against the currently stored
+ * version. If the stored version is higher, the write is rejected with
+ * `{ success: false, stale: true }` — this prevents one tab from silently
+ * overwriting a change made in another tab.
+ *
+ * @param milestone - The full `Milestone` object to insert or replace.
+ * @returns A `MilestoneUpsertResult` with `success` indicating whether the write
+ *   completed, and `stale` indicating a stale-overwrite rejection.
+ *
+ * @example
+ * ```ts
+ * const { success, stale } = upsertMilestone({
+ *   id: 'ms-1',
+ *   title: 'Project Kickoff',
+ *   status: 'Completed',
+ *   payout: 2500,
+ *   currency: 'USD',
+ * });
+ * if (!success && stale) {
+ *   // Optimistic update was rolled back — another tab modified this milestone.
+ * }
+ * ```
+ */
+export function upsertMilestone(milestone: Milestone): MilestoneUpsertResult {
+  const store = readStore();
+  const existingIndex = store.milestones.findIndex(
+    (existingMilestone) => existingMilestone.id === milestone.id,
+  );
+
+  if (existingIndex !== -1) {
+    const existing = store.milestones[existingIndex];
+    const existingVersion = existing.version ?? 0;
+    const incomingVersion = milestone.version ?? 0;
+
+    if (incomingVersion < existingVersion) {
+      return { success: false, stale: true };
+    }
+  }
+
+  const nextVersion = (milestone.version ?? 0) + 1;
+  const updatedMilestone: Milestone = { ...milestone, version: nextVersion };
+
+  const milestones =
+    existingIndex === -1
+      ? [...store.milestones, updatedMilestone]
+      : store.milestones.map((existingMilestone, index) =>
+          index === existingIndex ? updatedMilestone : existingMilestone,
+        );
+
+  const ok = writeStore({ ...store, milestones });
+  return { success: ok, stale: false };
+}
+
+/**
  * Updates an existing milestone identified by `id` with the provided `patch`.
  *
  * The operation is pure – it does not mutate the original milestone objects

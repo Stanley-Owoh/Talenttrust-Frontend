@@ -15,6 +15,9 @@ import MilestoneFilter, {
   type MilestoneStatusFilter,
 } from '../../components/milestones/MilestoneFilter';
 import { MilestoneCreationForm } from '../../components/milestones/MilestoneCreationForm';
+import MilestonesErrorBoundary from '../../components/milestones/MilestonesErrorBoundary';
+import { listMilestones } from '@/lib/repository';
+import { useOptimisticMilestoneMutation } from '@/hooks/useOptimisticMilestoneMutation';
 import { listMilestones, saveMilestone, updateMilestone } from '@/lib/repository';
 import { getItem, setItem } from '@/lib/safeStorage';
 import { useToast } from '@/components/toast/toast-provider';
@@ -70,6 +73,10 @@ const MilestonesContent: React.FC = () => {
   );
   const [showForm, setShowForm] = useState(false);
   const { showError } = useToast();
+  const { optimisticCreate, optimisticUpdate } = useOptimisticMilestoneMutation(
+    milestones,
+    setMilestones,
+  );
 
   // Sync state if searchParams change externally (e.g. back/forward navigation)
   useEffect(() => {
@@ -164,25 +171,21 @@ const MilestonesContent: React.FC = () => {
   }, []);
 
   const handleSubmitMilestone = useCallback((milestone: Milestone) => {
-    const previousIsDismissed = isDismissed;
-
-    setMilestones((prev) => [...prev, milestone]);
-    setIsDismissed(true);
     setShowForm(false);
 
-    const persisted = saveMilestone(milestone);
-    if (!persisted) {
-      setMilestones((prev) => prev.filter((item) => item.id !== milestone.id));
-      setIsDismissed(previousIsDismissed);
+    const result = optimisticCreate(milestone);
+    if (!result.ok) {
       showError({
         title: 'Unable to create milestone',
-        description: 'Your milestone could not be saved. Please try again.',
+        description: result.stale
+          ? 'This milestone was updated in another session. Please reload and try again.'
+          : 'Your milestone could not be saved. Please try again.',
       });
       return;
     }
 
     setIsDismissed(true);
-  }, [isDismissed, showError]);
+  }, [optimisticCreate, showError]);
 
   const handleCancelForm = useCallback(() => {
     setShowForm(false);
@@ -203,14 +206,19 @@ const MilestonesContent: React.FC = () => {
    */
   const handleUpdateMilestone = useCallback(
     (id: string, patch: Partial<Milestone>): boolean => {
-      const ok = updateMilestone(id, patch);
-      if (ok) {
-        const persisted = listMilestones();
-        setMilestones(persisted);
+      const result = optimisticUpdate(id, patch);
+      if (!result.ok) {
+        showError({
+          title: 'Unable to update milestone',
+          description: result.stale
+            ? 'This milestone was updated in another session. Please reload and try again.'
+            : 'Your milestone could not be saved. Please try again.',
+        });
+        return false;
       }
-      return ok;
+      return true;
     },
-    [],
+    [optimisticUpdate, showError],
   );
 
   return (

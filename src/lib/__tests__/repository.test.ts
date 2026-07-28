@@ -20,7 +20,9 @@ import {
   listContracts,
   saveContract,
   upsertContract,
+  upsertMilestone,
   getContractVersion,
+  getMilestoneVersion,
   updateContract,
   updateMilestone,
   listMilestones,
@@ -399,6 +401,183 @@ describe('updateMilestone operation', () => {
   });
 });
 
+// ===========================================================================
+// upsertMilestone
+// ===========================================================================
+
+describe('upsertMilestone', () => {
+  it('replaces a matching milestone by id instead of appending a duplicate', () => {
+    saveMilestone(milestoneA);
+
+    const version = getMilestoneVersion(milestoneA.id);
+    const updated: Milestone = {
+      ...milestoneA,
+      status: 'Completed',
+      version,
+    };
+
+    const result = upsertMilestone(updated);
+    expect(result).toEqual({ success: true, stale: false });
+    expect(listMilestones()[0].status).toBe('Completed');
+  });
+
+  it('appends the milestone when no matching id exists yet', () => {
+    saveMilestone(milestoneA);
+
+    const version = getMilestoneVersion(milestoneA.id);
+    const result = upsertMilestone({ ...milestoneB, version });
+    expect(result).toEqual({ success: true, stale: false });
+    expect(listMilestones()).toEqual([milestoneA, { ...milestoneB, version: 1 }]);
+  });
+
+  it('preserves array order and does not duplicate when replacing a same-id milestone in place', () => {
+    saveMilestone(milestoneA);
+    saveMilestone(milestoneB);
+
+    const version = getMilestoneVersion(milestoneA.id);
+    const updatedA: Milestone = {
+      ...milestoneA,
+      status: 'Disputed',
+      version,
+    };
+
+    const result = upsertMilestone(updatedA);
+    expect(result).toEqual({ success: true, stale: false });
+    const milestones = listMilestones();
+    expect(milestones).toHaveLength(2);
+    expect(milestones[0].status).toBe('Disputed');
+    expect(milestones[1].title).toBe('Delivery');
+  });
+
+  it('never disturbs persisted contracts and preserves other milestones unchanged during upsert', () => {
+    saveContract(contractA);
+    saveMilestone(milestoneA);
+    saveMilestone(milestoneB);
+
+    const version = getMilestoneVersion(milestoneB.id);
+    const updatedB: Milestone = {
+      ...milestoneB,
+      status: 'Pending',
+      version,
+    };
+
+    expect(upsertMilestone(updatedB)).toEqual({ success: true, stale: false });
+
+    // Other milestones and contracts remain unchanged
+    const milestones = listMilestones();
+    expect(milestones).toHaveLength(2);
+    expect(milestones[0].title).toBe('Kickoff');
+    expect(milestones[1].status).toBe('Pending');
+    expect(listContracts()).toEqual([contractA]);
+  });
+
+  it('successfully inserts a milestone into an empty store', () => {
+    const result = upsertMilestone({ ...milestoneA, version: 0 });
+    expect(result).toEqual({ success: true, stale: false });
+    const milestones = listMilestones();
+    expect(milestones).toHaveLength(1);
+    expect(milestones[0].id).toBe('ms-001');
+    expect(milestones[0].version).toBe(1);
+  });
+
+  it('replaces only the first candidate and preserves array order when multiple same-id candidates exist', () => {
+    // Seed store with duplicate ids manually
+    const dup1 = { ...milestoneA, status: 'Pending' as const };
+    const dup2 = { ...milestoneA, status: 'Active' as const };
+    const store = {
+      contracts: [],
+      milestones: [dup1, milestoneB, dup2],
+    };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+
+    const version = getMilestoneVersion(milestoneA.id);
+    const upserted: Milestone = { ...milestoneA, status: 'Completed' as const, version };
+    const result = upsertMilestone(upserted);
+    expect(result).toEqual({ success: true, stale: false });
+
+    const milestones = listMilestones();
+    expect(milestones).toHaveLength(3);
+    // Only the first one is replaced, order is preserved
+    expect(milestones[0].status).toBe('Completed');
+    expect(milestones[1].title).toBe('Delivery');
+    expect(milestones[2].status).toBe('Active');
+  });
+
+  describe('stale-overwrite guard', () => {
+    it('rejects the write with stale:true when the incoming version is behind the stored version', () => {
+      // Seed the store with an initial milestone via saveMilestone (version 0)
+      saveMilestone(milestoneA);
+      // Advance the stored version to 1 by performing one successful upsert
+      upsertMilestone({ ...milestoneA, status: 'Completed', version: 0 });
+
+      // Now attempt a stale write with version 0 while the stored version is 1
+      const staleUpdate: Milestone = {
+        ...milestoneA,
+        status: 'Disputed',
+        version: 0,
+      };
+
+      const result = upsertMilestone(staleUpdate);
+      expect(result).toEqual({ success: false, stale: true });
+      // Stored milestone is unchanged — still at 'Completed' from the valid upsert
+      expect(listMilestones()[0].status).toBe('Completed');
+    });
+
+    it('allows the write when the incoming version matches the stored version', () => {
+      saveMilestone(milestoneA);
+
+      const version = getMilestoneVersion(milestoneA.id);
+      const update: Milestone = {
+        ...milestoneA,
+        status: 'Completed',
+        version,
+      };
+
+      expect(upsertMilestone(update)).toEqual({ success: true, stale: false });
+      expect(listMilestones()[0].status).toBe('Completed');
+    });
+
+    it('allows the write when no stored milestone exists yet (version 0)', () => {
+      const result = upsertMilestone({ ...milestoneA, version: 0 });
+      expect(result).toEqual({ success: true, stale: false });
+    });
+
+    it('increments the version on each successful upsert', () => {
+      saveMilestone(milestoneA);
+
+      const v1 = getMilestoneVersion(milestoneA.id);
+      expect(v1).toBe(0);
+
+      const result1 = upsertMilestone({ ...milestoneA, status: 'Completed', version: v1 });
+      expect(result1).toEqual({ success: true, stale: false });
+
+      const v2 = getMilestoneVersion(milestoneA.id);
+      expect(v2).toBe(1);
+
+      const result2 = upsertMilestone({ ...milestoneA, status: 'Disputed', version: v2 });
+      expect(result2).toEqual({ success: true, stale: false });
+
+      expect(getMilestoneVersion(milestoneA.id)).toBe(2);
+    });
+  });
+});
+
+describe('getMilestoneVersion', () => {
+  it('returns 0 when the milestone has never been persisted', () => {
+    expect(getMilestoneVersion('non-existent')).toBe(0);
+  });
+
+  it('returns 0 for a freshly saved milestone (no version set)', () => {
+    saveMilestone(milestoneA);
+    expect(getMilestoneVersion(milestoneA.id)).toBe(0);
+  });
+
+  it('returns the version set by the last upsert', () => {
+    saveMilestone(milestoneA);
+    upsertMilestone({ ...milestoneA, status: 'Completed', version: 0 });
+    expect(getMilestoneVersion(milestoneA.id)).toBe(1);
+  });
+});
 
 // ===========================================================================
 // 3. MULTIPLE WRITES ARE ADDITIVE
@@ -1175,7 +1354,10 @@ describe('exportMilestones', () => {
     const lines = json.split('\n');
     expect(lines.length).toBeGreaterThan(2);
     expect(lines[0]).toBe('[');
-    expect(lines[1]).toMatch(/^\s\s"/);
+    // Line 1 is the indented opening brace of the inner object (2-space indent).
+    expect(lines[1]).toMatch(/^\s+\{/);
+    // Line 2 is the first object field, indented one level further (4 spaces).
+    expect(lines[2]).toMatch(/^\s+"/);
   });
 
   it('returns "[]" for an empty input array', () => {

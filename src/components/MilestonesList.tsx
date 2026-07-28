@@ -15,6 +15,15 @@ export type Milestone = {
   dueDate?: string;
   /** Id of the parent `Contract` this milestone belongs to, when known. */
   contractId?: string;
+  /**
+   * Monotonically-increasing version counter used by the stale-overwrite
+   * guard in the persistence layer. Starts at `1` for new milestones and
+   * increments on each successful upsert. Callers reading from the
+   * repository can pass the stored version back so `upsertMilestone` can
+   * reject writes that would silently overwrite a newer version persisted
+   * by another session tab.
+   */
+  version?: number;
   createdAt?: string;    
   updatedAt?: string;    
 };
