@@ -13,6 +13,7 @@ Reference documentation for components, hooks, contexts, and library utilities.
 | [ContractCreationForm.md](./components/ContractCreationForm.md) | Contract creation modal — props, validation rules, submitted shape |
 | [ContractDetail.md](./components/ContractDetail.md) | Contract detail page component composition |
 | [ContractProgress.md](./components/ContractProgress.md) | Escrow summary and milestone progress panel |
+| [ContractsApi.md](./components/ContractsApi.md) | Contracts component API reference — props and minimal usage examples |
 | [**Dialogs.md**](./components/Dialogs.md) | **Unified dialog usage guide** — `ConfirmDialog`, `ContractCreationForm`, `MilestoneCreationForm`, `useDialogFocusTrap` hook, focus restoration patterns |
 | [EmptyState.md](./components/EmptyState.md) | Empty-state placeholder component |
 | [HeaderActions.md](./components/HeaderActions.md) | Header action buttons |
