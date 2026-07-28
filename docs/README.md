@@ -25,7 +25,9 @@ Reference documentation for components, hooks, contexts, and library utilities.
 | [Navbar.md](./components/Navbar.md) | Global navigation, keyboard support |
 | [NotFound.md](./components/NotFound.md) | 404 page |
 | [Preferences.md](./components/Preferences.md) | `PreferencesProvider`, `usePreferences`, `formatAmount` |
+| [ReputationAccessibility.md](./components/ReputationAccessibility.md) | Reputation accessibility contract — semantic structure, ARIA roles, keyboard support, focus management, live regions, known limitations |
 | [ReputationPage.md](./components/ReputationPage.md) | Reputation score display, level bands |
+| [ReputationProfile.md](./components/ReputationProfile.md) | Reputation profile component API reference — props, rendering states, helpers |
 | [SettingsPanel.md](./components/SettingsPanel.md) | Settings drawer — preferences UI, focus trap, Escape handling |
 | [StatusBadge.md](./components/StatusBadge.md) | Contract/milestone status pill |
 | [Toast.md](./components/Toast.md) | Toast notification system — quiet mode, density, auto-dismiss, action button |
