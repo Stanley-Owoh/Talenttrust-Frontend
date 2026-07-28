@@ -1,13 +1,38 @@
-'use client';
+"use client";
 
-import React, { useCallback, useState } from 'react';
-import EmptyState from '../../components/EmptyState';
-import ContractsList from '../../components/contracts/ContractsList';
-import { ContractCreationForm } from '../../components/ContractCreationForm';
-import { listContracts, saveContract } from '@/lib/repository';
-import { downloadContractsCsv, downloadContractsJson } from '@/lib/exportContracts';
-import { useToast } from '@/components/toast/toast-provider';
-import type { Contract } from '@/types/domain';
+import React, { useCallback, useState } from "react";
+import dynamic from "next/dynamic";
+import EmptyState from "../../components/EmptyState";
+import ContractsList from "../../components/contracts/ContractsList";
+import { listContracts, saveContract } from "@/lib/repository";
+import {
+  downloadContractsCsv,
+  downloadContractsJson,
+} from "@/lib/exportContracts";
+import { useToast } from "@/components/toast/toast-provider";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import type { Contract } from "@/types/domain";
+
+const ContractCreationFormFallback = () => (
+  <div
+    data-testid="contract-form-loading"
+    className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg"
+  >
+    <LoadingSkeleton rows={4} className="mb-4" />
+    <LoadingSkeleton rows={1} width="w-3/4" />
+  </div>
+);
+
+const ContractCreationForm = dynamic(
+  () =>
+    import("@/components/ContractCreationForm").then(
+      (mod) => mod.ContractCreationForm,
+    ),
+  {
+    ssr: false,
+    loading: ContractCreationFormFallback,
+  },
+);
 
 type ContractsFetchState =
   | { status: 'loading'; contracts: Contract[] }
@@ -70,8 +95,8 @@ const ContractsPage: React.FC = () => {
           contracts: current.contracts.filter((item) => item.id !== contract.id),
         }));
         showError({
-          title: 'Unable to create contract',
-          description: 'Your contract could not be saved. Please try again.',
+          title: "Unable to create contract",
+          description: "Your contract could not be saved. Please try again.",
         });
       }
     },
@@ -84,7 +109,6 @@ const ContractsPage: React.FC = () => {
   const handleCancelForm = useCallback(() => {
     setShowForm(false);
   }, []);
-
   return (
     <main className="min-h-screen p-8 pb-24">
       <h1 className="text-2xl font-bold mb-6">Contracts</h1>
@@ -144,7 +168,8 @@ const ContractsPage: React.FC = () => {
           <div className="mb-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <span className="text-sm text-slate-500">
-                {contracts.length} {contracts.length === 1 ? 'contract' : 'contracts'}
+                {contracts.length}{" "}
+                {contracts.length === 1 ? "contract" : "contracts"}
               </span>
               <button
                 type="button"
