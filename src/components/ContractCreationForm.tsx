@@ -309,7 +309,7 @@ export const ContractCreationForm: React.FC<ContractCreationFormProps> = ({
                       <button
                         type="button"
                         onClick={() => removeParty(index)}
-                        className="text-red-600 hover:text-red-800 text-sm font-medium"
+                        className="text-red-600 hover:text-red-800 text-sm font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-red-500 rounded"
                         aria-label={`Remove party ${index + 1}`}
                       >
                         Remove
@@ -354,7 +354,7 @@ export const ContractCreationForm: React.FC<ContractCreationFormProps> = ({
             <button
               type="button"
               onClick={addParty}
-              className="mt-3 text-blue-600 hover:text-blue-800 text-sm font-medium"
+              className="mt-3 text-blue-600 hover:text-blue-800 text-sm font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500 rounded"
             >
               + Add Another Party
             </button>
@@ -364,13 +364,13 @@ export const ContractCreationForm: React.FC<ContractCreationFormProps> = ({
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+              className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+              className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
             >
               Create Contract
             </button>

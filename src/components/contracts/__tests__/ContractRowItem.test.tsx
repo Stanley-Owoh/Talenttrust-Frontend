@@ -203,6 +203,17 @@ describe('ContractRowItem', () => {
       expect(mockOnRowClick).toHaveBeenCalledTimes(1);
     });
 
+    it('calls onRowClick when Space key is pressed on row (role="button" requires Space)', () => {
+      render(<ContractRowItem {...defaultProps} />);
+
+      const contentArea = screen.getByRole('button', {
+        name: /Website Redesign/i,
+      });
+      fireEvent.keyDown(contentArea, { key: ' ' });
+
+      expect(mockOnRowClick).toHaveBeenCalledTimes(1);
+    });
+
     it('does not call onRowClick for other keys', () => {
       render(<ContractRowItem {...defaultProps} />);
 
@@ -212,6 +223,24 @@ describe('ContractRowItem', () => {
       fireEvent.keyDown(contentArea, { key: 'Escape' });
 
       expect(mockOnRowClick).not.toHaveBeenCalled();
+    });
+
+    it('does not call onRowClick twice when Space is pressed (no duplicate activation)', () => {
+      const singleMock = jest.fn();
+      render(
+        <ContractRowItem
+          {...defaultProps}
+          onRowClick={singleMock}
+        />
+      );
+
+      const contentArea = screen.getByRole('button', {
+        name: /Website Redesign/i,
+      });
+      fireEvent.keyDown(contentArea, { key: ' ' });
+      fireEvent.keyUp(contentArea, { key: ' ' });
+
+      expect(singleMock).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -228,13 +257,230 @@ describe('ContractRowItem', () => {
       expect(checkbox).toBeInTheDocument();
     });
 
-    it('row content is keyboard accessible', () => {
+    it('row content is keyboard accessible with tabIndex={0}', () => {
       render(<ContractRowItem {...defaultProps} />);
 
       const contentArea = screen.getByRole('button', {
         name: /Website Redesign/i,
       });
       expect(contentArea).toHaveAttribute('tabIndex', '0');
+    });
+
+    it('checkbox is keyboard focusable and togglable via Space', async () => {
+      const user = userEvent.setup();
+      render(<ContractRowItem {...defaultProps} />);
+
+      const checkbox = screen.getByRole('checkbox');
+      checkbox.focus();
+      expect(checkbox).toHaveFocus();
+
+      await user.keyboard(' ');
+      expect(mockOnSelect).toHaveBeenCalledWith(true);
+    });
+
+    it('focus-visible ring styling is present on the row content div[role="button"]', () => {
+      render(<ContractRowItem {...defaultProps} />);
+
+      const contentArea = screen.getByRole('button', {
+        name: /Website Redesign/i,
+      });
+      const classNames = contentArea.className;
+
+      // The content area should have focus-visible outline for keyboard users
+      expect(classNames).toMatch(/focus-visible:outline/);
+      expect(classNames).toMatch(/focus-visible:outline-2/);
+      expect(classNames).toMatch(/focus-visible:outline-blue-500/);
+      expect(classNames).toMatch(/focus-visible:outline-offset-2/);
+    });
+
+    it('checkbox has focus ring styling for keyboard users', () => {
+      render(<ContractRowItem {...defaultProps} />);
+
+      const checkbox = screen.getByRole('checkbox');
+      const classNames = checkbox.className;
+
+      expect(classNames).toMatch(/focus:ring-2/);
+      expect(classNames).toMatch(/focus:ring-blue-500/);
+      expect(classNames).toMatch(/focus:ring-offset-2/);
+    });
+
+    it('div[role="button"] row content receives Enter and Space activation', () => {
+      const rowClickMock = jest.fn();
+      render(
+        <ContractRowItem
+          {...defaultProps}
+          onRowClick={rowClickMock}
+        />
+      );
+
+      const contentArea = screen.getByRole('button', {
+        name: /Website Redesign/i,
+      });
+
+      // Test Enter
+      fireEvent.keyDown(contentArea, { key: 'Enter' });
+      expect(rowClickMock).toHaveBeenCalledTimes(1);
+
+      // Test Space
+      fireEvent.keyDown(contentArea, { key: ' ' });
+      expect(rowClickMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('Space on role="button" does not cause duplicate activation via keyup', () => {
+      const rowClickMock = jest.fn();
+      render(
+        <ContractRowItem
+          {...defaultProps}
+          onRowClick={rowClickMock}
+        />
+      );
+
+      const contentArea = screen.getByRole('button', {
+        name: /Website Redesign/i,
+      });
+
+      fireEvent.keyDown(contentArea, { key: ' ' });
+      fireEvent.keyUp(contentArea, { key: ' ' });
+
+      // Should only be called once (from keydown, not keyup)
+      expect(rowClickMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Focus Order', () => {
+    it('has logical tab order: checkbox before content button in DOM', () => {
+      render(<ContractRowItem {...defaultProps} />);
+
+      const checkbox = screen.getByRole('checkbox');
+      const contentArea = screen.getByRole('button', {
+        name: /Website Redesign/i,
+      });
+
+      // Checkbox should appear in DOM before the content button
+      expect(checkbox.compareDocumentPosition(contentArea)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING
+      );
+    });
+
+    it('does not use positive tabindex values (only 0 or -1)', () => {
+      render(<ContractRowItem {...defaultProps} />);
+
+      const contentArea = screen.getByRole('button', {
+        name: /Website Redesign/i,
+      });
+      const tabIndex = contentArea.getAttribute('tabIndex');
+
+      // tabIndex should be "0" (not a positive value like 1, 2, etc.)
+      expect(tabIndex).toBe('0');
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('handles undefined onRowClick gracefully without throwing', () => {
+      render(
+        <ContractRowItem
+          {...defaultProps}
+          onRowClick={undefined}
+        />
+      );
+
+      const contentArea = screen.getByRole('button', {
+        name: /Website Redesign/i,
+      });
+
+      // Should not throw even with undefined onRowClick
+      fireEvent.keyDown(contentArea, { key: 'Enter' });
+      expect(contentArea).toBeInTheDocument();
+    });
+
+    it('handles undefined onRowClick with Space gracefully', () => {
+      render(
+        <ContractRowItem
+          {...defaultProps}
+          onRowClick={undefined}
+        />
+      );
+
+      const contentArea = screen.getByRole('button', {
+        name: /Website Redesign/i,
+      });
+
+      // Should not throw even with undefined onRowClick
+      fireEvent.keyDown(contentArea, { key: ' ' });
+      expect(contentArea).toBeInTheDocument();
+    });
+  });
+
+  describe('Checkbox Keyboard Activation', () => {
+    it('Space toggles checkbox via native behavior (onChange fires)', async () => {
+      const singleOnSelect = jest.fn();
+      const user = userEvent.setup();
+
+      render(
+        <ContractRowItem
+          {...defaultProps}
+          onSelect={singleOnSelect}
+        />
+      );
+
+      const checkbox = screen.getByRole('checkbox');
+      checkbox.focus();
+      await user.keyboard(' ');
+
+      // Native checkbox handles Space: fires onChange
+      expect(singleOnSelect).toHaveBeenCalledWith(true);
+    });
+
+    it('Enter on native checkbox does not toggle (only Space)', async () => {
+      const localOnSelect = jest.fn();
+      const user = userEvent.setup();
+      render(
+        <ContractRowItem
+          {...defaultProps}
+          onSelect={localOnSelect}
+        />
+      );
+
+      const checkbox = screen.getByRole('checkbox');
+      checkbox.focus();
+
+      await user.keyboard('{Enter}');
+
+      // Enter does NOT toggle native checkboxes
+      expect(localOnSelect).not.toHaveBeenCalled();
+    });
+
+    it('Ctrl+Space on the list item toggles selection via handleKeyDown', () => {
+      const ctrlSpaceOnSelect = jest.fn();
+      render(
+        <ContractRowItem
+          {...defaultProps}
+          isSelected={false}
+          onSelect={ctrlSpaceOnSelect}
+        />
+      );
+
+      // Fire Ctrl+Space on the list item (role="row")
+      const listItem = screen.getByRole('row');
+      fireEvent.keyDown(listItem, { key: ' ', ctrlKey: true });
+
+      expect(ctrlSpaceOnSelect).toHaveBeenCalledWith(true);
+    });
+
+    it('Ctrl+Space toggles from selected to unselected', () => {
+      const ctrlSpaceOnSelect = jest.fn();
+      render(
+        <ContractRowItem
+          {...defaultProps}
+          isSelected={true}
+          onSelect={ctrlSpaceOnSelect}
+        />
+      );
+
+      const listItem = screen.getByRole('row');
+      fireEvent.keyDown(listItem, { key: ' ', ctrlKey: true });
+
+      expect(ctrlSpaceOnSelect).toHaveBeenCalledWith(false);
     });
   });
 

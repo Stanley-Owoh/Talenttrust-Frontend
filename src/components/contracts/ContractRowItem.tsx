@@ -48,7 +48,8 @@ export const ContractRowItem: React.FC<ContractRowItemProps> = ({
   );
 
   /**
-   * Handles key down for keyboard accessibility
+   * Handles key down for checkbox toggling via Ctrl+Space.
+   * Native checkbox already handles plain Space natively.
    */
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -88,10 +89,11 @@ export const ContractRowItem: React.FC<ContractRowItemProps> = ({
 
       {/* Contract content */}
       <div
-        className="flex-1 cursor-pointer"
+        className="flex-1 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-2 rounded"
         onClick={handleRowClick}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
             handleRowClick();
           }
         }}

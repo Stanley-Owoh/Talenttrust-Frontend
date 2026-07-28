@@ -24,7 +24,6 @@ import { useToast } from '@/components/toast/toast-provider';
 import SafeBoundary from '@/components/SafeBoundary';
 import { downloadMilestonesICS } from '@/lib/icsExport';
 import type { Milestone } from '@/types/domain';
-
 import { SAMPLE_DISMISSED_KEY, SAMPLE_MILESTONES } from './constants';
 
 /**

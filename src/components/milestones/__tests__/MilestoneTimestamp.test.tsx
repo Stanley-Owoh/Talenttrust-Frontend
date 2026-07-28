@@ -29,9 +29,14 @@ describe('MilestoneTimestamp', () => {
   });
 
   it('updates the timestamp every minute', () => {
+    // The component calls formatRelativeTime:
+    // 1. once in the useState initializer
+    // 2. once in the useEffect on mount
+    // 3. once more when the interval fires
     (formatRelativeTime as jest.Mock)
-      .mockReturnValueOnce('5 minutes ago')
-      .mockReturnValueOnce('6 minutes ago');
+      .mockReturnValueOnce('5 minutes ago') // useState initializer
+      .mockReturnValueOnce('5 minutes ago') // useEffect on mount
+      .mockReturnValueOnce('6 minutes ago'); // interval tick
 
     render(<MilestoneTimestamp date={mockDate} updateInterval={1000} />);
     expect(screen.getByText('5 minutes ago')).toBeInTheDocument();

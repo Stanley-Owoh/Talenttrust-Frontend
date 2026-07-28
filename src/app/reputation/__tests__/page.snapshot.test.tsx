@@ -24,7 +24,7 @@
 
 import React from 'react';
 import { render } from '@testing-library/react';
-import { ReputationPageContent } from '../page';
+import { ReputationPageContent } from '../ReputationPageContent';
 import ReputationLoading from '../loading';
 import type { Reputation } from '@/types/domain';
 import type { ReputationEvent } from '@/components/ReputationProfile';
