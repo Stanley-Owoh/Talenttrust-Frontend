@@ -19,6 +19,7 @@ import { listMilestones, saveMilestone, updateMilestone } from '@/lib/repository
 import { getItem, setItem } from '@/lib/safeStorage';
 import { useToast } from '@/components/toast/toast-provider';
 import SafeBoundary from '@/components/SafeBoundary';
+import { downloadMilestonesICS } from '@/lib/icsExport';
 import type { Milestone } from '@/types/domain';
 
 import { SAMPLE_DISMISSED_KEY, SAMPLE_MILESTONES } from './constants';
@@ -300,6 +301,15 @@ const MilestonesContent: React.FC = () => {
                   <option value="oldest">Oldest first</option>
                 </select>
               </label>
+              <button
+                type="button"
+                onClick={() => downloadMilestonesICS(sortedMilestones)}
+                aria-label="Add milestones to calendar"
+                className="flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+              >
+                <span aria-hidden="true" className="mr-1">📅</span>
+                Add to Calendar
+              </button>
               <button
                 type="button"
                 onClick={handleAddMilestone}
