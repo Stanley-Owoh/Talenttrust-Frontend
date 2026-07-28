@@ -31,6 +31,10 @@ const EDIT_CURRENCY_OPTIONS = ['USD', 'EUR', 'GBP', 'XLM'] as const;
 export interface MilestoneRowProps {
   /** The milestone this row renders. */
   milestone: Milestone;
+  /** Whether this row is currently selected in multi-select mode. */
+  isSelected?: boolean;
+  /** Called when the user toggles the selection checkbox for this row. */
+  onToggleSelect?: (id: string) => void;
   /**
    * Whether edit mode is currently active. Parent-controlled so only one row
    * is in edit mode at a time across the list. Click the Edit button to
@@ -99,6 +103,8 @@ export interface MilestoneRowProps {
  */
 export const MilestoneRow: React.FC<MilestoneRowProps> = ({
   milestone,
+  isSelected = false,
+  onToggleSelect,
   isEditing,
   onRequestEdit,
   onSave,
@@ -240,23 +246,51 @@ export const MilestoneRow: React.FC<MilestoneRowProps> = ({
   // --------------------------------------------------------------------------
   // View mode (default): summary row + Edit button
   // --------------------------------------------------------------------------
+  const handleToggle = useCallback(() => {
+    onToggleSelect?.(milestone.id);
+  }, [milestone.id, onToggleSelect]);
+
   if (!isEditing) {
     return (
       <article
         id={`milestone-${milestone.id}`}
-        className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
+        aria-label={milestone.title}
+        data-selected={isSelected}
+        className={`rounded-3xl border p-4 shadow-sm transition-colors ${
+          isSelected
+            ? 'border-indigo-300 bg-indigo-50'
+            : 'border-slate-200 bg-slate-50'
+        }`}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-  <div className="min-w-0 flex-1">
-    <p className="text-sm font-medium text-slate-600">{milestone.title}</p>
-    <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-slate-500">
-      <span>Due {milestone.dueDate ?? 'TBD'}</span>
-      <span aria-hidden="true" className="text-slate-300">•</span>
-      <MilestoneTimestamp 
-        date={milestone.updatedAt || milestone.createdAt} 
-      />
-    </div>
-  </div>
+        <div className="flex items-start gap-3">
+          {onToggleSelect && (
+            <div className="pt-1">
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={handleToggle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleToggle();
+                  }
+                }}
+                aria-label={`${isSelected ? 'Deselect' : 'Select'} ${milestone.title}`}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+            </div>
+          )}
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-slate-600">{milestone.title}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+              <span>Due {milestone.dueDate ?? 'TBD'}</span>
+              <span aria-hidden="true" className="text-slate-300">•</span>
+              <MilestoneTimestamp 
+                date={milestone.updatedAt || milestone.createdAt} 
+              />
+            </div>
+          </div>
           <div className="flex items-center gap-3">
             <StatusBadge status={milestone.status} />
             <button
@@ -271,16 +305,17 @@ export const MilestoneRow: React.FC<MilestoneRowProps> = ({
               Edit
             </button>
           </div>
-        </div>
-        <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600">
-          <p>Payout</p>
-          <p
-            data-testid={`milestone-payout-${milestone.id}`}
-            className="font-semibold text-slate-900"
-          >
-            {formatAmount(milestone.payout, milestone.currency)}
-          </p>
-        </div>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600">
+            <p>Payout</p>
+            <p
+              data-testid={`milestone-payout-${milestone.id}`}
+              className="font-semibold text-slate-900"
+            >
+              {formatAmount(milestone.payout, milestone.currency)}
+            </p>
+          </div>
       </article>
     );
   }

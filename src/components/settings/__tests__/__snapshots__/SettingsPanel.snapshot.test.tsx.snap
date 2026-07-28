@@ -29,8 +29,10 @@ exports[`SettingsPanel – currency display states matches snapshot when amountF
         <button
           aria-label="Close settings"
           class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          type="button"
         >
           <svg
+            aria-hidden="true"
             class="w-6 h-6"
             fill="none"
             stroke="currentColor"
@@ -281,8 +283,10 @@ exports[`SettingsPanel – currency display states matches snapshot when amountF
         <button
           aria-label="Close settings"
           class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          type="button"
         >
           <svg
+            aria-hidden="true"
             class="w-6 h-6"
             fill="none"
             stroke="currentColor"
@@ -533,8 +537,10 @@ exports[`SettingsPanel – currency display states matches snapshot when amountF
         <button
           aria-label="Close settings"
           class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          type="button"
         >
           <svg
+            aria-hidden="true"
             class="w-6 h-6"
             fill="none"
             stroke="currentColor"
@@ -785,8 +791,10 @@ exports[`SettingsPanel – fully-loaded state matches snapshot when all preferen
         <button
           aria-label="Close settings"
           class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          type="button"
         >
           <svg
+            aria-hidden="true"
             class="w-6 h-6"
             fill="none"
             stroke="currentColor"
@@ -1037,8 +1045,10 @@ exports[`SettingsPanel – open, default preferences matches snapshot with all d
         <button
           aria-label="Close settings"
           class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          type="button"
         >
           <svg
+            aria-hidden="true"
             class="w-6 h-6"
             fill="none"
             stroke="currentColor"
@@ -1289,8 +1299,10 @@ exports[`SettingsPanel – quiet mode states matches snapshot when quietMode is 
         <button
           aria-label="Close settings"
           class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          type="button"
         >
           <svg
+            aria-hidden="true"
             class="w-6 h-6"
             fill="none"
             stroke="currentColor"
@@ -1541,8 +1553,10 @@ exports[`SettingsPanel – quiet mode states matches snapshot when quietMode is 
         <button
           aria-label="Close settings"
           class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          type="button"
         >
           <svg
+            aria-hidden="true"
             class="w-6 h-6"
             fill="none"
             stroke="currentColor"
@@ -1793,8 +1807,10 @@ exports[`SettingsPanel – theme states matches snapshot when theme is "dark" 1`
         <button
           aria-label="Close settings"
           class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          type="button"
         >
           <svg
+            aria-hidden="true"
             class="w-6 h-6"
             fill="none"
             stroke="currentColor"
@@ -2045,8 +2061,10 @@ exports[`SettingsPanel – theme states matches snapshot when theme is "light" 1
         <button
           aria-label="Close settings"
           class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          type="button"
         >
           <svg
+            aria-hidden="true"
             class="w-6 h-6"
             fill="none"
             stroke="currentColor"
@@ -2297,8 +2315,10 @@ exports[`SettingsPanel – theme states matches snapshot when theme is "system" 
         <button
           aria-label="Close settings"
           class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          type="button"
         >
           <svg
+            aria-hidden="true"
             class="w-6 h-6"
             fill="none"
             stroke="currentColor"
@@ -2549,8 +2569,10 @@ exports[`SettingsPanel – toast density states matches snapshot when toastDensi
         <button
           aria-label="Close settings"
           class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          type="button"
         >
           <svg
+            aria-hidden="true"
             class="w-6 h-6"
             fill="none"
             stroke="currentColor"
@@ -2801,8 +2823,10 @@ exports[`SettingsPanel – toast density states matches snapshot when toastDensi
         <button
           aria-label="Close settings"
           class="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          type="button"
         >
           <svg
+            aria-hidden="true"
             class="w-6 h-6"
             fill="none"
             stroke="currentColor"
@@ -3033,6 +3057,7 @@ exports[`SettingsTrigger – snapshot matches snapshot in closed (default) state
     class="fixed bottom-6 right-6 p-3 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-lg hover:scale-110 transition-transform z-40 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2"
   >
     <svg
+      aria-hidden="true"
       class="w-6 h-6"
       fill="none"
       stroke="currentColor"

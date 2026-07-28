@@ -287,15 +287,26 @@ describe('milestones keyboard — logical tab order', () => {
     expect(allRadio).toHaveFocus();
 
     // Within a radiogroup only the checked radio is in the tab order;
-    // next Tab leaves the group to Add Milestone.
+    // next Tab leaves the group to the sort select, Add Milestone, then links, then dismiss, then scroll region.
+    await user.tab();
+    expect(screen.getByLabelText(/sort milestones/i)).toHaveFocus();
+
     await user.tab();
     expect(screen.getByRole('button', { name: /^add milestone$/i })).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: /switch to compact density/i })).toHaveFocus();
 
     await user.tab();
     expect(screen.getByRole('link', { name: /keyboard kickoff/i })).toHaveFocus();
 
     await user.tab();
     expect(screen.getByRole('button', { name: /dismiss reminder/i })).toHaveFocus();
+
+    await user.tab();
+    // After dismiss, focus moves to the next checkbox or the select-all checkbox
+    const selectAll = screen.getByLabelText(/select all milestones/i);
+    expect(selectAll).toHaveFocus();
 
     await user.tab();
     const region = container.querySelector('[role="region"]');

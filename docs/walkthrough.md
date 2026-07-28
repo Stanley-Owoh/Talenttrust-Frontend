@@ -1,6 +1,6 @@
 # Walkthrough - Reputation Level Legend, ActionPanel Hotfix, and Milestone Component Docs
 
-We have implemented an accessible reputation level legend that maps score ranges to named levels on the `ReputationProfile` page and component. We also repaired merge conflict issues in the `ActionPanel` dispute flow to make the entire repository build and test suite green.
+We have implemented an accessible reputation level legend that maps score ranges to named levels on the `ReputationProfile` page and component. We also repaired merge conflict issues in the `ActionPanel` dispute flow to make the entire repository build and test suite green. Additionally, we created a comprehensive forms usage guide covering all form components, their props, validation rules, and common patterns.
 
 ## Changes Made
 
@@ -28,6 +28,15 @@ We have implemented an accessible reputation level legend that maps score ranges
 - Documented the milestone status filter props, `Active` status support, radiogroup semantics, `aria-live` result count, and `resultCount={filtered.length}` requirement in [docs/components/MilestoneFilter.md](./components/MilestoneFilter.md).
 - Added a unified dialog usage guide covering `ConfirmDialog`, `ContractCreationForm`, `MilestoneCreationForm`, and the shared `useDialogFocusTrap` hook in [docs/components/Dialogs.md](./components/Dialogs.md).
 
+### 5. Forms Usage Guide
+- Created a comprehensive [FormsUsageGuide.md](./components/FormsUsageGuide.md) documenting all form components across the application:
+  - **Shared Components**: `FormField` and `ErrorSummary` with full props tables, accessibility prop injection details, and usage examples
+  - **Form Components**: `ContractCreationForm`, `CreateContractForm` (inline), `MilestoneCreationForm`, and the Sign-in form with props, field tables, validation rules, and complete usage examples
+  - **Validation Utilities**: `validateContract`, `validateLogin`, `sanitizeUserText`, and `isValidStellarAddress` with API references and field-specific length caps
+  - **Common Patterns**: form state management, validation on submit, error handling, repository integration, toast notifications, and text sanitization
+  - **Testing Guide**: test file locations, coverage areas, and commands for running form-specific tests
+
+### 6. Hotfix: ActionPanel & Dispute Form Restore
 ### 5. Hotfix: ActionPanel & Dispute Form Restore
 
 - Resolved merge conflict corruption in [src/components/ActionPanel.tsx](file:///c:/Users/USER/Desktop/Talenttrust-Frontend/src/components/ActionPanel.tsx) to correctly render the inline dispute form and its validation state.

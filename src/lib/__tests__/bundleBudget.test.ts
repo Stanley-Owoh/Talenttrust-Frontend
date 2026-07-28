@@ -1,3 +1,5 @@
+// Pure-function budget checker — the script's build-manifest parsing logic
+// is exercised here via a stub that avoids an actual `next build`.
 // ── Fixtures ─────────────────────────────────────────────────────────
 // We don't want an actual `next build` in unit tests, so we construct
 // minimal in-memory manifest fixtures and test the script's core logic

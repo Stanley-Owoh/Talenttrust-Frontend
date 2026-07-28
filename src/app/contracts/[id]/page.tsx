@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import ContractSummary from '@/components/ContractSummary';
 import MilestonesList from '@/components/MilestonesList';
@@ -294,11 +295,10 @@ const ContractDetailPageContent = ({ id }: { id: string }) => {
   );
 };
 
-const ContractDetailPage = async ({ params }: ContractDetailPageProps) => {
-  const { id } = await params;
+const ContractDetailPage = ({ params }: ContractDetailPageProps) => {
+  const { id } = use(params);
 
   if (!isValidContractId(id)) {
-    const { notFound } = await import('next/navigation');
     notFound();
   }
 

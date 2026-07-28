@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StatusType, statusColorMap, statusIconMap } from './StatusBadge';
 import MilestoneRow from './milestones/MilestoneRow';
+import { BulkActionToolbar } from './milestones/BulkActionToolbar';
+import { ConfirmDialog } from './ConfirmDialog';
 import { usePreferences } from '@/lib/preferences';
 import { isDueSoon } from '@/lib/dueSoon';
 import { findCurrencyMismatches, normalizeCurrencyCode } from '@/lib/currencyMismatch';
@@ -35,6 +37,14 @@ export type MilestonesListProps = {
   contractCurrency?: string;
   onUpdateMilestone?: (id: string, patch: Partial<Milestone>) => boolean;
   pageSize?: number;
+  /** Callback when the selection changes. Passes an array of selected milestone ids. */
+  onSelectionChange?: (selectedIds: string[]) => void;
+  /** Callback to export the selected milestones. */
+  onBulkExport?: (selectedMilestones: Milestone[]) => void;
+  /** Callback to delete selected milestones. Should return the number successfully deleted. */
+  onBulkDelete?: (selectedIds: string[]) => number;
+  /** Callback to update the status of selected milestones. Should return the number successfully updated. */
+  onBulkStatusUpdate?: (selectedIds: string[], status: StatusType) => number;
 };
 
 export const REMINDER_WINDOW_DAYS = 7;
@@ -44,6 +54,10 @@ const MilestonesList = ({
   contractCurrency,
   onUpdateMilestone,
   pageSize = PAGE_SIZE_DEFAULT,
+  onSelectionChange,
+  onBulkExport,
+  onBulkDelete,
+  onBulkStatusUpdate,
 }: MilestonesListProps) => {
   const { formatAmount, preferences, updatePreference } = usePreferences();
   const [displayCount, setDisplayCount] = useState(pageSize);
@@ -56,6 +70,18 @@ const MilestonesList = ({
    * output.
    */
   const [editingId, setEditingId] = useState<string | null>(null);
+  /**
+   * Set of selected milestone IDs for multi-select / bulk actions.
+   */
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  /**
+   * Screen-reader announcement text for selection changes.
+   */
+  const [selectionAnnouncement, setSelectionAnnouncement] = useState('');
+  /**
+   * Whether the delete confirmation dialog is open.
+   */
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   /**
    * Polite live-region message conveyed to assistive technologies after a
    * save / save-failure. Cleared on the *next* save so repeated messages
@@ -153,6 +179,86 @@ const MilestonesList = ({
     setEditingId(null);
     setAnnouncement('');
   }, []);
+
+  // --------------------------------------------------------------------------
+  // Multi-select handlers
+  // --------------------------------------------------------------------------
+
+  const allSelected = milestones.length > 0 && selectedIds.size === milestones.length;
+  const hasSelection = selectedIds.size > 0;
+
+  const announceSelection = useCallback((ids: Set<string>) => {
+    const count = ids.size;
+    if (count === 0) {
+      requestAnimationFrame(() => setSelectionAnnouncement('Selection cleared'));
+    } else {
+      requestAnimationFrame(() =>
+        setSelectionAnnouncement(`${count} ${count === 1 ? 'milestone' : 'milestones'} selected`),
+      );
+    }
+  }, []);
+
+  const handleToggleSelect = useCallback(
+    (id: string) => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        announceSelection(next);
+        onSelectionChange?.(Array.from(next));
+        return next;
+      });
+    },
+    [onSelectionChange, announceSelection],
+  );
+
+  const handleToggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === milestones.length) {
+        announceSelection(new Set());
+        onSelectionChange?.([]);
+        return new Set();
+      }
+      const all = new Set(milestones.map((m) => m.id));
+      announceSelection(all);
+      onSelectionChange?.(Array.from(all));
+      return all;
+    });
+  }, [milestones, onSelectionChange, announceSelection]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    announceSelection(new Set());
+    onSelectionChange?.([]);
+  }, [onSelectionChange, announceSelection]);
+
+  const handleBulkExport = useCallback(() => {
+    const selected = milestones.filter((m) => selectedIds.has(m.id));
+    onBulkExport?.(selected);
+  }, [milestones, selectedIds, onBulkExport]);
+
+  const handleBulkStatusUpdate = useCallback(
+    (status: StatusType) => {
+      const ids = Array.from(selectedIds);
+      onBulkStatusUpdate?.(ids, status);
+      setSelectedIds(new Set());
+      onSelectionChange?.([]);
+    },
+    [selectedIds, onBulkStatusUpdate, onSelectionChange],
+  );
+
+  const handleDeleteConfirm = useCallback(() => {
+    const ids = Array.from(selectedIds);
+    onBulkDelete?.(ids);
+    setShowDeleteDialog(false);
+    setSelectedIds(new Set());
+    onSelectionChange?.([]);
+  }, [selectedIds, onBulkDelete, onSelectionChange]);
+
+  const isIndeterminate = hasSelection && !allSelected;
 
   return (
     <section aria-labelledby="milestones-title" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -293,6 +399,17 @@ const MilestonesList = ({
         {announcement}
       </span>
 
+      {/* Screen-reader announcement for selection changes */}
+      <span
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-label="Milestone selection announcements"
+        className="sr-only"
+      >
+        {selectionAnnouncement}
+      </span>
+
       {/*
         Keyboard Accessibility (WCAG 2.1.1):
         The scrollable container is focusable (tabIndex={0}) with role="region" so keyboard-only users
@@ -308,6 +425,52 @@ const MilestonesList = ({
         1. Consistency between SSR and client hydration avoids layout/hydration shifts.
         2. Testability in JSDOM where clientHeight/scrollHeight are always zero.
       */}
+      {milestones.length > 0 && (
+        <div
+          role="group"
+          aria-label="Milestone selection controls"
+          className={`flex items-center ${isCompact ? 'mt-2' : 'mt-4'}`}
+        >
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              ref={(el) => {
+                if (el) el.indeterminate = isIndeterminate;
+              }}
+              onChange={handleToggleSelectAll}
+              aria-checked={isIndeterminate ? 'mixed' : allSelected}
+              aria-label={
+                allSelected
+                  ? 'Deselect all milestones'
+                  : 'Select all milestones'
+              }
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span>{allSelected ? 'Deselect all' : 'Select all'}</span>
+          </label>
+        </div>
+      )}
+
+      <BulkActionToolbar
+        selectedCount={selectedIds.size}
+        totalCount={milestones.length}
+        onClearSelection={handleClearSelection}
+        onExport={handleBulkExport}
+        onStatusUpdate={handleBulkStatusUpdate}
+        onDelete={() => setShowDeleteDialog(true)}
+      />
+
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        title={`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'milestone' : 'milestones'}?`}
+        description={`Are you sure you want to delete ${selectedIds.size} selected ${selectedIds.size === 1 ? 'milestone' : 'milestones'}? This action cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'item' : 'items'}`}
+        tone="destructive"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDeleteDialog(false)}
+      />
+
       <div
         ref={listContainerRef}
         role={milestones.length > 0 ? 'region' : undefined}
@@ -319,6 +482,8 @@ const MilestonesList = ({
           <MilestoneRow
             key={milestone.id}
             milestone={milestone}
+            isSelected={selectedIds.has(milestone.id)}
+            onToggleSelect={handleToggleSelect}
             isEditing={editingId === milestone.id}
             onRequestEdit={() => setEditingId(milestone.id)}
             onSave={handleSave}
