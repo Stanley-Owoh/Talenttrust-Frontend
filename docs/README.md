@@ -20,6 +20,7 @@ Reference documentation for components, hooks, contexts, and library utilities.
 | [MilestoneCreationForm.md](./components/MilestoneCreationForm.md) | Milestone creation modal — props, ID generation, validation |
 | [MilestoneFilter.md](./components/MilestoneFilter.md) | Status filter radiogroup, `aria-live` result count |
 | [MilestonesApi.md](./components/MilestonesApi.md) | Milestones component API reference — props, shared types, minimal usage examples |
+| [MilestonesUsageGuide.md](./components/MilestonesUsageGuide.md) | Milestones components usage guide — composition patterns, props, accessibility, troubleshooting |
 | [MilestonesList.md](./components/MilestonesList.md) | Milestone list rendering, accessibility contract (roles, keyboard, focus), density toggle, pagination |
 | [MilestoneRow.md](./components/MilestoneRow.md) | Milestone row view/edit modes — accessibility contract (roles, keyboard, focus) |
 | [Navbar.md](./components/Navbar.md) | Global navigation, keyboard support |
