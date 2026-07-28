@@ -864,6 +864,7 @@ describe('ContractsPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /create contract/i }));
       fireEvent.click(screen.getByRole('button', { name: /submit/i }));
 
+      expect(screen.getByRole('status', { name: 'Loading contracts' })).toBeInTheDocument();
       await waitFor(() => {
         expect(mockShowError).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -1111,7 +1112,43 @@ describe('ContractsPage', () => {
     ];
     mockListContracts.mockReturnValue(existingContracts);
 
-    render(<ContractsPage />);
+    it('load-more append behavior', () => {
+      const mockContracts = Array.from({ length: 12 }).map((_, i) => ({
+        contractName: `Contract ${i}`,
+        parties: [],
+        totalValue: 1000,
+        currency: 'USD',
+        status: 'Active' as const,
+        createdAt: 'Jan 1, 2025',
+        milestoneCount: 0,
+      }));
+      mockListContracts.mockReturnValue(mockContracts);
+      render(<ContractsPage />);
+      
+      fireEvent.click(screen.getByRole('button', { name: /load more/i }));
+      
+      expect(screen.getByText('Contract 0')).toBeInTheDocument();
+      expect(screen.getByText('Contract 11')).toBeInTheDocument();
+    });
+
+    it('end-of-list behavior', () => {
+      const mockContracts = Array.from({ length: 12 }).map((_, i) => ({
+        contractName: `Contract ${i}`,
+        parties: [],
+        totalValue: 1000,
+        currency: 'USD',
+        status: 'Active' as const,
+        createdAt: 'Jan 1, 2025',
+        milestoneCount: 0,
+      }));
+      mockListContracts.mockReturnValue(mockContracts);
+      render(<ContractsPage />);
+      
+      fireEvent.click(screen.getByRole('button', { name: /load more/i }));
+      
+      // We are on page 2, 20 items loaded, but only 12 exist, so load more should hide
+      expect(screen.queryByRole('button', { name: /load more/i })).not.toBeInTheDocument();
+    });
 
     expect(screen.getByText('Existing Contract')).toBeInTheDocument();
   });
