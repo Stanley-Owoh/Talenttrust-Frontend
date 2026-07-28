@@ -1,12 +1,41 @@
 import { renderHook, act } from '@testing-library/react';
 import { useCopyToClipboard } from '../useCopyToClipboard';
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function mockClipboard(impl: () => Promise<void> = () => Promise.resolve()) {
+  const writeText = jest.fn().mockImplementation(impl);
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText },
+  });
+  return writeText;
+}
+
+function removeClipboard() {
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: undefined,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Suite
+// ---------------------------------------------------------------------------
+
 describe('useCopyToClipboard', () => {
   let originalClipboard: typeof navigator.clipboard;
+  let execCommandSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.useFakeTimers();
     originalClipboard = navigator.clipboard;
+    // Provide a default execCommand spy that returns true (success)
+    execCommandSpy = jest
+      .spyOn(document, 'execCommand')
+      .mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -14,238 +43,285 @@ describe('useCopyToClipboard', () => {
       jest.runAllTimers();
     });
     jest.useRealTimers();
-    // Restore clipboard
+    execCommandSpy.mockRestore();
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: originalClipboard,
     });
   });
 
-  function mockClipboard(impl: () => Promise<void> = () => Promise.resolve()) {
-    const writeText = jest.fn().mockImplementation(impl);
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText },
-    });
-    return writeText;
-  }
+  // ── 1. Clipboard API — success path ───────────────────────────────────────
 
-  function removeClipboard() {
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: undefined,
-    });
-  }
+  describe('Clipboard API — success path', () => {
+    it('copies text successfully and returns true', async () => {
+      const writeText = mockClipboard();
+      const { result } = renderHook(() => useCopyToClipboard());
 
-  it('should copy text successfully and reset copied state after delay', async () => {
-    const writeTextMock = mockClipboard();
-    const onSuccessMock = jest.fn();
-    const onErrorMock = jest.fn();
+      let success: boolean | undefined;
+      await act(async () => {
+        success = await result.current.copy('hello world');
+      });
 
-    const { result } = renderHook(() =>
-      useCopyToClipboard({ delay: 1000, onSuccess: onSuccessMock, onError: onErrorMock })
-    );
-
-    expect(result.current.copied).toBe(false);
-
-    let success: boolean | undefined;
-    await act(async () => {
-      success = await result.current.copy('test text');
+      expect(success).toBe(true);
+      expect(writeText).toHaveBeenCalledWith('hello world');
     });
 
-    expect(success).toBe(true);
-    expect(writeTextMock).toHaveBeenCalledWith('test text');
-    expect(result.current.copied).toBe(true);
-    expect(onSuccessMock).toHaveBeenCalledTimes(1);
-    expect(onErrorMock).not.toHaveBeenCalled();
+    it('sets copied to true immediately after a successful copy', async () => {
+      mockClipboard();
+      const { result } = renderHook(() => useCopyToClipboard());
 
-    // Advance timer close to the limit
-    act(() => {
-      jest.advanceTimersByTime(999);
-    });
-    expect(result.current.copied).toBe(true);
+      expect(result.current.copied).toBe(false);
 
-    // Advance past the limit
-    act(() => {
-      jest.advanceTimersByTime(1);
-    });
-    expect(result.current.copied).toBe(false);
-  });
+      await act(async () => {
+        await result.current.copy('text');
+      });
 
-  it('should use default delay of 2000ms if not specified', async () => {
-    mockClipboard();
-    const { result } = renderHook(() => useCopyToClipboard());
-
-    await act(async () => {
-      await result.current.copy('test text');
+      expect(result.current.copied).toBe(true);
     });
 
-    expect(result.current.copied).toBe(true);
+    it('resets copied to false after the configured delay', async () => {
+      mockClipboard();
+      const { result } = renderHook(() => useCopyToClipboard({ delay: 1000 }));
 
-    act(() => {
-      jest.advanceTimersByTime(1999);
-    });
-    expect(result.current.copied).toBe(true);
+      await act(async () => {
+        await result.current.copy('text');
+      });
+      expect(result.current.copied).toBe(true);
 
-    act(() => {
-      jest.advanceTimersByTime(1);
-    });
-    expect(result.current.copied).toBe(false);
-  });
+      act(() => { jest.advanceTimersByTime(999); });
+      expect(result.current.copied).toBe(true);
 
-  it('should handle missing navigator.clipboard gracefully', async () => {
-    removeClipboard();
-    const onSuccessMock = jest.fn();
-    const onErrorMock = jest.fn();
-
-    const { result } = renderHook(() =>
-      useCopyToClipboard({ onSuccess: onSuccessMock, onError: onErrorMock })
-    );
-
-    let success: boolean | undefined;
-    await act(async () => {
-      success = await result.current.copy('test text');
+      act(() => { jest.advanceTimersByTime(1); });
+      expect(result.current.copied).toBe(false);
     });
 
-    expect(success).toBe(false);
-    expect(result.current.copied).toBe(false);
-    expect(onSuccessMock).not.toHaveBeenCalled();
-    expect(onErrorMock).toHaveBeenCalledTimes(1);
-    expect(onErrorMock.mock.calls[0][0]).toBeInstanceOf(Error);
-    expect((onErrorMock.mock.calls[0][0] as Error).message).toContain('supported');
-  });
+    it('uses the default delay of 2000 ms when delay is not specified', async () => {
+      mockClipboard();
+      const { result } = renderHook(() => useCopyToClipboard());
 
-  it('should handle missing writeText method gracefully', async () => {
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: {}, // clipboard exists but no writeText
-    });
-    const onSuccessMock = jest.fn();
-    const onErrorMock = jest.fn();
+      await act(async () => {
+        await result.current.copy('text');
+      });
 
-    const { result } = renderHook(() =>
-      useCopyToClipboard({ onSuccess: onSuccessMock, onError: onErrorMock })
-    );
+      act(() => { jest.advanceTimersByTime(1999); });
+      expect(result.current.copied).toBe(true);
 
-    let success: boolean | undefined;
-    await act(async () => {
-      success = await result.current.copy('test text');
+      act(() => { jest.advanceTimersByTime(1); });
+      expect(result.current.copied).toBe(false);
     });
 
-    expect(success).toBe(false);
-    expect(result.current.copied).toBe(false);
-    expect(onSuccessMock).not.toHaveBeenCalled();
-    expect(onErrorMock).toHaveBeenCalledTimes(1);
-  });
+    it('calls onSuccess callback on successful copy', async () => {
+      mockClipboard();
+      const onSuccess = jest.fn();
+      const { result } = renderHook(() => useCopyToClipboard({ onSuccess }));
 
-  it('should handle writeText promise rejection gracefully', async () => {
-    const error = new Error('Permission denied');
-    mockClipboard(() => Promise.reject(error));
-    const onSuccessMock = jest.fn();
-    const onErrorMock = jest.fn();
+      await act(async () => {
+        await result.current.copy('text');
+      });
 
-    const { result } = renderHook(() =>
-      useCopyToClipboard({ onSuccess: onSuccessMock, onError: onErrorMock })
-    );
-
-    let success: boolean | undefined;
-    await act(async () => {
-      success = await result.current.copy('test text');
+      expect(onSuccess).toHaveBeenCalledTimes(1);
     });
 
-    expect(success).toBe(false);
-    expect(result.current.copied).toBe(false);
-    expect(onSuccessMock).not.toHaveBeenCalled();
-    expect(onErrorMock).toHaveBeenCalledWith(error);
-  });
+    it('does not call onError on successful copy', async () => {
+      mockClipboard();
+      const onError = jest.fn();
+      const { result } = renderHook(() => useCopyToClipboard({ onError }));
 
-  it('should clear existing timeout on subsequent copy operations', async () => {
-    mockClipboard();
-    const { result } = renderHook(() => useCopyToClipboard({ delay: 1000 }));
+      await act(async () => {
+        await result.current.copy('text');
+      });
 
-    await act(async () => {
-      await result.current.copy('text 1');
-    });
-    expect(result.current.copied).toBe(true);
-
-    // Wait 500ms
-    act(() => {
-      jest.advanceTimersByTime(500);
-    });
-
-    // Copy again
-    await act(async () => {
-      await result.current.copy('text 2');
-    });
-    expect(result.current.copied).toBe(true);
-
-    // Wait another 600ms (total 1100ms since start, but only 600ms since second copy)
-    act(() => {
-      jest.advanceTimersByTime(600);
-    });
-    // Should still be true because second copy reset the 1000ms delay
-    expect(result.current.copied).toBe(true);
-
-    // Wait another 400ms (1000ms since second copy)
-    act(() => {
-      jest.advanceTimersByTime(400);
-    });
-    expect(result.current.copied).toBe(false);
-  });
-
-  it('should clear timeout on unmount', async () => {
-    mockClipboard();
-    const { result, unmount } = renderHook(() => useCopyToClipboard({ delay: 1000 }));
-
-    await act(async () => {
-      await result.current.copy('text');
-    });
-
-    expect(result.current.copied).toBe(true);
-
-    // Unmount the hook
-    unmount();
-
-    // Advance time - should not cause state updates or errors
-    act(() => {
-      jest.advanceTimersByTime(1000);
+      expect(onError).not.toHaveBeenCalled();
     });
   });
 
-  // Note: The original SSR guard test set `global.window` to `undefined` via
-  // Object.defineProperty, but in Jest 30 / jsdom `global.window` is a
-  // non-configurable property that cannot be redefined. The closest equivalent
-  // is to remove `navigator.clipboard`, which exercises an adjacent guard
-  // in the same hook (the "Clipboard API not supported" path), verifying that
-  // the hook handles missing APIs gracefully without crashing.
-  it('should handle missing navigator.clipboard gracefully (SSR safety equivalent)', async () => {
-    const onSuccessMock = jest.fn();
-    const onErrorMock = jest.fn();
+  // ── 2. execCommand fallback — Clipboard API unavailable ──────────────────
 
-    const { result } = renderHook(() =>
-      useCopyToClipboard({ onSuccess: onSuccessMock, onError: onErrorMock })
-    );
+  describe('execCommand fallback — Clipboard API unavailable', () => {
+    it('uses the fallback when navigator.clipboard is undefined', async () => {
+      removeClipboard();
+      const onSuccess = jest.fn();
+      const { result } = renderHook(() => useCopyToClipboard({ onSuccess }));
 
-    // Remove clipboard to simulate SSR-like environment
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: undefined,
+      let success: boolean | undefined;
+      await act(async () => {
+        success = await result.current.copy('fallback text');
+      });
+
+      expect(success).toBe(true);
+      expect(execCommandSpy).toHaveBeenCalledWith('copy');
+      expect(onSuccess).toHaveBeenCalledTimes(1);
     });
 
-    let success: boolean | undefined;
-    await act(async () => {
-      success = await result.current.copy('test');
+    it('uses the fallback when navigator.clipboard exists but writeText is missing', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {}, // clipboard without writeText
+      });
+      const onSuccess = jest.fn();
+      const { result } = renderHook(() => useCopyToClipboard({ onSuccess }));
+
+      let success: boolean | undefined;
+      await act(async () => {
+        success = await result.current.copy('text');
+      });
+
+      expect(success).toBe(true);
+      expect(execCommandSpy).toHaveBeenCalledWith('copy');
+      expect(onSuccess).toHaveBeenCalledTimes(1);
     });
 
-    expect(success).toBe(false);
-    expect(onSuccessMock).not.toHaveBeenCalled();
-    expect(onErrorMock).toHaveBeenCalledTimes(1);
-    expect((onErrorMock.mock.calls[0][0] as Error).message).toContain('supported');
+    it('sets copied to true after a successful fallback copy', async () => {
+      removeClipboard();
+      const { result } = renderHook(() => useCopyToClipboard());
 
-    // Restore
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: originalClipboard,
+      await act(async () => {
+        await result.current.copy('text');
+      });
+
+      expect(result.current.copied).toBe(true);
+    });
+
+    it('resets copied to false after the delay following a fallback copy', async () => {
+      removeClipboard();
+      const { result } = renderHook(() => useCopyToClipboard({ delay: 1000 }));
+
+      await act(async () => {
+        await result.current.copy('text');
+      });
+
+      act(() => { jest.advanceTimersByTime(1000); });
+      expect(result.current.copied).toBe(false);
+    });
+
+    it('falls through to the fallback when Clipboard API throws', async () => {
+      mockClipboard(() => Promise.reject(new Error('Permission denied')));
+      const onSuccess = jest.fn();
+      const { result } = renderHook(() => useCopyToClipboard({ onSuccess }));
+
+      let success: boolean | undefined;
+      await act(async () => {
+        success = await result.current.copy('text');
+      });
+
+      // Clipboard API threw → fallback succeeded
+      expect(success).toBe(true);
+      expect(execCommandSpy).toHaveBeenCalledWith('copy');
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ── 3. Both paths fail ────────────────────────────────────────────────────
+
+  describe('both copy paths fail', () => {
+    it('calls onError and returns false when Clipboard API and fallback both fail', async () => {
+      // Clipboard API rejects
+      mockClipboard(() => Promise.reject(new Error('denied')));
+      // execCommand fallback returns false
+      execCommandSpy.mockReturnValue(false);
+
+      const onError = jest.fn();
+      const { result } = renderHook(() => useCopyToClipboard({ onError }));
+
+      let success: boolean | undefined;
+      await act(async () => {
+        success = await result.current.copy('text');
+      });
+
+      expect(success).toBe(false);
+      expect(result.current.copied).toBe(false);
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect((onError.mock.calls[0][0] as Error).message).toContain('supported');
+    });
+
+    it('calls onError and returns false when clipboard is absent and fallback fails', async () => {
+      removeClipboard();
+      execCommandSpy.mockReturnValue(false);
+
+      const onError = jest.fn();
+      const { result } = renderHook(() => useCopyToClipboard({ onError }));
+
+      let success: boolean | undefined;
+      await act(async () => {
+        success = await result.current.copy('text');
+      });
+
+      expect(success).toBe(false);
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not set copied to true when both paths fail', async () => {
+      removeClipboard();
+      execCommandSpy.mockReturnValue(false);
+
+      const { result } = renderHook(() => useCopyToClipboard());
+
+      await act(async () => {
+        await result.current.copy('text');
+      });
+
+      expect(result.current.copied).toBe(false);
+    });
+  });
+
+  // ── 4. SSR guard ──────────────────────────────────────────────────────────
+
+  describe('SSR guard', () => {
+    it('returns false and calls onError when navigator.clipboard is absent (SSR-like)', async () => {
+      removeClipboard();
+      execCommandSpy.mockReturnValue(false); // also kill fallback
+      const onError = jest.fn();
+
+      const { result } = renderHook(() =>
+        useCopyToClipboard({ onError }),
+      );
+
+      let success: boolean | undefined;
+      await act(async () => {
+        success = await result.current.copy('text');
+      });
+
+      expect(success).toBe(false);
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ── 5. Timer management ───────────────────────────────────────────────────
+
+  describe('timer management', () => {
+    it('clears the existing timer when copy is called again within the delay window', async () => {
+      mockClipboard();
+      const { result } = renderHook(() => useCopyToClipboard({ delay: 1000 }));
+
+      await act(async () => { await result.current.copy('first'); });
+      act(() => { jest.advanceTimersByTime(500); });
+
+      // Second copy while first timer is still running
+      await act(async () => { await result.current.copy('second'); });
+      expect(result.current.copied).toBe(true);
+
+      act(() => { jest.advanceTimersByTime(600); });
+      // 600 ms since second copy — still within its 1000 ms window
+      expect(result.current.copied).toBe(true);
+
+      act(() => { jest.advanceTimersByTime(400); });
+      // 1000 ms since second copy — now reset
+      expect(result.current.copied).toBe(false);
+    });
+
+    it('cleans up the timer on unmount without causing state updates', async () => {
+      mockClipboard();
+      const { result, unmount } = renderHook(() =>
+        useCopyToClipboard({ delay: 1000 }),
+      );
+
+      await act(async () => { await result.current.copy('text'); });
+      expect(result.current.copied).toBe(true);
+
+      unmount();
+
+      // Should not throw or cause act() warnings
+      act(() => { jest.advanceTimersByTime(1000); });
     });
   });
 });
