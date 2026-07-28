@@ -1,5 +1,8 @@
-import { useState, useRef } from 'react';
-import StatusBadge, { StatusType, statusColorMap, statusIconMap } from './StatusBadge';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { StatusType, statusColorMap, statusIconMap } from './StatusBadge';
+import MilestoneRow from './milestones/MilestoneRow';
+import { BulkActionToolbar } from './milestones/BulkActionToolbar';
+import { ConfirmDialog } from './ConfirmDialog';
 import { usePreferences } from '@/lib/preferences';
 import { isDueSoon } from '@/lib/dueSoon';
 import { findCurrencyMismatches, normalizeCurrencyCode } from '@/lib/currencyMismatch';
@@ -14,21 +17,96 @@ export type Milestone = {
   dueDate?: string;
   /** Id of the parent `Contract` this milestone belongs to, when known. */
   contractId?: string;
+  /**
+   * Monotonically-increasing version counter used by the stale-overwrite
+   * guard in the persistence layer. Starts at `1` for new milestones and
+   * increments on each successful upsert. Callers reading from the
+   * repository can pass the stored version back so `upsertMilestone` can
+   * reject writes that would silently overwrite a newer version persisted
+   * by another session tab.
+   */
+  version?: number;
+  createdAt?: string;    
+  updatedAt?: string;    
 };
+
+export const PAGE_SIZE_DEFAULT = 5;
 
 export type MilestonesListProps = {
   milestones: Milestone[];
   contractCurrency?: string;
+  onUpdateMilestone?: (id: string, patch: Partial<Milestone>) => boolean;
+  pageSize?: number;
+  /** Callback when the selection changes. Passes an array of selected milestone ids. */
+  onSelectionChange?: (selectedIds: string[]) => void;
+  /** Callback to export the selected milestones. */
+  onBulkExport?: (selectedMilestones: Milestone[]) => void;
+  /** Callback to delete selected milestones. Should return the number successfully deleted. */
+  onBulkDelete?: (selectedIds: string[]) => number;
+  /** Callback to update the status of selected milestones. Should return the number successfully updated. */
+  onBulkStatusUpdate?: (selectedIds: string[], status: StatusType) => number;
 };
 
 export const REMINDER_WINDOW_DAYS = 7;
 
-const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) => {
-  const { formatAmount } = usePreferences();
+const MilestonesList = ({
+  milestones,
+  contractCurrency,
+  onUpdateMilestone,
+  pageSize = PAGE_SIZE_DEFAULT,
+  onSelectionChange,
+  onBulkExport,
+  onBulkDelete,
+  onBulkStatusUpdate,
+}: MilestonesListProps) => {
+  const { formatAmount, preferences, updatePreference } = usePreferences();
+  const [displayCount, setDisplayCount] = useState(pageSize);
+  const [isDensityAnnounced, setIsDensityAnnounced] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  /**
+   * Tracks which row is currently in inline edit mode. Mutually exclusive —
+   * opening one row closes any other row that was being edited so we never
+   * have two dirty unsaved edit states competing for focus or screen reader
+   * output.
+   */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  /**
+   * Set of selected milestone IDs for multi-select / bulk actions.
+   */
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  /**
+   * Screen-reader announcement text for selection changes.
+   */
+  const [selectionAnnouncement, setSelectionAnnouncement] = useState('');
+  /**
+   * Whether the delete confirmation dialog is open.
+   */
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  /**
+   * Polite live-region message conveyed to assistive technologies after a
+   * save / save-failure. Cleared on the *next* save so repeated messages
+   * are always announced (screen readers intentionally skip repeat strings).
+   */
+  const [announcement, setAnnouncement] = useState('');
+  /**
+   * We force-bump a key on the live region right before writing the message
+   * so ATs re-announce identical strings ("Milestone saved.") on repeat.
+   */
+  const [announcementNonce, setAnnouncementNonce] = useState(0);
+
   const listContainerRef = useRef<HTMLDivElement>(null);
 
+  const isCompact = preferences.milestonesDensity === 'compact';
+
+  // Reset to the first page whenever the underlying list or page size
+  // changes (e.g. a status filter narrows the results).
+  useEffect(() => {
+    setDisplayCount(pageSize);
+  }, [milestones, pageSize]);
+
   const today = new Date();
+  const visibleMilestones = milestones.slice(0, displayCount);
+  const hasMore = displayCount < milestones.length;
 
   const mismatchedMilestoneIds = contractCurrency
     ? new Set(findCurrencyMismatches(contractCurrency, milestones))
@@ -55,10 +133,16 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
     (m) =>
       m.status !== 'Paid' &&
       m.status !== 'Completed' &&
-      isDueSoon(m.dueDate, today, REMINDER_WINDOW_DAYS)
+      isDueSoon(m.dueDate, today, REMINDER_WINDOW_DAYS),
   );
 
   const showBanner = dueSoonMilestones.length > 0 && !isDismissed;
+
+  const handleToggleDensity = () => {
+    const next: 'comfortable' | 'compact' = isCompact ? 'comfortable' : 'compact';
+    updatePreference('milestonesDensity', next);
+    setIsDensityAnnounced(true);
+  };
 
   const handleDismiss = () => {
     setIsDismissed(true);
@@ -66,20 +150,169 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
     listContainerRef.current?.focus();
   };
 
+  const pushAnnouncement = useCallback((message: string) => {
+    setAnnouncement('');
+    // Bump the nonce on the wrapper span so a same-message repeat still
+    // announces (some SRs dedupe on identical text + key).
+    setAnnouncementNonce((n) => n + 1);
+    // Defer the actual write so React mounts a fresh text node first.
+    requestAnimationFrame(() => setAnnouncement(message));
+  }, []);
+
+  const handleSave = useCallback(
+    (id: string, patch: Partial<Milestone>) => {
+      const ok = onUpdateMilestone ? onUpdateMilestone(id, patch) : true;
+      if (ok) {
+        setEditingId(null);
+        // The row component also announces via `onAnnounce`. We deliberately
+        // re-announce here so an `onUpdateMilestone` that returns `true`
+        // still resolves to a "saved" status even if the row's local
+        // announcer was bypassed (e.g. parent owns the milestone copy).
+      } else {
+        pushAnnouncement('Failed to save milestone.');
+      }
+    },
+    [onUpdateMilestone, pushAnnouncement],
+  );
+
+  const handleCancel = useCallback(() => {
+    setEditingId(null);
+    setAnnouncement('');
+  }, []);
+
+  // --------------------------------------------------------------------------
+  // Multi-select handlers
+  // --------------------------------------------------------------------------
+
+  const allSelected = milestones.length > 0 && selectedIds.size === milestones.length;
+  const hasSelection = selectedIds.size > 0;
+
+  const announceSelection = useCallback((ids: Set<string>) => {
+    const count = ids.size;
+    if (count === 0) {
+      requestAnimationFrame(() => setSelectionAnnouncement('Selection cleared'));
+    } else {
+      requestAnimationFrame(() =>
+        setSelectionAnnouncement(`${count} ${count === 1 ? 'milestone' : 'milestones'} selected`),
+      );
+    }
+  }, []);
+
+  const handleToggleSelect = useCallback(
+    (id: string) => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        announceSelection(next);
+        onSelectionChange?.(Array.from(next));
+        return next;
+      });
+    },
+    [onSelectionChange, announceSelection],
+  );
+
+  const handleToggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === milestones.length) {
+        announceSelection(new Set());
+        onSelectionChange?.([]);
+        return new Set();
+      }
+      const all = new Set(milestones.map((m) => m.id));
+      announceSelection(all);
+      onSelectionChange?.(Array.from(all));
+      return all;
+    });
+  }, [milestones, onSelectionChange, announceSelection]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    announceSelection(new Set());
+    onSelectionChange?.([]);
+  }, [onSelectionChange, announceSelection]);
+
+  const handleBulkExport = useCallback(() => {
+    const selected = milestones.filter((m) => selectedIds.has(m.id));
+    onBulkExport?.(selected);
+  }, [milestones, selectedIds, onBulkExport]);
+
+  const handleBulkStatusUpdate = useCallback(
+    (status: StatusType) => {
+      const ids = Array.from(selectedIds);
+      onBulkStatusUpdate?.(ids, status);
+      setSelectedIds(new Set());
+      onSelectionChange?.([]);
+    },
+    [selectedIds, onBulkStatusUpdate, onSelectionChange],
+  );
+
+  const handleDeleteConfirm = useCallback(() => {
+    const ids = Array.from(selectedIds);
+    onBulkDelete?.(ids);
+    setShowDeleteDialog(false);
+    setSelectedIds(new Set());
+    onSelectionChange?.([]);
+  }, [selectedIds, onBulkDelete, onSelectionChange]);
+
+  const isIndeterminate = hasSelection && !allSelected;
+
   return (
     <section aria-labelledby="milestones-title" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between gap-4">
         <h2 id="milestones-title" className="text-xl font-semibold text-slate-900">
           Milestones
         </h2>
-        <span id="milestones-count" className="text-sm text-slate-500">{milestones.length} total</span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleToggleDensity}
+            aria-pressed={isCompact}
+            aria-label={isCompact ? 'Switch to comfortable density' : 'Switch to compact density'}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+          >
+            <svg
+              aria-hidden="true"
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              {isCompact ? (
+                <>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16" />
+                </>
+              ) : (
+                <>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </>
+              )}
+            </svg>
+            {isCompact ? 'Compact' : 'Comfortable'}
+          </button>
+          <span id="milestones-count" className="text-sm text-slate-500">{milestones.length} total</span>
+        </div>
       </div>
+
+      {/* aria-live region: announces density change to screen readers */}
+      <span
+        className="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {isDensityAnnounced ? `Milestones density set to ${isCompact ? 'compact' : 'comfortable'}` : ''}
+      </span>
 
       {tallies.length > 0 && (
         <div
           role="list"
           aria-label="Milestone status summary"
-          className="mt-4 flex flex-wrap gap-2"
+          className={`flex flex-wrap gap-2 ${isCompact ? 'mt-2' : 'mt-4'}`}
         >
           {tallies.map(({ status, count }) => (
             <span
@@ -144,12 +377,38 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
             type="button"
             onClick={handleDismiss}
             aria-label="Dismiss reminder"
-            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 hover:text-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1 dark:text-amber-400 dark:hover:bg-amber-500/10 dark:hover:text-amber-200 transition-colors"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 hover:text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1 dark:text-amber-400 dark:hover:bg-amber-500/10 dark:hover:text-amber-200 transition-colors"
           >
             <span aria-hidden="true" className="text-lg leading-none">&times;</span>
           </button>
         </div>
       )}
+
+      {/* Polite live region for save / save-failure announcements. The wrapping
+          span's `key` (via `key={announcementNonce}`) is bumped on every
+          write so screen readers re-announce identical strings. Controlled
+          entirely from `MilestoneRow.onAnnounce` and the parent save handler. */}
+      <span
+        key={announcementNonce}
+        data-testid="milestones-announcement"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {announcement}
+      </span>
+
+      {/* Screen-reader announcement for selection changes */}
+      <span
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-label="Milestone selection announcements"
+        className="sr-only"
+      >
+        {selectionAnnouncement}
+      </span>
 
       {/*
         Keyboard Accessibility (WCAG 2.1.1):
@@ -166,34 +425,84 @@ const MilestonesList = ({ milestones, contractCurrency }: MilestonesListProps) =
         1. Consistency between SSR and client hydration avoids layout/hydration shifts.
         2. Testability in JSDOM where clientHeight/scrollHeight are always zero.
       */}
+      {milestones.length > 0 && (
+        <div
+          role="group"
+          aria-label="Milestone selection controls"
+          className={`flex items-center ${isCompact ? 'mt-2' : 'mt-4'}`}
+        >
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              ref={(el) => {
+                if (el) el.indeterminate = isIndeterminate;
+              }}
+              onChange={handleToggleSelectAll}
+              aria-checked={isIndeterminate ? 'mixed' : allSelected}
+              aria-label={
+                allSelected
+                  ? 'Deselect all milestones'
+                  : 'Select all milestones'
+              }
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span>{allSelected ? 'Deselect all' : 'Select all'}</span>
+          </label>
+        </div>
+      )}
+
+      <BulkActionToolbar
+        selectedCount={selectedIds.size}
+        totalCount={milestones.length}
+        onClearSelection={handleClearSelection}
+        onExport={handleBulkExport}
+        onStatusUpdate={handleBulkStatusUpdate}
+        onDelete={() => setShowDeleteDialog(true)}
+      />
+
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        title={`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'milestone' : 'milestones'}?`}
+        description={`Are you sure you want to delete ${selectedIds.size} selected ${selectedIds.size === 1 ? 'milestone' : 'milestones'}? This action cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'item' : 'items'}`}
+        tone="destructive"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDeleteDialog(false)}
+      />
+
       <div
         ref={listContainerRef}
         role={milestones.length > 0 ? 'region' : undefined}
         aria-labelledby={milestones.length > 0 ? 'milestones-title milestones-count' : undefined}
         tabIndex={milestones.length > 0 ? 0 : undefined}
-        className="mt-6 space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
+        className={`max-h-[calc(100vh-260px)] overflow-y-auto pr-2 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 ${isCompact ? 'mt-4 space-y-2' : 'mt-6 space-y-4'}`}
       >
-        {milestones.map((milestone) => (
-          <article
+        {visibleMilestones.map((milestone) => (
+          <MilestoneRow
             key={milestone.id}
-            id={`milestone-${milestone.id}`}
-            className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">{milestone.title}</p>
-                <p className="mt-1 text-sm text-slate-500">Due {milestone.dueDate ?? 'TBD'}</p>
-              </div>
-              <StatusBadge status={milestone.status} />
-            </div>
-            <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 text-sm text-slate-600">
-              <p>Payout</p>
-              <p className="font-semibold text-slate-900">
-                {formatAmount(milestone.payout, milestone.currency)}
-              </p>
-            </div>
-          </article>
+            milestone={milestone}
+            isSelected={selectedIds.has(milestone.id)}
+            onToggleSelect={handleToggleSelect}
+            isEditing={editingId === milestone.id}
+            onRequestEdit={() => setEditingId(milestone.id)}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            onAnnounce={pushAnnouncement}
+          />
         ))}
+        {hasMore && (
+          <div className="flex justify-center pt-2">
+            <button
+              type="button"
+              onClick={() => setDisplayCount((prev) => Math.min(prev + pageSize, milestones.length))}
+              data-testid="load-more-btn"
+              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+            >
+              Load More ({milestones.length - displayCount} remaining)
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -14,11 +14,11 @@
  *     - 3 history event rows
  *
  * Accessibility:
- * - `aria-busy="true"` on <main>.
  * - Visually-hidden `role="status"` announces "Loading reputation…".
  * - All shimmer blocks carry `aria-hidden="true"`.
  * - Animation disabled for `prefers-reduced-motion` via globals.css rule
  *   and `motion-reduce:animate-none`.
+ * - Focus management is handled by ReputationLoadingClient wrapper.
  */
 
 // ---------------------------------------------------------------------------
@@ -56,7 +56,7 @@ const ProfileCardSkeleton = () => (
           key={label}
           className="rounded-3xl border border-slate-200 bg-slate-50 p-5 space-y-3"
         >
-          <div className="h-3.5 w-28 rounded bg-slate-200 animate-shimmer motion-reduce:animate-none" />
+          <p className="h-3.5 text-xs font-medium text-slate-500">{label}</p>
           <div className="h-8 w-20 rounded-lg bg-slate-200 animate-shimmer motion-reduce:animate-none" />
         </div>
       ))}

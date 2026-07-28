@@ -1,10 +1,110 @@
 'use client';
 
 import React, { useRef, useEffect } from 'react';
-import { usePreferences, Theme, AmountFormat, ToastDensity } from '@/lib/preferences';
+import { usePreferences, type FormDensity, type UserPreferences } from '@/lib/preferences';
+import { useToast } from '@/components/toast/toast-provider';
+import { reportError } from '@/lib/errorReporter';
 
 const FOCUSABLE_SELECTORS =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function RadioGroup<T extends string>({
+  options,
+  value,
+  onChange,
+  labelId,
+  ariaLabel,
+  containerClassName,
+  textClassName,
+}: {
+  options: readonly T[];
+  value: T;
+  onChange: (val: T) => void;
+  labelId: string;
+  ariaLabel: string;
+  containerClassName: string;
+  textClassName: string;
+}) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(e.key)) {
+      e.preventDefault();
+      const radios = Array.from(e.currentTarget.querySelectorAll('[role="radio"]')) as HTMLButtonElement[];
+      const currentIndex = options.indexOf(value);
+      const nextIndex =
+        e.key === 'ArrowRight' || e.key === 'ArrowDown'
+          ? (currentIndex + 1) % options.length
+          : (currentIndex - 1 + options.length) % options.length;
+
+      onChange(options[nextIndex]);
+      radios[nextIndex]?.focus();
+    }
+  };
+
+  return (
+    <div
+      className={containerClassName}
+      role="radiogroup"
+      aria-labelledby={labelId}
+      aria-label={ariaLabel}
+      onKeyDown={handleKeyDown}
+    >
+      {options.map((option) => (
+        <button
+          key={option}
+          onClick={() => onChange(option)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onChange(option);
+            }
+          }}
+          role="radio"
+          aria-checked={value === option}
+          tabIndex={value === option ? 0 : -1}
+          className={`px-3 py-2 text-sm rounded-md border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 ${textClassName} ${
+            value === option
+              ? 'border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]'
+              : 'border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]'
+          }`}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export class ThemeErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    reportError(error, 'ThemeErrorBoundary');
+  }
+
+  reset = () => this.setState({ hasError: false });
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div role="alert" className="p-4 border border-[var(--destructive)] rounded-md bg-[var(--destructive)]/10 text-sm space-y-3 my-4">
+          <p className="text-[var(--destructive)] font-medium">Theme section failed to load.</p>
+          <button 
+            onClick={this.reset}
+            className="px-3 py-1.5 bg-[var(--surface)] border border-[var(--destructive)] text-[var(--destructive)] rounded-md hover:opacity-80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--destructive)] focus-visible:ring-offset-2 font-medium"
+            aria-label="Retry loading theme section"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -13,7 +113,17 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const { preferences, updatePreference } = usePreferences();
+  const { showError } = useToast();
   const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleUpdate = async <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
+    try {
+      await updatePreference(key, value);
+    } catch {
+      showError({ title: 'Failed to update settings. Please try again.' });
+    }
+  };
 
   /**
    * Focus management effect for modal dialog accessibility.
@@ -27,6 +137,12 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     if (!isOpen) return;
     const panel = panelRef.current;
     if (!panel) return;
+
+    // Save whatever held focus before the panel opened so it can be
+    // restored on close (WCAG 2.1 SC 3.2.2), mirroring the restoreFocus
+    // behaviour of useDialogFocusTrap without depending on the hook itself.
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     // Set initial focus to the close button
     const closeBtn = panel.querySelector<HTMLElement>('[aria-label="Close settings"]');
@@ -53,7 +169,10 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previouslyFocused?.focus();
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -72,16 +191,19 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-panel-title"
+        tabIndex={-1}
         className="relative w-full max-w-md bg-[var(--background)] shadow-xl flex flex-col h-full border-l border-[var(--border)]"
       >
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
           <h2 id="settings-panel-title" className="text-xl font-bold text-[var(--foreground)]">Settings</h2>
           <button 
+            type="button"
+            ref={closeButtonRef}
             onClick={onClose}
             className="p-2 rounded-full hover:bg-[var(--accent)] text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
             aria-label="Close settings"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg aria-hidden="true" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -93,46 +215,32 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             <h3 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Appearance</h3>
             
             <div className="space-y-4">
-              <div>
-                <label id="theme-label" className="block text-sm font-medium mb-2 text-[var(--foreground)]">Theme</label>
-                <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-labelledby="theme-label" aria-label="Theme">
-                  {(['light', 'dark', 'system'] as Theme[]).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => updatePreference('theme', t)}
-                      role="radio"
-                      aria-checked={preferences.theme === t}
-                      className={`px-3 py-2 text-sm rounded-md border capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 ${
-                        preferences.theme === t 
-                          ? 'border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]' 
-                          : 'border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
+              <ThemeErrorBoundary>
+                <div>
+                  <label id="theme-label" className="block text-sm font-medium mb-2 text-[var(--foreground)]">Theme</label>
+                  <RadioGroup
+                    options={['light', 'dark', 'system'] as const}
+                    value={preferences.theme}
+                    onChange={(val) => handleUpdate('theme', val)}
+                    labelId="theme-label"
+                    ariaLabel="Theme"
+                    containerClassName="grid grid-cols-3 gap-2"
+                    textClassName="capitalize"
+                  />
                 </div>
-              </div>
+              </ThemeErrorBoundary>
 
               <div>
                 <label id="currency-label" className="block text-sm font-medium mb-2 text-[var(--foreground)]">Currency Display</label>
-                <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-labelledby="currency-label" aria-label="Currency Display">
-                  {(['usd', 'ngn', 'compact'] as AmountFormat[]).map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => updatePreference('amountFormat', f)}
-                      role="radio"
-                      aria-checked={preferences.amountFormat === f}
-                      className={`px-3 py-2 text-sm rounded-md border uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 ${
-                        preferences.amountFormat === f 
-                          ? 'border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]' 
-                          : 'border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]'
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
+                <RadioGroup
+                  options={['usd', 'ngn', 'compact'] as const}
+                  value={preferences.amountFormat}
+                  onChange={(val) => handleUpdate('amountFormat', val)}
+                  labelId="currency-label"
+                  ariaLabel="Currency Display"
+                  containerClassName="grid grid-cols-3 gap-2"
+                  textClassName="uppercase"
+                />
               </div>
             </div>
           </section>
@@ -144,16 +252,29 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             <div className="space-y-4">
               <div>
                 <label id="density-label" className="block text-sm font-medium mb-2 text-[var(--foreground)]">Toast Density</label>
-                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="density-label" aria-label="Toast Density">
-                  {(['relaxed', 'compact'] as ToastDensity[]).map((d) => (
+                <RadioGroup
+                  options={['relaxed', 'compact'] as const}
+                  value={preferences.toastDensity}
+                  onChange={(val) => handleUpdate('toastDensity', val)}
+                  labelId="density-label"
+                  ariaLabel="Toast Density"
+                  containerClassName="grid grid-cols-2 gap-2"
+                  textClassName="capitalize"
+                />
+              </div>
+
+              <div>
+                <label id="form-density-label" className="block text-sm font-medium mb-2 text-[var(--foreground)]">Form Density</label>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="form-density-label" aria-label="Form Density">
+                  {(['comfortable', 'compact'] as FormDensity[]).map((d) => (
                     <button
                       key={d}
-                      onClick={() => updatePreference('toastDensity', d)}
+                      onClick={() => handleUpdate('formDensity', d)}
                       role="radio"
-                      aria-checked={preferences.toastDensity === d}
+                      aria-checked={preferences.formDensity === d}
                       className={`px-3 py-2 text-sm rounded-md border capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 ${
-                        preferences.toastDensity === d 
-                          ? 'border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]' 
+                        preferences.formDensity === d
+                          ? 'border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]'
                           : 'border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--muted-foreground)]'
                       }`}
                     >
@@ -169,7 +290,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   <p className="text-xs text-[var(--muted-foreground)]">Suppress success notifications</p>
                 </div>
                 <button
-                  onClick={() => updatePreference('quietMode', !preferences.quietMode)}
+                  onClick={() => handleUpdate('quietMode', !preferences.quietMode)}
                   role="switch"
                   aria-checked={preferences.quietMode}
                   aria-labelledby="quiet-mode-label"

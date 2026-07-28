@@ -35,7 +35,12 @@ export function useDialogFocusTrap({
 
     triggerRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    initialFocusRef.current?.focus();
+
+    if (initialFocusRef.current instanceof HTMLElement) {
+      initialFocusRef.current.focus();
+    } else if (dialogRef.current instanceof HTMLElement) {
+      dialogRef.current.focus();
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -72,9 +77,15 @@ export function useDialogFocusTrap({
       document.removeEventListener('keydown', handleKeyDown);
 
       const trigger = triggerRef.current;
-      if (restoreFocus && trigger && document.contains(trigger)) {
-        trigger.focus();
+      if (restoreFocus) {
+        if (trigger && document.contains(trigger)) {
+          trigger.focus();
+        } else {
+          const fallbackTarget = document.querySelector<HTMLElement>('main, h1[tabindex="-1"], h1');
+          fallbackTarget?.focus();
+        }
       }
     };
   }, [dialogRef, initialFocusRef, isOpen, onEscape, restoreFocus]);
 }
+

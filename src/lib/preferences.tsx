@@ -1,12 +1,14 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { getItem, setItem } from './safeStorage';
 
 export type Theme = 'light' | 'dark' | 'system';
 export type AmountFormat = 'usd' | 'ngn' | 'compact';
 export type ToastDensity = 'relaxed' | 'compact';
+export type FormDensity = 'comfortable' | 'compact';
+export type ListDensity = 'comfortable' | 'compact';
 /**
  * Controls the default auto-dismiss duration for toasts when the caller does
  * not supply an explicit `duration`.
@@ -49,6 +51,9 @@ export interface UserPreferences {
   theme: Theme;
   amountFormat: AmountFormat;
   toastDensity: ToastDensity;
+  formDensity: FormDensity;
+  milestonesDensity: ListDensity;
+  walletDensity: ListDensity;
   quietMode: boolean;
   toastDuration: ToastDuration;
   /**
@@ -62,6 +67,9 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'system',
   amountFormat: 'usd',
   toastDensity: 'relaxed',
+  formDensity: 'comfortable',
+  milestonesDensity: 'comfortable',
+  walletDensity: 'comfortable',
   quietMode: false,
   toastDuration: 'normal',
   idleDisconnectMs: 0,
@@ -77,6 +85,9 @@ const KNOWN_KEYS: ReadonlySet<keyof UserPreferences> = new Set([
   'theme',
   'amountFormat',
   'toastDensity',
+  'formDensity',
+  'milestonesDensity',
+  'walletDensity',
   'quietMode',
   'toastDuration',
   'idleDisconnectMs',
@@ -99,11 +110,13 @@ const DANGEROUS_KEYS: ReadonlySet<string> = new Set(['__proto__', 'constructor',
 const ALLOWED_THEMES: ReadonlySet<Theme> = new Set(['light', 'dark', 'system']);
 const ALLOWED_AMOUNT_FORMATS: ReadonlySet<AmountFormat> = new Set(['usd', 'ngn', 'compact']);
 const ALLOWED_TOAST_DENSITIES: ReadonlySet<ToastDensity> = new Set(['relaxed', 'compact']);
+const ALLOWED_FORM_DENSITIES: ReadonlySet<FormDensity> = new Set(['comfortable', 'compact']);
+const ALLOWED_LIST_DENSITIES: ReadonlySet<ListDensity> = new Set(['comfortable', 'compact']);
 const ALLOWED_TOAST_DURATIONS: ReadonlySet<ToastDuration> = new Set(['short', 'normal', 'long', 'persistent']);
 
 interface PreferencesContextType {
   preferences: UserPreferences;
-  updatePreference: <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => void;
+  updatePreference: <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => Promise<void>;
   formatAmount: (amount: number, currency?: string) => string;
 }
 
@@ -150,6 +163,9 @@ export function sanitizePreferences(raw: unknown): UserPreferences {
   let theme: Theme = DEFAULT_PREFERENCES.theme;
   let amountFormat: AmountFormat = DEFAULT_PREFERENCES.amountFormat;
   let toastDensity: ToastDensity = DEFAULT_PREFERENCES.toastDensity;
+  let formDensity: FormDensity = DEFAULT_PREFERENCES.formDensity;
+  let milestonesDensity: ListDensity = DEFAULT_PREFERENCES.milestonesDensity;
+  let walletDensity: ListDensity = DEFAULT_PREFERENCES.walletDensity;
   let quietMode: boolean = DEFAULT_PREFERENCES.quietMode;
   let toastDuration: ToastDuration = DEFAULT_PREFERENCES.toastDuration;
   let idleDisconnectMs: number = DEFAULT_PREFERENCES.idleDisconnectMs;
@@ -184,6 +200,21 @@ export function sanitizePreferences(raw: unknown): UserPreferences {
           toastDensity = value as ToastDensity;
         }
         break;
+      case 'formDensity':
+        if (typeof value === 'string' && ALLOWED_FORM_DENSITIES.has(value as FormDensity)) {
+          formDensity = value as FormDensity;
+        }
+        break;
+      case 'milestonesDensity':
+        if (typeof value === 'string' && ALLOWED_LIST_DENSITIES.has(value as ListDensity)) {
+          milestonesDensity = value as ListDensity;
+        }
+        break;
+      case 'walletDensity':
+        if (typeof value === 'string' && ALLOWED_LIST_DENSITIES.has(value as ListDensity)) {
+          walletDensity = value as ListDensity;
+        }
+        break;
       case 'quietMode':
         if (typeof value === 'boolean') {
           quietMode = value;
@@ -208,7 +239,17 @@ export function sanitizePreferences(raw: unknown): UserPreferences {
     }
   }
 
-  return { theme, amountFormat, toastDensity, quietMode, toastDuration, idleDisconnectMs };
+  return {
+    theme,
+    amountFormat,
+    toastDensity,
+    formDensity,
+    milestonesDensity,
+    walletDensity,
+    quietMode,
+    toastDuration,
+    idleDisconnectMs,
+  };
 }
 
 /**
@@ -220,6 +261,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [isHydrated, setIsHydrated] = useState(false);
   const systemPrefersDark = useMediaQuery('(prefers-color-scheme: dark)');
+  const pendingUpdates = useRef<Record<string, number>>({});
 
   // Load from localStorage on mount. Every value is routed through
   // `sanitizePreferences` so tampered, corrupted, or prototype-polluting
@@ -262,8 +304,29 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     applyTheme(preferences.theme);
   }, [preferences.theme, systemPrefersDark]);
 
-  const updatePreference = <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
+  const updatePreference = async <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
+    const previous = preferences[key];
+    const currentReq = (pendingUpdates.current[key as string] || 0) + 1;
+    pendingUpdates.current[key as string] = currentReq;
+
     setPreferences(prev => ({ ...prev, [key]: value }));
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        setTimeout(() => {
+          if (typeof window !== 'undefined' && (window as any).__SIMULATE_SETTINGS_ERROR) {
+            reject(new Error('Failed to save settings'));
+          } else {
+            resolve();
+          }
+        }, 600);
+      });
+    } catch (error) {
+      if (pendingUpdates.current[key as string] === currentReq) {
+        setPreferences(prev => ({ ...prev, [key]: previous }));
+      }
+      throw error;
+    }
   };
 
   /**
@@ -307,7 +370,7 @@ export function usePreferences() {
     // Return default preferences if used outside a provider (useful for testing)
     return {
       preferences: DEFAULT_PREFERENCES,
-      updatePreference: () => {},
+      updatePreference: async () => {},
       formatAmount: (amount: number, currency: string = 'USD') => 
         safeCurrencyFormat(amount, currency, 'en-US'),
     };

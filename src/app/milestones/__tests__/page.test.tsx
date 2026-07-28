@@ -1,9 +1,41 @@
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MilestonesPage, { SAMPLE_MILESTONES, SAMPLE_DISMISSED_KEY } from '../page';
+import { listMilestones } from '@/lib/repository';
+import * as repository from '@/lib/repository';
+import MilestonesPage from '../page';
+import { SAMPLE_MILESTONES, SAMPLE_DISMISSED_KEY } from '../constants';
 import { listMilestones, saveMilestone } from '@/lib/repository';
 import type { Milestone } from '@/types/domain';
+
+// ---------------------------------------------------------------------------
+// useCopyToClipboard mock — MilestoneCard uses useCopyToClipboard for IDs
+// These mutable variables let tests control the hook's return value and
+// the callback behaviour per-test without touching the jest.mock factory.
+// ---------------------------------------------------------------------------
+
+let mockCopied = false;
+/** Resolve value of the mock copy function (true = success, false = failure). */
+let mockCopySuccess = true;
+
+const mockUseCopyToClipboard = jest.fn();
+
+jest.mock('@/hooks/useCopyToClipboard', () => ({
+  useCopyToClipboard: (options: any) => mockUseCopyToClipboard(options),
+}));
+
+// ---------------------------------------------------------------------------
+// Toast mock — MilestonesList uses useToast for copy feedback, and the page
+// uses it for the create-milestone rollback error.
+// ---------------------------------------------------------------------------
+
+const mockShowSuccess = jest.fn();
+const mockShowError = jest.fn();
+
+jest.mock('@/components/toast/toast-provider', () => ({
+  useToast: () => ({ showSuccess: mockShowSuccess, showError: mockShowError }),
+}));
 
 // ---------------------------------------------------------------------------
 // Navigation mocks
@@ -26,11 +58,13 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('@/lib/repository', () => ({
   listMilestones: jest.fn(),
-  saveMilestone: jest.fn(),
+  upsertMilestone: jest.fn(() => ({ success: true, stale: false })),
+  getMilestoneVersion: jest.fn(() => 0),
+  deleteMilestones: jest.fn(() => 0),
 }));
 
 const mockedListMilestones = jest.mocked(listMilestones);
-const mockedSaveMilestone = jest.mocked(saveMilestone);
+const mockedUpsertMilestone = jest.mocked(repository.upsertMilestone);
 
 // ---------------------------------------------------------------------------
 // Fixture data
@@ -56,7 +90,7 @@ const persistedMilestones: Milestone[] = [
 ];
 
 const mixedMilestones: Milestone[] = [
-  { id: 'm-1', title: 'Active Work',      status: 'Active',    payout: 1000, currency: 'USD', dueDate: '2026-08-01' },
+  { id: 'm-1', title: 'Active Work',      status: 'Active',    payout: 1000, currency: 'USD', dueDate: '2026-09-01' },
   { id: 'm-2', title: 'Pending Task',     status: 'Pending',   payout: 2000, currency: 'USD', dueDate: '2026-08-10' },
   { id: 'm-3', title: 'Done Milestone',   status: 'Completed', payout: 3000, currency: 'USD', dueDate: '2026-06-01' },
   { id: 'm-4', title: 'Settled Payment',  status: 'Paid',      payout: 4000, currency: 'USD', dueDate: '2026-06-15' },
@@ -86,7 +120,20 @@ beforeEach(() => {
     advanceTimers: true,
   });
   mockedListMilestones.mockReturnValue([]);
-  mockedSaveMilestone.mockImplementation(() => {});
+  mockedUpsertMilestone.mockReturnValue({ success: true, stale: false });
+  mockCopied = false;
+  mockCopySuccess = true;
+  mockUseCopyToClipboard.mockImplementation((options) => ({
+    copied: mockCopied,
+    copy: jest.fn().mockImplementation(async () => {
+      if (mockCopySuccess) {
+        options?.onSuccess?.();
+      } else {
+        options?.onError?.(new Error('fail'));
+      }
+      return mockCopySuccess;
+    }),
+  }));
   window.localStorage.clear();
   mockSearchParams.get.mockReturnValue(null);
   mockSearchParams.toString.mockReturnValue('');
@@ -104,6 +151,47 @@ afterEach(() => {
 // ===========================================================================
 
 describe('MilestonesPage — core rendering', () => {
+  it('adds a milestone optimistically and keeps it visible on success', async () => {
+    const user = userEvent.setup();
+    render(<MilestonesPage />);
+
+    await user.click(screen.getAllByRole('button', { name: /add milestone/i })[0]);
+
+    await user.type(screen.getByLabelText(/title/i), 'Launch sprint');
+    await user.type(screen.getByLabelText(/payout amount/i), '1200');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^add milestone$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Launch sprint')).toBeInTheDocument();
+    });
+    expect(mockedUpsertMilestone).toHaveBeenCalledTimes(1);
+    expect(mockShowError).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the optimistic milestone and shows an error toast on save failure', async () => {
+    const user = userEvent.setup();
+    mockedUpsertMilestone.mockReturnValue({ success: false, stale: false });
+    render(<MilestonesPage />);
+
+    await user.click(screen.getAllByRole('button', { name: /add milestone/i })[0]);
+
+    await user.type(screen.getByLabelText(/title/i), 'Launch sprint');
+    await user.type(screen.getByLabelText(/payout amount/i), '1200');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^add milestone$/i }));
+
+    await waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Unable to create milestone',
+          description: 'Your milestone could not be saved. Please try again.',
+        }),
+      );
+    });
+
+    expect(screen.getByText('Project Kickoff & Discovery')).toBeInTheDocument();
+    expect(screen.queryByText('Launch sprint')).not.toBeInTheDocument();
+  });
+
   it('renders persisted milestones from the repository after client load', async () => {
     mockedListMilestones.mockReturnValue(persistedMilestones);
 
@@ -684,5 +772,206 @@ describe('exported constants', () => {
   it('SAMPLE_MILESTONES covers multiple statuses', () => {
     const statuses = new Set(SAMPLE_MILESTONES.map((m) => m.status));
     expect(statuses.size).toBeGreaterThan(1);
+  });
+});
+
+// ===========================================================================
+// 10. Focus management — issue #682
+// ===========================================================================
+
+describe('MilestonesPage — focus management (issue #682)', () => {
+  // -------------------------------------------------------------------------
+  // Landmark structure
+  // -------------------------------------------------------------------------
+
+  describe('landmark structure', () => {
+    it('does NOT render a nested <main> element (single-main-landmark rule)', async () => {
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
+
+      // The page component must NOT introduce a <main> — the root layout owns
+      // the sole <main id="main-content"> and RouteAnnouncer focuses it on
+      // every route transition (WCAG 2.4.3).
+      const mains = document.querySelectorAll('main');
+      expect(mains).toHaveLength(0);
+    });
+
+    it('renders the page heading as <h1> inside the layout <main> boundary', async () => {
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
+
+      const h1 = screen.getByRole('heading', { name: /milestones/i, level: 1 });
+      expect(h1).toBeInTheDocument();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Dialog open — focus moves to the Title input
+  // -------------------------------------------------------------------------
+
+  describe('dialog open focus', () => {
+    it('moves focus to the Title field when the toolbar "Add Milestone" button is clicked', async () => {
+      const user = userEvent.setup();
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
+
+      await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
+
+      const addBtn = screen.getByRole('button', { name: /add milestone/i });
+      await user.click(addBtn);
+
+      await waitFor(() =>
+        expect(screen.getByRole('textbox', { name: /^title/i })).toHaveFocus(),
+      );
+    });
+
+    it('moves focus to the Title field when the EmptyState "Add Milestone" action is clicked', async () => {
+      const user = userEvent.setup();
+      window.localStorage.setItem(SAMPLE_DISMISSED_KEY, 'true');
+      mockedListMilestones.mockReturnValue([]);
+      await renderPage();
+
+      await waitFor(() => expect(screen.getByText('No milestones tracked')).toBeInTheDocument());
+
+      const addBtn = screen.getByRole('button', { name: /add milestone/i });
+      await user.click(addBtn);
+
+      await waitFor(() =>
+        expect(screen.getByRole('textbox', { name: /^title/i })).toHaveFocus(),
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Dialog close — focus returns to trigger
+  // -------------------------------------------------------------------------
+
+  describe('dialog close focus restoration', () => {
+    it('returns focus to the "Add Milestone" button when Escape closes the dialog', async () => {
+      const user = userEvent.setup();
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
+
+      await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
+
+      const addBtn = screen.getByRole('button', { name: /add milestone/i });
+      await user.click(addBtn);
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(addBtn).toHaveFocus();
+      });
+    });
+
+    it('returns focus to the "Add Milestone" button when Cancel closes the dialog', async () => {
+      const user = userEvent.setup();
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
+
+      await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
+
+      const addBtn = screen.getByRole('button', { name: /add milestone/i });
+      await user.click(addBtn);
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(addBtn).toHaveFocus();
+      });
+    });
+
+    it('returns focus to the trigger after a successful milestone submission', async () => {
+      const user = userEvent.setup();
+      const newMilestone: Milestone = {
+        id: 'new-focus-1',
+        title: 'New Focus Test',
+        status: 'Pending',
+        payout: 500,
+        currency: 'USD',
+      };
+      mockedListMilestones
+        .mockReturnValueOnce(persistedMilestones)
+        .mockReturnValue([...persistedMilestones, newMilestone]);
+      mockedUpsertMilestone.mockImplementation(() => ({ success: true, stale: false }));
+
+      await renderPage();
+      await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
+
+      // Capture the toolbar trigger before opening the dialog
+      const addBtn = screen.getByRole('button', { name: /add milestone/i });
+      await user.click(addBtn);
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+      // Scope form queries inside the dialog to avoid the toolbar button clash
+      const dialog = screen.getByRole('dialog');
+      await user.type(screen.getByRole('textbox', { name: /^title/i }), 'New Focus Test');
+      await user.type(screen.getByRole('textbox', { name: /payout amount/i }), '500');
+      // Click the submit button scoped inside the dialog
+      const submitBtn = dialog.querySelector('button[type="submit"]') as HTMLButtonElement;
+      await user.click(submitBtn);
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        // Focus must return to the toolbar "Add Milestone" button via restoreFocus
+        expect(addBtn).toHaveFocus();
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Focus trap inside dialog
+  // -------------------------------------------------------------------------
+
+  describe('focus trap inside the milestone dialog', () => {
+    it('Tab wraps from the last control back to the first without leaving the dialog', async () => {
+      const user = userEvent.setup();
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
+
+      await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
+
+      await user.click(screen.getByRole('button', { name: /add milestone/i }));
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+      const dialog = screen.getByRole('dialog');
+      const title = screen.getByRole('textbox', { name: /^title/i });
+      // Scope submit button to the dialog to avoid clash with toolbar button
+      const submitBtn = dialog.querySelector('button[type="submit"]') as HTMLButtonElement;
+
+      // Move focus to the submit button (last focusable)
+      submitBtn.focus();
+      await user.tab();
+
+      // Focus must wrap back to the first focusable element inside the dialog
+      expect(title).toHaveFocus();
+    });
+
+    it('Shift+Tab wraps from the first control back to the last without leaving the dialog', async () => {
+      const user = userEvent.setup();
+      mockedListMilestones.mockReturnValue(persistedMilestones);
+      await renderPage();
+
+      await waitFor(() => expect(screen.getByText('Repository Kickoff')).toBeInTheDocument());
+
+      await user.click(screen.getByRole('button', { name: /add milestone/i }));
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+      const dialog = screen.getByRole('dialog');
+      const title = screen.getByRole('textbox', { name: /^title/i });
+      // Scope submit button to the dialog to avoid clash with toolbar button
+      const submitBtn = dialog.querySelector('button[type="submit"]') as HTMLButtonElement;
+
+      // Focus starts on the title input (initial focus set by useDialogFocusTrap)
+      expect(title).toHaveFocus();
+      await user.tab({ shift: true });
+
+      // Focus must wrap to the last focusable element inside the dialog
+      expect(submitBtn).toHaveFocus();
+    });
   });
 });
