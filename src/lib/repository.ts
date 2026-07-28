@@ -637,6 +637,30 @@ export function saveWalletItem(item: WalletItem): void {
 }
 
 /**
+ * Updates a wallet item identified by `id` with the provided `patch`.
+ *
+ * @param id - The unique identifier of the wallet item to update.
+ * @param patch - A partial `WalletItem` object with the fields to merge.
+ * @returns `true` when the update is persisted successfully; `false` if the
+ *   id was not found or the write failed.
+ */
+export function updateWalletItem(id: string, patch: Partial<WalletItem>): boolean {
+  const store = readStore();
+  const index = store.walletItems.findIndex((item) => item.id === id);
+
+  if (index === -1) {
+    console.warn(`[repository] updateWalletItem: No wallet item found with id '${id}'.`);
+    return false;
+  }
+
+  const updatedWalletItems = store.walletItems.map((item, i) =>
+    i === index ? { ...item, ...patch } : item,
+  );
+
+  return writeStore({ ...store, walletItems: updatedWalletItems });
+}
+
+/**
  * Deletes wallet items matching the given array of IDs.
  *
  * @param ids - Array of wallet item IDs to remove.

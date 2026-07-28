@@ -888,6 +888,10 @@ describe('a11y: WalletItemList - keyboard navigation', () => {
     
     await user.tab();
     expect(itemCheckbox).toHaveFocus();
+
+    // Edit button is now between checkbox and delete in tab order
+    await user.tab();
+    expect(screen.getByTestId('edit-item-btn-w-1')).toHaveFocus();
     
     await user.tab();
     expect(deleteBtns[0]).toHaveFocus();

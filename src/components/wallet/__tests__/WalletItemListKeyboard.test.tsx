@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { WalletItemList } from '../WalletItemList';
@@ -57,7 +57,7 @@ describe('WalletItemList — keyboard operation', () => {
     expect(screen.getByTestId('select-all-checkbox')).toHaveFocus();
   });
 
-  it('tabs through row checkboxes in order', async () => {
+  it('tabs through row focusables in order', async () => {
     const user = userEvent.setup();
     render(
       <WalletItemList
@@ -65,20 +65,28 @@ describe('WalletItemList — keyboard operation', () => {
         selectedIds={new Set()}
         onToggleSelect={jest.fn()}
         onToggleSelectAll={jest.fn()}
+        onDeleteItem={jest.fn()}
       />
     );
 
     await user.tab();
     expect(screen.getByTestId('select-all-checkbox')).toHaveFocus();
 
+    // Each row: checkbox → edit → delete
     await user.tab();
     expect(screen.getByTestId('select-item-checkbox-w-1')).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByTestId('edit-item-btn-w-1')).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Delete Stellar Lumens (XLM)' })).toHaveFocus();
 
     await user.tab();
     expect(screen.getByTestId('select-item-checkbox-w-2')).toHaveFocus();
 
     await user.tab();
-    expect(screen.getByTestId('select-item-checkbox-w-3')).toHaveFocus();
+    expect(screen.getByTestId('edit-item-btn-w-2')).toHaveFocus();
   });
 
   it('Space key toggles individual selection checkbox', async () => {
@@ -151,7 +159,8 @@ describe('WalletItemList — keyboard operation', () => {
       />
     );
 
-    // tab through select-all, row 1 checkbox, row 1 delete, row 2 checkbox, row 2 delete, row 3 checkbox, row 3 delete
+    // tab through select-all, row 1 checkbox, row 1 edit, row 1 delete
+    await user.tab();
     await user.tab();
     await user.tab();
     await user.tab();
@@ -276,7 +285,7 @@ describe('WalletItemList — keyboard operation', () => {
   });
 
   describe('logical focus order', () => {
-    it('focus order follows table column-major DOM order: select-all, row checkboxes, then row delete buttons', () => {
+    it('focus order follows table DOM order: per row — checkbox, edit, delete', () => {
       render(
         <WalletItemList
           items={ITEMS}
@@ -287,23 +296,26 @@ describe('WalletItemList — keyboard operation', () => {
         />
       );
 
-      // In a table, focusable elements follow DOM order which is column-major:
-      // all checkboxes first (from thead + tbody), then all delete buttons
-      const allCheckboxes = screen.getAllByRole('checkbox');
-      const allButtons = screen.getAllByRole('button');
-      const focusableOrder = [...allCheckboxes, ...allButtons];
+      // Query all focusable elements in DOM order within the table
+      const table = screen.getByRole('table');
+      const focusableElements = table.querySelectorAll<HTMLElement>(
+        'input[type="checkbox"], button',
+      );
 
-      const actualLabels = focusableOrder
+      const actualLabels = Array.from(focusableElements)
         .filter(el => el.getAttribute('aria-label'))
         .map(el => el.getAttribute('aria-label'));
 
       const expectedLabels = [
         'Select all wallet items',
         'Select Stellar Lumens (XLM)',
-        'Select USD Coin (USDC)',
-        'Select Archived Client Token',
+        'Edit Stellar Lumens (XLM)',
         'Delete Stellar Lumens (XLM)',
+        'Select USD Coin (USDC)',
+        'Edit USD Coin (USDC)',
         'Delete USD Coin (USDC)',
+        'Select Archived Client Token',
+        'Edit Archived Client Token',
         'Delete Archived Client Token',
       ];
 
@@ -323,6 +335,130 @@ describe('WalletItemList — keyboard operation', () => {
       );
 
       expect(container.firstChild).toBeNull();
+    });
+  });
+
+  describe('edit mode', () => {
+    it('renders edit button for each item', () => {
+      render(
+        <WalletItemList
+          items={ITEMS}
+          selectedIds={new Set()}
+          onToggleSelect={jest.fn()}
+          onToggleSelectAll={jest.fn()}
+          onEditItem={jest.fn()}
+          onSaveEdit={jest.fn()}
+          onCancelEdit={jest.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('edit-item-btn-w-1')).toBeInTheDocument();
+      expect(screen.getByTestId('edit-item-btn-w-2')).toBeInTheDocument();
+      expect(screen.getByTestId('edit-item-btn-w-3')).toBeInTheDocument();
+    });
+
+    it('shows form inputs for the row being edited', () => {
+      render(
+        <WalletItemList
+          items={ITEMS}
+          selectedIds={new Set()}
+          onToggleSelect={jest.fn()}
+          onToggleSelectAll={jest.fn()}
+          editingId="w-1"
+          onEditItem={jest.fn()}
+          onSaveEdit={jest.fn()}
+          onCancelEdit={jest.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('edit-name-input-w-1')).toBeInTheDocument();
+      expect(screen.getByTestId('edit-type-input-w-1')).toBeInTheDocument();
+      expect(screen.getByTestId('edit-balance-input-w-1')).toBeInTheDocument();
+      expect(screen.getByTestId('edit-currency-input-w-1')).toBeInTheDocument();
+      expect(screen.getByTestId('edit-status-select-w-1')).toBeInTheDocument();
+      expect(screen.getByTestId('save-edit-btn-w-1')).toBeInTheDocument();
+      expect(screen.getByTestId('cancel-edit-btn-w-1')).toBeInTheDocument();
+
+      // Other rows still in view mode
+      expect(screen.queryByTestId('edit-name-input-w-2')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('edit-name-input-w-3')).not.toBeInTheDocument();
+    });
+
+    it('calls onEditItem when edit button is clicked', () => {
+      const onEditItem = jest.fn();
+      render(
+        <WalletItemList
+          items={ITEMS}
+          selectedIds={new Set()}
+          onToggleSelect={jest.fn()}
+          onToggleSelectAll={jest.fn()}
+          onEditItem={onEditItem}
+          onSaveEdit={jest.fn()}
+          onCancelEdit={jest.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('edit-item-btn-w-1'));
+      expect(onEditItem).toHaveBeenCalledWith('w-1');
+    });
+
+    it('calls onSaveEdit when Save is clicked', () => {
+      const onSaveEdit = jest.fn();
+      render(
+        <WalletItemList
+          items={ITEMS}
+          selectedIds={new Set()}
+          onToggleSelect={jest.fn()}
+          onToggleSelectAll={jest.fn()}
+          editingId="w-1"
+          onEditItem={jest.fn()}
+          onSaveEdit={onSaveEdit}
+          onCancelEdit={jest.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('save-edit-btn-w-1'));
+      expect(onSaveEdit).toHaveBeenCalledWith('w-1', expect.objectContaining({ name: 'Stellar Lumens (XLM)' }));
+    });
+
+    it('calls onCancelEdit when Cancel is clicked', () => {
+      const onCancelEdit = jest.fn();
+      render(
+        <WalletItemList
+          items={ITEMS}
+          selectedIds={new Set()}
+          onToggleSelect={jest.fn()}
+          onToggleSelectAll={jest.fn()}
+          editingId="w-1"
+          onEditItem={jest.fn()}
+          onSaveEdit={jest.fn()}
+          onCancelEdit={onCancelEdit}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('cancel-edit-btn-w-1'));
+      expect(onCancelEdit).toHaveBeenCalledWith('w-1');
+    });
+
+    it('editing row has data-editing attribute', () => {
+      render(
+        <WalletItemList
+          items={ITEMS}
+          selectedIds={new Set()}
+          onToggleSelect={jest.fn()}
+          onToggleSelectAll={jest.fn()}
+          editingId="w-1"
+          onEditItem={jest.fn()}
+          onSaveEdit={jest.fn()}
+          onCancelEdit={jest.fn()}
+        />
+      );
+
+      const row = screen.getByTestId('wallet-item-row-w-1');
+      expect(row).toHaveAttribute('data-editing', 'true');
+
+      const row2 = screen.getByTestId('wallet-item-row-w-2');
+      expect(row2).not.toHaveAttribute('data-editing');
     });
   });
 });

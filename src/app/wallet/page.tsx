@@ -5,7 +5,7 @@ import EmptyState from '../../components/EmptyState';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { WalletBulkToolbar } from '../../components/wallet/WalletBulkToolbar';
 import { WalletItemList } from '../../components/wallet/WalletItemList';
-import { listWalletItems, saveWalletItem, deleteWalletItems } from '@/lib/repository';
+import { listWalletItems, saveWalletItem, updateWalletItem, deleteWalletItems } from '@/lib/repository';
 import { useToast } from '@/components/toast/toast-provider';
 import type { WalletItem } from '@/types/domain';
 import { SAMPLE_WALLET_ITEMS } from './constants';
@@ -15,6 +15,7 @@ export default function WalletPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [targetDeleteIds, setTargetDeleteIds] = useState<string[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
 
   // Load from repository on mount, fallback to sample items if repository is empty
@@ -122,6 +123,32 @@ export default function WalletPage() {
     setTargetDeleteIds([]);
   }, []);
 
+  const handleEditItem = useCallback((id: string) => {
+    setEditingId(id);
+  }, []);
+
+  const handleSaveEdit = useCallback((id: string, updated: WalletItem) => {
+    const ok = updateWalletItem(id, updated);
+    if (ok) {
+      const reloaded = listWalletItems();
+      setItems(reloaded);
+      setEditingId(null);
+      showSuccess({
+        title: 'Item updated',
+        description: `"${updated.name}" has been updated successfully.`,
+      });
+    } else {
+      showError({
+        title: 'Update failed',
+        description: 'Failed to save changes to the wallet item.',
+      });
+    }
+  }, [showSuccess, showError]);
+
+  const handleCancelEdit = useCallback((_id: string) => {
+    setEditingId(null);
+  }, []);
+
   const deleteModalTitle = useMemo(() => {
     const count = targetDeleteIds.length;
     return count === 1 ? 'Delete wallet item?' : `Delete ${count} wallet items?`;
@@ -169,6 +196,10 @@ export default function WalletPage() {
           onToggleSelect={handleToggleSelect}
           onToggleSelectAll={handleToggleSelectAll}
           onDeleteItem={handleRequestSingleDelete}
+          editingId={editingId}
+          onEditItem={handleEditItem}
+          onSaveEdit={handleSaveEdit}
+          onCancelEdit={handleCancelEdit}
         />
       )}
 
