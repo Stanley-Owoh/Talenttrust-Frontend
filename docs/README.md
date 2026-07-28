@@ -74,6 +74,7 @@ Reference documentation for components, hooks, contexts, and library utilities.
 
 | Document | What it covers |
 |----------|----------------|
+| [keyboard.md](./keyboard.md) | Keyboard shortcuts, focus-trap behaviours, screen-reader announcement model |
 | [COPYWRITING_GUIDE.md](./COPYWRITING_GUIDE.md) | Voice, tone, and copy standards |
 | [data-model.md](./data-model.md) | Domain types, `Contract`, `Milestone`, optional `contractId` |
 | [error-reporting.md](./error-reporting.md) | Pluggable error reporting abstraction |

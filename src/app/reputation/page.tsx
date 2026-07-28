@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Reputation } from '@/types/domain';
 import ReputationPageClient from './ReputationPageClient';
+import { ReputationPageContent } from './ReputationPageContent';
 
 const ReputationPage: React.FC = () => {
   const reputation: Reputation[] = [];

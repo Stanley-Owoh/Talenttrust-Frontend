@@ -1,3 +1,5 @@
+'use client';
+
 import React, { Suspense } from 'react';
 import EmptyState from '../../components/EmptyState';
 import ReputationProfile from '../../components/ReputationProfile';
@@ -44,4 +46,3 @@ export function ReputationPageContent({
   );
 }
 
-export default ReputationPageContent;
