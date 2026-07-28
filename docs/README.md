@@ -41,6 +41,7 @@ Reference documentation for components, hooks, contexts, and library utilities.
 
 | Document | What it covers |
 |----------|----------------|
+| [**ContractsHooks.md**](./hooks/ContractsHooks.md) | **Contracts hooks usage reference** — `useContractProgress` / `calculateContractProgress` (escrow metrics, memoization contract) and `useOptimisticContractStatus` (optimistic status writes, rollback, stale detection) with inputs, returns, and states |
 | [useCopyToClipboard.md](./hooks/useCopyToClipboard.md) | Clipboard copy with status management |
 | [useDialogFocusTrap.md](./hooks/useDialogFocusTrap.md) | Focus management for dialogs |
 | [useFormAnnouncer.md](./hooks/useFormAnnouncer.md) | ARIA announcements for forms |
